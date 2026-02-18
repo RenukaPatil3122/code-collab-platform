@@ -1,0 +1,374 @@
+/* src/components/ai/AIAssistant.css - FIXED VERSION */
+
+.ai-assistant-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  background: #1a1a2e;
+  position: relative;
+  overflow: hidden;
+}
+
+/* ==================== HEADER ==================== */
+
+.ai-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  background: #1a1a2e;
+  flex-shrink: 0; /* Prevent header from shrinking */
+  min-height: 60px;
+}
+
+.ai-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ai-icon {
+  color: #fbbf24;
+  flex-shrink: 0;
+}
+
+.ai-title h3 {
+  color: #fff;
+  font-size: 18px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.ai-header-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-clear-history,
+.btn-close-ai {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  color: #fff;
+  padding: 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-clear-history:hover,
+.btn-close-ai:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+/* ==================== QUICK ACTIONS ==================== */
+
+.ai-quick-actions {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  padding: 16px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  background: #1a1a2e;
+  flex-shrink: 0; /* Prevent actions from shrinking */
+}
+
+.ai-action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: transparent;
+}
+
+.ai-action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.ai-action-btn.explain {
+  background: rgba(96, 165, 250, 0.1);
+}
+
+.ai-action-btn.explain:hover:not(:disabled) {
+  background: rgba(96, 165, 250, 0.2);
+  border-color: #60a5fa;
+}
+
+.ai-action-btn.debug {
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.ai-action-btn.debug:hover:not(:disabled) {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: #ef4444;
+}
+
+.ai-action-btn.optimize {
+  background: rgba(251, 191, 36, 0.1);
+}
+
+.ai-action-btn.optimize:hover:not(:disabled) {
+  background: rgba(251, 191, 36, 0.2);
+  border-color: #fbbf24;
+}
+
+.ai-action-btn.tests {
+  background: rgba(52, 211, 153, 0.1);
+}
+
+.ai-action-btn.tests:hover:not(:disabled) {
+  background: rgba(52, 211, 153, 0.2);
+  border-color: #34d399;
+}
+
+/* ==================== RESPONSE AREA - CRITICAL FIX ==================== */
+
+.ai-response-area {
+  flex: 1; /* Take remaining space */
+  overflow-y: auto; /* Enable scrolling */
+  overflow-x: hidden;
+  padding: 20px;
+  background: #1a1a2e;
+  min-height: 0; /* CRITICAL: Allows flex child to shrink below content size */
+  max-height: 100%; /* Prevent growing beyond container */
+}
+
+/* Scrollbar styling */
+.ai-response-area::-webkit-scrollbar {
+  width: 8px;
+}
+
+.ai-response-area::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 4px;
+}
+
+.ai-response-area::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+}
+
+.ai-response-area::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+/* ==================== LOADING & EMPTY STATES ==================== */
+
+.ai-loading,
+.ai-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  text-align: center;
+  min-height: 200px; /* Reduced from 300px */
+}
+
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.ai-loading p {
+  color: #aaa;
+  margin-top: 12px;
+  font-size: 14px;
+}
+
+.ai-empty-state .empty-icon {
+  color: #fbbf24;
+  margin-bottom: 16px;
+}
+
+.ai-empty-state h4 {
+  color: #fff;
+  margin: 0 0 12px 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.ai-empty-state p {
+  color: #888;
+  margin: 0 0 16px 0;
+  font-size: 14px;
+}
+
+.ai-empty-state ul {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 16px 0;
+}
+
+.ai-empty-state li {
+  margin: 8px 0;
+  font-size: 14px;
+  color: #aaa;
+  text-align: left; /* Left align list items */
+}
+
+.hint-text {
+  font-size: 12px;
+  color: #666;
+  font-style: italic;
+  margin-top: 16px;
+}
+
+/* ==================== RESPONSE CARDS ==================== */
+
+.ai-response-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.ai-response-card.latest {
+  border-color: #667eea;
+  background: rgba(102, 126, 234, 0.05);
+}
+
+.response-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.response-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #fff;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.btn-copy-response {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  color: #aaa;
+  padding: 6px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-copy-response:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+}
+
+.icon-copied {
+  color: #34d399;
+}
+
+.response-content {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.response-content pre {
+  margin: 0;
+  color: #ddd;
+  font-size: 13px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  font-family: "Consolas", "Monaco", "Courier New", monospace;
+}
+
+/* ==================== ERROR STATE ==================== */
+
+.ai-error {
+  padding: 16px;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid #ef4444;
+  border-radius: 8px;
+  color: #ef4444;
+  margin-bottom: 16px;
+}
+
+.ai-error p {
+  margin: 0;
+  font-size: 14px;
+}
+
+/* ==================== HISTORY ==================== */
+
+.ai-history {
+  margin-top: 20px;
+}
+
+.ai-history h4 {
+  color: #888;
+  font-size: 14px;
+  margin: 0 0 12px 0;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 600;
+}
+
+/* ==================== TIPS ==================== */
+
+.ai-tips {
+  padding: 16px 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.03);
+  flex-shrink: 0; /* Prevent tips from shrinking */
+}
+
+.ai-tips p {
+  margin: 0;
+  color: #888;
+  font-size: 13px;
+}
+
+.ai-tips strong {
+  color: #fff;
+}
+
+/* ==================== RESPONSIVE ==================== */
+
+@media (max-width: 480px) {
+  .ai-header {
+    padding: 16px;
+  }
+
+  .ai-quick-actions {
+    padding: 12px 16px;
+  }
+
+  .ai-response-area {
+    padding: 16px;
+  }
+
+  .ai-tips {
+    padding: 12px 16px;
+  }
+}

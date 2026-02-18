@@ -1,0 +1,385 @@
+/* src/components/recording/RecordingControls.css */
+
+/* ══════════════════════════════════════════════════════════
+   RECORDING CONTROLS CONTAINER
+   ══════════════════════════════════════════════════════════ */
+
+.recording-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ══════════════════════════════════════════════════════════
+     RECORDING BUTTONS - ICON ONLY WITH TOOLTIPS
+     ══════════════════════════════════════════════════════════ */
+
+.rec-btn {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.rec-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.2);
+  transform: translateY(-2px);
+}
+
+.rec-btn:active {
+  transform: translateY(0);
+}
+
+/* Tooltip on hover */
+.rec-btn:hover::before {
+  content: attr(title);
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 6px 12px;
+  background: #1a1a2e;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  font-size: 12px;
+  white-space: nowrap;
+  z-index: 1000;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  pointer-events: none;
+}
+
+.rec-btn:hover::after {
+  content: "";
+  position: absolute;
+  bottom: calc(100% + 2px);
+  left: 50%;
+  transform: translateX(-50%);
+  border: 6px solid transparent;
+  border-top-color: #1a1a2e;
+  z-index: 1000;
+  pointer-events: none;
+}
+
+/* Record Button - Red */
+.rec-btn-record {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.3);
+  color: #ef4444;
+}
+
+.rec-btn-record:hover {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: #ef4444;
+  box-shadow: 0 2px 10px rgba(239, 68, 68, 0.3);
+}
+
+.rec-icon {
+  fill: currentColor;
+}
+
+/* Stop Button - Red */
+.rec-btn-stop {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: #ef4444;
+  color: #ef4444;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.rec-btn-stop:hover {
+  background: rgba(239, 68, 68, 0.25);
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(239, 68, 68, 0);
+  }
+}
+
+/* Download Button */
+.rec-btn-download {
+  background: rgba(59, 130, 246, 0.1);
+  border-color: rgba(59, 130, 246, 0.3);
+  color: #3b82f6;
+  padding: 8px 12px;
+}
+
+.rec-btn-download:hover {
+  background: rgba(59, 130, 246, 0.2);
+  border-color: #3b82f6;
+  box-shadow: 0 2px 10px rgba(59, 130, 246, 0.3);
+}
+
+/* Upload Button */
+.rec-btn-upload {
+  background: rgba(168, 85, 247, 0.1);
+  border-color: rgba(168, 85, 247, 0.3);
+  color: #a855f7;
+  padding: 8px 12px;
+}
+
+.rec-btn-upload:hover {
+  background: rgba(168, 85, 247, 0.2);
+  border-color: #a855f7;
+  box-shadow: 0 2px 10px rgba(168, 85, 247, 0.3);
+}
+
+/* Replay Button */
+.rec-btn-replay {
+  background: rgba(16, 185, 129, 0.1);
+  border-color: rgba(16, 185, 129, 0.3);
+  color: #10b981;
+}
+
+.rec-btn-replay:hover {
+  background: rgba(16, 185, 129, 0.2);
+  border-color: #10b981;
+  box-shadow: 0 2px 10px rgba(16, 185, 129, 0.3);
+}
+
+/* ══════════════════════════════════════════════════════════
+     RECORDING INDICATOR
+     ══════════════════════════════════════════════════════════ */
+
+.recording-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 8px;
+  color: #ef4444;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.rec-pulse {
+  width: 8px;
+  height: 8px;
+  background: #ef4444;
+  border-radius: 50%;
+  animation: pulse-dot 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse-dot {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.5;
+    transform: scale(1.2);
+  }
+}
+
+.rec-text {
+  font-weight: 600;
+}
+
+/* ══════════════════════════════════════════════════════════
+     REPLAY INDICATOR
+     ══════════════════════════════════════════════════════════ */
+
+.replay-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  border-radius: 8px;
+  color: #10b981;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* ══════════════════════════════════════════════════════════
+     REPLAY TIMELINE (BOTTOM OF SCREEN)
+     ══════════════════════════════════════════════════════════ */
+
+.replay-timeline {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 12px 20px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  z-index: 1000;
+  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.3);
+}
+
+/* Timeline Bar */
+.timeline-bar {
+  flex: 1;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+}
+
+.timeline-bar:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.timeline-progress {
+  height: 100%;
+  background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+  border-radius: 4px;
+  position: relative;
+  transition: width 0.1s linear;
+}
+
+.timeline-handle {
+  position: absolute;
+  right: -6px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 12px;
+  height: 12px;
+  background: #fff;
+  border-radius: 50%;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+/* Time Display */
+.timeline-time {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #fff;
+  min-width: 100px;
+}
+
+.time-separator {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+/* Timeline Controls */
+.timeline-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.timeline-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.timeline-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.2);
+  transform: translateY(-2px);
+}
+
+.timeline-btn:active {
+  transform: translateY(0);
+}
+
+.timeline-btn-primary {
+  background: rgba(102, 126, 234, 0.15);
+  border-color: rgba(102, 126, 234, 0.3);
+  color: #667eea;
+}
+
+.timeline-btn-primary:hover {
+  background: rgba(102, 126, 234, 0.25);
+  border-color: #667eea;
+}
+
+.timeline-btn-danger {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.3);
+  color: #ef4444;
+}
+
+.timeline-btn-danger:hover {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: #ef4444;
+}
+
+.timeline-speed {
+  min-width: 60px;
+  justify-content: center;
+}
+
+/* ══════════════════════════════════════════════════════════
+     RESPONSIVE DESIGN
+     ══════════════════════════════════════════════════════════ */
+
+@media (max-width: 768px) {
+  .recording-controls {
+    gap: 6px;
+  }
+
+  .rec-btn span {
+    display: none;
+  }
+
+  .rec-btn {
+    padding: 8px;
+  }
+
+  .replay-timeline {
+    padding: 8px 12px;
+    gap: 12px;
+  }
+
+  .timeline-controls {
+    gap: 6px;
+  }
+
+  .timeline-btn {
+    padding: 6px 8px;
+  }
+
+  .timeline-time {
+    font-size: 11px;
+    min-width: 80px;
+  }
+}
+
+@media (max-width: 480px) {
+  .timeline-time {
+    display: none;
+  }
+
+  .timeline-speed span {
+    display: none;
+  }
+}

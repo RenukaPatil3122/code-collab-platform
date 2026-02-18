@@ -1,0 +1,891 @@
+/* src/pages/Room.css - COMPLETE WITH ALL FIXES */
+
+.room-container {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: #1e1e2e;
+  color: #fff;
+  overflow: hidden;
+}
+
+/* ========================================
+   CLEAN HEADER DESIGN
+   ======================================== */
+
+.room-header-clean {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 20px;
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+  gap: 20px;
+  min-height: 60px;
+  flex-shrink: 0;
+  flex-wrap: nowrap;
+}
+
+/* LEFT SECTION */
+.header-section-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex: 0 0 auto;
+}
+
+.app-logo {
+  font-size: 20px;
+  font-weight: 700;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  margin: 0;
+}
+
+.room-info {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 6px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.room-info:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: #667eea;
+}
+
+.user-count-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: rgba(102, 126, 234, 0.1);
+  border: 1px solid rgba(102, 126, 234, 0.3);
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #667eea;
+}
+
+/* CENTER SECTION */
+.header-section-center {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  justify-content: center;
+  max-width: 900px;
+  flex-wrap: nowrap;
+}
+
+.language-dropdown {
+  padding: 10px 16px;
+  background: #2a2a3e;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  outline: none;
+  transition: all 0.2s;
+  min-width: 140px;
+}
+
+.language-dropdown option {
+  background: #2a2a3e;
+  color: #fff;
+  padding: 8px;
+}
+
+.language-dropdown:hover {
+  border-color: #667eea;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.language-dropdown:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ══════════════════════════════════════════════════════════
+   RUN CODE & RUN TESTS BUTTONS - ICON ONLY
+   ══════════════════════════════════════════════════════════ */
+
+.btn-primary,
+.btn-secondary {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: none;
+  border-radius: 8px;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+/* Run Code Button - Primary Purple */
+.btn-primary {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  box-shadow: 0 2px 10px rgba(102, 126, 234, 0.3);
+}
+
+.btn-primary:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(102, 126, 234, 0.5);
+}
+
+/* Run Tests Button - Green */
+.btn-secondary {
+  background: rgba(52, 211, 153, 0.12);
+  border: 1.5px solid rgba(52, 211, 153, 0.35);
+  color: #34d399;
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: rgba(52, 211, 153, 0.2);
+  border-color: #34d399;
+  transform: translateY(-2px);
+  box-shadow: 0 2px 10px rgba(52, 211, 153, 0.3);
+}
+
+.btn-primary:active:not(:disabled),
+.btn-secondary:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.btn-primary:disabled,
+.btn-secondary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* HIDE ALL TEXT - KEEP ONLY ICONS */
+.btn-primary span,
+.btn-secondary span {
+  display: none;
+}
+
+/* Tooltips on hover */
+.btn-primary:hover:not(:disabled)::before,
+.btn-secondary:hover:not(:disabled)::before {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 6px 12px;
+  background: #1a1a2e;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  font-size: 12px;
+  white-space: nowrap;
+  z-index: 1000;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  pointer-events: none;
+}
+
+.btn-primary:hover:not(:disabled)::after,
+.btn-secondary:hover:not(:disabled)::after {
+  content: "";
+  position: absolute;
+  bottom: calc(100% + 2px);
+  left: 50%;
+  transform: translateX(-50%);
+  border: 6px solid transparent;
+  border-top-color: #1a1a2e;
+  z-index: 1000;
+  pointer-events: none;
+}
+
+/* RIGHT SECTION */
+.header-section-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 0 0 auto;
+}
+
+.feature-buttons {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.feature-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  color: #aaa;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.feature-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  border-color: #667eea;
+}
+
+.feature-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.feature-btn:active {
+  transform: scale(0.95);
+}
+
+/* MORE MENU */
+.more-menu-container {
+  position: relative;
+}
+
+.dropdown-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  background: #2a2a3e;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 8px;
+  min-width: 180px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+  animation: dropdownSlide 0.2s ease-out;
+}
+
+@keyframes dropdownSlide {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.dropdown-menu button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  color: #fff;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: left;
+}
+
+.dropdown-menu button:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.dropdown-menu button.danger {
+  color: #ef4444;
+}
+
+.dropdown-menu button.danger:hover {
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.menu-divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.1);
+  margin: 4px 0;
+}
+
+/* ========================================
+   3-COLUMN BODY LAYOUT
+   ======================================== */
+
+.room-body {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+  min-height: 0;
+}
+
+/* LEFT: File Explorer sidebar */
+.file-explorer-sidebar {
+  flex-shrink: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* CENTER: Editor */
+.editor-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-width: 0;
+  background: #1e1e1e;
+}
+
+.code-editor-wrapper {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.monaco-container {
+  flex: 1;
+  overflow: hidden;
+  min-height: 0;
+}
+
+.no-file-open {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: #6b7280;
+  font-size: 0.9rem;
+}
+
+/* RIGHT: Side panels */
+.side-panels {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.side-panel {
+  width: 400px;
+  height: 100%;
+  background: #1e1e2e;
+  border-left: 1px solid rgba(255, 255, 255, 0.1);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 10;
+}
+
+.chat-sidebar {
+  width: 320px;
+  height: 100%;
+  background: #1e1e2e;
+  border-left: 1px solid rgba(255, 255, 255, 0.1);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 10;
+}
+
+/* ========================================
+   GIST MODALS
+   ======================================== */
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 5000; /* ✅ was 9999 — interview/template now render above */
+  animation: fadeIn 0.2s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.modal-content {
+  background: #1e1e2e;
+  border-radius: 12px;
+  width: 90%;
+  max-width: 500px;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  animation: slideUp 0.3s ease-out;
+}
+.modal-close-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: #9ca3af;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.modal-close-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.modal-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #fff;
+}
+
+.modal-title h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.modal-header button {
+  background: transparent;
+  border: none;
+  color: #9ca3af;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 6px;
+  transition: all 0.2s;
+}
+
+.modal-header button:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+.modal-body {
+  padding: 24px;
+}
+
+.modal-body p {
+  color: #9ca3af;
+  font-size: 0.9rem;
+  margin-bottom: 20px;
+  line-height: 1.5;
+}
+
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-group label {
+  display: block;
+  color: #d4d4d4;
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.form-group input {
+  width: 100%;
+  padding: 12px;
+  background: #252536;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  color: #fff;
+  font-size: 0.9rem;
+  outline: none;
+  transition: all 0.2s;
+  box-sizing: border-box;
+}
+
+.form-group input:focus {
+  border-color: #667eea;
+  background: #2a2a3e;
+}
+
+.files-preview {
+  margin-bottom: 20px;
+}
+
+.files-preview label {
+  display: block;
+  color: #d4d4d4;
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.files-list {
+  max-height: 150px;
+  overflow-y: auto;
+  background: #252536;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 8px;
+}
+
+.files-list div {
+  padding: 6px 8px;
+  color: #9ca3af;
+  font-size: 0.85rem;
+  font-family: "Consolas", "Monaco", monospace;
+}
+
+.success-message {
+  text-align: center;
+  padding: 20px 0;
+}
+
+.success-icon {
+  font-size: 3rem;
+  margin-bottom: 12px;
+}
+
+.success-message h4 {
+  color: #fff;
+  margin: 0 0 8px 0;
+  font-size: 1.2rem;
+}
+
+.success-message p {
+  color: #9ca3af;
+  margin: 0 0 20px 0;
+}
+
+.gist-url-box {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.gist-url-box input {
+  flex: 1;
+  padding: 12px;
+  background: #252536;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  color: #fff;
+  font-size: 0.85rem;
+  font-family: "Consolas", "Monaco", monospace;
+}
+
+.gist-url-box button {
+  padding: 12px 20px;
+  background: rgba(102, 126, 234, 0.1);
+  border: 1px solid rgba(102, 126, 234, 0.3);
+  border-radius: 8px;
+  color: #667eea;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.gist-url-box button:hover {
+  background: rgba(102, 126, 234, 0.2);
+  border-color: #667eea;
+}
+
+.modal-body .btn-primary,
+.modal-body .btn-secondary {
+  width: 100%;
+  height: auto;
+  padding: 12px;
+  justify-content: center;
+  margin-top: 0;
+}
+
+.modal-body .btn-secondary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-decoration: none;
+  background: #24292e;
+  border: 1px solid #444c56;
+  color: #fff;
+  margin-top: 12px;
+}
+
+.modal-body .btn-secondary:hover {
+  background: #2d333b;
+  border-color: #555d66;
+}
+
+/* UTILITIES */
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ========================================
+   RESPONSIVE DESIGN - FIXED
+   ======================================== */
+
+@media (max-width: 1400px) {
+  .header-section-center {
+    gap: 8px;
+  }
+}
+
+@media (max-width: 1200px) {
+  .side-panel {
+    width: 350px;
+  }
+
+  .chat-sidebar {
+    width: 300px;
+  }
+}
+
+@media (max-width: 768px) {
+  .room-header-clean {
+    flex-wrap: wrap;
+    min-height: auto;
+    padding: 12px;
+    gap: 12px;
+  }
+
+  .header-section-left {
+    order: 1;
+    width: 100%;
+    justify-content: space-between;
+    margin-bottom: 8px;
+  }
+
+  .header-section-center {
+    order: 3;
+    width: 100%;
+    flex-wrap: wrap;
+    max-width: none;
+  }
+
+  .header-section-right {
+    order: 2;
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .app-logo {
+    font-size: 18px;
+  }
+
+  .language-dropdown {
+    width: 100%;
+    min-width: auto;
+  }
+
+  /* MOBILE LAYOUT: File Explorer (80px) + Editor side by side, Output at bottom */
+  .room-body {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+
+  .file-explorer-sidebar {
+    width: 80px;
+    flex-shrink: 0;
+    border-right: 1px solid rgba(255, 255, 255, 0.1);
+    border-bottom: none;
+  }
+
+  .editor-area {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .side-panels {
+    width: 100%;
+    height: 35vh;
+    max-height: 300px;
+    flex-direction: column;
+    overflow-y: auto;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .side-panel,
+  .chat-sidebar {
+    width: 100%;
+    height: auto;
+    min-height: 200px;
+    border-left: none;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .btn-primary,
+  .btn-secondary {
+    width: 40px;
+    height: 40px;
+  }
+}
+
+@media (max-width: 480px) {
+  .room-info span {
+    display: none;
+  }
+
+  .user-count-badge {
+    padding: 6px 8px;
+  }
+
+  .feature-btn {
+    width: 32px;
+    height: 32px;
+  }
+
+  .btn-primary,
+  .btn-secondary {
+    width: 36px;
+    height: 36px;
+  }
+}
+
+/* =====================================================================
+   ADD THESE RULES TO THE BOTTOM OF src/pages/Room.css
+   (don't replace anything — just append)
+   ===================================================================== */
+
+/* ── Stdin bar ────────────────────────────────────────────────────── */
+.stdin-bar {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 8px 16px;
+  background: #1a1a2e;
+  border-bottom: 1px solid #2d2d2d;
+  flex-shrink: 0;
+}
+
+.stdin-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: #9ca3af;
+  white-space: nowrap;
+  padding-top: 8px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.stdin-textarea {
+  flex: 1;
+  background: #0d0d1a;
+  border: 1px solid #2d2d2d;
+  border-radius: 6px;
+  color: #e2e8f0;
+  font-family: "Courier New", Courier, monospace;
+  font-size: 13px;
+  padding: 6px 10px;
+  resize: vertical;
+  min-height: 52px;
+  max-height: 120px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.stdin-textarea:focus {
+  border-color: #667eea;
+}
+.stdin-textarea::placeholder {
+  color: #4b5563;
+}
+
+.stdin-close {
+  background: transparent;
+  border: none;
+  color: #6b7280;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  margin-top: 6px;
+  transition: color 0.2s;
+}
+.stdin-close:hover {
+  color: #ef4444;
+}
+
+/* ── Active feature button (e.g. stdin toggled on) ────────────────── */
+.feature-btn.active {
+  background: rgba(102, 126, 234, 0.15);
+  border-color: rgba(102, 126, 234, 0.5);
+  color: #667eea;
+}
+
+/* ── Full-width button inside modal body ──────────────────────────── */
+.btn-primary.full-width {
+  width: 100%;
+  height: auto;
+  padding: 12px;
+  border-radius: 8px;
+  justify-content: center;
+}
+
+/* ── Gist view link (inside save modal success state) ─────────────── */
+.gist-view-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 12px;
+  padding: 12px;
+  background: #24292e;
+  border: 1px solid #444c56;
+  border-radius: 8px;
+  color: #fff;
+  font-weight: 600;
+  text-decoration: none;
+  transition: all 0.2s;
+}
+.gist-view-link:hover {
+  background: #2d333b;
+  border-color: #666;
+}

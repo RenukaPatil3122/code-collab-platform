@@ -1,0 +1,114 @@
+/* src/components/interview/TimerWidget.css */
+
+.timer-widget {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
+  padding: 8px 14px;
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  position: relative;
+  min-width: 120px;
+}
+
+.timer-widget.normal {
+  border-color: #667eea;
+}
+
+.timer-widget.warning {
+  border-color: #fbbf24;
+  animation: pulse-warning 2s infinite;
+}
+
+.timer-widget.critical {
+  border-color: #ef4444;
+  animation: pulse-critical 1s infinite;
+}
+
+@keyframes pulse-warning {
+  0%,
+  100% {
+    box-shadow: 0 0 0 rgba(251, 191, 36, 0);
+  }
+  50% {
+    box-shadow: 0 0 12px rgba(251, 191, 36, 0.5);
+  }
+}
+
+@keyframes pulse-critical {
+  0%,
+  100% {
+    box-shadow: 0 0 0 rgba(239, 68, 68, 0);
+  }
+  50% {
+    box-shadow: 0 0 16px rgba(239, 68, 68, 0.7);
+  }
+}
+
+.timer-display {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.timer-icon {
+  color: #667eea;
+}
+
+.timer-widget.warning .timer-icon {
+  color: #fbbf24;
+}
+
+.timer-widget.critical .timer-icon {
+  color: #ef4444;
+}
+
+.timer-text {
+  font-family: "Courier New", monospace;
+  font-size: 16px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.timer-progress-bar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 0 0 10px 10px;
+  overflow: hidden;
+}
+
+.timer-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+  transition: width 1s linear;
+}
+
+.timer-widget.warning .timer-progress-fill {
+  background: linear-gradient(90deg, #fbbf24 0%, #f59e0b 100%);
+}
+
+.timer-widget.critical .timer-progress-fill {
+  background: linear-gradient(90deg, #ef4444 0%, #dc2626 100%);
+}
+
+.btn-timer-control {
+  background: transparent;
+  border: none;
+  color: #888;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  transition: all 0.2s;
+}
+
+.btn-timer-control:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}

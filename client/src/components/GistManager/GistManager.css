@@ -1,0 +1,335 @@
+/* src/components/GistManager/GistManager.css */
+/* ✅ KEY FIX: gist-modal-overlay z-index LOWERED to 5000 */
+/* Interview (10000) and Template (10000) now render above gist */
+
+.gist-manager {
+  display: flex;
+  gap: 8px;
+}
+
+.gist-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.gist-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.gist-btn-save {
+  background: linear-gradient(135deg, #24292e 0%, #1a1e22 100%);
+  color: #fff;
+}
+
+.gist-btn-save:hover {
+  background: linear-gradient(135deg, #2d333b 0%, #22272e 100%);
+  border-color: #444c56;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(36, 41, 46, 0.3);
+}
+
+.gist-btn-import {
+  background: rgba(34, 139, 230, 0.1);
+  border: 1px solid rgba(34, 139, 230, 0.3);
+  color: #228be6;
+}
+
+.gist-btn-import:hover {
+  background: rgba(34, 139, 230, 0.2);
+  border-color: #228be6;
+  transform: translateY(-1px);
+}
+
+/* ✅ FIXED: was 9999, now 5000 so interview/template overlay above */
+.gist-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 5000;
+  animation: fadeIn 0.2s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.gist-modal {
+  background: #1e1e2e;
+  border-radius: 12px;
+  width: 90%;
+  max-width: 500px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  animation: slideUp 0.3s ease-out;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.gist-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.gist-modal-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #fff;
+}
+
+.gist-modal-title h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.gist-modal-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: #9ca3af;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.gist-modal-close:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+.gist-modal-body {
+  padding: 24px;
+}
+
+.gist-modal-description {
+  color: #9ca3af;
+  font-size: 0.9rem;
+  margin-bottom: 20px;
+  line-height: 1.5;
+}
+
+.gist-form-group {
+  margin-bottom: 20px;
+}
+
+.gist-form-group label {
+  display: block;
+  color: #d4d4d4;
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.gist-input {
+  width: 100%;
+  padding: 12px;
+  background: #252536;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  color: #fff;
+  font-size: 0.9rem;
+  outline: none;
+  transition: all 0.2s;
+  box-sizing: border-box;
+}
+
+.gist-input:focus {
+  border-color: #667eea;
+  background: #2a2a3e;
+}
+
+.gist-input::placeholder {
+  color: #6b7280;
+}
+
+.gist-files-preview {
+  margin-bottom: 20px;
+}
+
+.gist-files-preview label {
+  display: block;
+  color: #d4d4d4;
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.gist-files-list {
+  max-height: 150px;
+  overflow-y: auto;
+  background: #252536;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 8px;
+}
+
+.gist-files-list::-webkit-scrollbar {
+  width: 6px;
+}
+.gist-files-list::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+}
+
+.gist-file-item {
+  padding: 6px 8px;
+  color: #9ca3af;
+  font-size: 0.85rem;
+  font-family: "Consolas", "Monaco", monospace;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+.gist-file-item:last-child {
+  border-bottom: none;
+}
+
+.gist-btn-primary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 12px 24px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border: none;
+  border-radius: 8px;
+  color: #fff;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+}
+
+.gist-btn-primary:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+}
+
+.gist-btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.gist-success {
+  text-align: center;
+  padding: 20px 0;
+}
+
+.gist-success-icon {
+  font-size: 3rem;
+  margin-bottom: 12px;
+}
+
+.gist-success h4 {
+  color: #fff;
+  font-size: 1.1rem;
+  margin: 0 0 8px 0;
+}
+
+.gist-success p {
+  color: #9ca3af;
+  font-size: 0.9rem;
+  margin: 0 0 20px 0;
+}
+
+.gist-url-container {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.gist-url-input {
+  flex: 1;
+  padding: 12px;
+  background: #252536;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  color: #fff;
+  font-size: 0.85rem;
+  font-family: "Consolas", "Monaco", monospace;
+}
+
+.gist-copy-btn {
+  padding: 12px 20px;
+  background: rgba(102, 126, 234, 0.1);
+  border: 1px solid rgba(102, 126, 234, 0.3);
+  border-radius: 8px;
+  color: #667eea;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.gist-copy-btn:hover {
+  background: rgba(102, 126, 234, 0.2);
+  border-color: #667eea;
+}
+
+.gist-view-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 12px 24px;
+  background: #24292e;
+  border: 1px solid #444c56;
+  border-radius: 8px;
+  color: #fff;
+  font-weight: 600;
+  text-decoration: none;
+  transition: all 0.2s;
+}
+
+.gist-view-btn:hover {
+  background: #2d333b;
+  border-color: #666;
+}
+
+.spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

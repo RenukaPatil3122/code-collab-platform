@@ -1,0 +1,294 @@
+/* src/components/FileExplorer/FileExplorer.css */
+
+.file-explorer {
+  width: 240px;
+  background: #252526;
+  display: flex;
+  flex-direction: column;
+  user-select: none;
+  border-right: 1px solid #1e1e1e;
+  height: 100%;
+  transition: width 0.15s ease;
+  flex-shrink: 0;
+}
+
+/* ✅ COLLAPSED STATE - shrink to icon bar */
+.file-explorer.collapsed {
+  width: 48px;
+  min-width: 48px;
+}
+
+/* ── Header ── */
+.explorer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+  border-bottom: 1px solid #1e1e1e;
+  min-height: 36px;
+  background: #252526;
+  flex-shrink: 0;
+}
+
+/* Collapsed header - center the icon */
+.file-explorer.collapsed .explorer-header {
+  justify-content: center;
+  padding: 8px 0;
+}
+
+.explorer-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #9ca3af;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  cursor: pointer;
+  flex: 1;
+  transition: all 0.2s;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+/* Collapsed title - center the icon */
+.file-explorer.collapsed .explorer-title {
+  flex: none;
+  width: 100%;
+  justify-content: center;
+}
+
+.explorer-title:hover {
+  color: #fff;
+}
+
+.chevron {
+  transition: transform 0.2s;
+  flex-shrink: 0;
+}
+
+.chevron.open {
+  transform: rotate(90deg);
+}
+
+.explorer-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.explorer-action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3px;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  color: #6b7280;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.explorer-action-btn:hover {
+  background: #2d2d2d;
+  color: #fff;
+}
+
+/* ── File List ── */
+.file-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px 0;
+}
+
+.file-list::-webkit-scrollbar {
+  width: 4px;
+}
+.file-list::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 2px;
+}
+
+/* ── Folder Styles ── */
+.folder-wrapper {
+  width: 100%;
+}
+
+.folder-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px 5px 12px;
+  cursor: pointer;
+  color: #d4d4d4;
+  font-size: 0.85rem;
+  transition: background 0.1s;
+  min-height: 28px;
+  font-weight: 500;
+}
+
+.folder-item:hover {
+  background: #2a2d2e;
+}
+
+.folder-chevron {
+  transition: transform 0.2s;
+  flex-shrink: 0;
+  color: #9ca3af;
+}
+
+.folder-chevron.open {
+  transform: rotate(90deg);
+}
+
+.folder-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #dcb67a;
+}
+
+.folder-contents {
+  padding-left: 12px;
+}
+
+/* ── File Item (Full) ── */
+.file-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px 5px 24px;
+  cursor: pointer;
+  color: #d4d4d4;
+  font-size: 0.85rem;
+  position: relative;
+  transition: background 0.1s;
+  min-height: 28px;
+}
+
+.file-item:hover {
+  background: #2a2d2e;
+}
+
+.file-item.active {
+  background: #37373d;
+  color: #fff;
+}
+
+.file-item.active::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: #667eea;
+}
+
+.file-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.85rem;
+}
+
+/* ── File Item (Collapsed - Icon Only) ── */
+.file-item-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 36px;
+  cursor: pointer;
+  position: relative;
+  transition: background 0.1s;
+}
+
+.file-item-icon:hover {
+  background: #2a2d2e;
+}
+
+.file-item-icon.active {
+  background: #37373d;
+}
+
+.file-item-icon.active::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: #667eea;
+}
+
+/* ── File Actions (hover) ── */
+.file-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto;
+}
+
+.file-action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3px;
+  background: transparent;
+  border: none;
+  border-radius: 3px;
+  color: #9ca3af;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.file-action-btn:hover {
+  background: #3e3e3e;
+  color: #fff;
+}
+
+.file-action-btn.danger:hover {
+  background: rgba(239, 68, 68, 0.2);
+  color: #ef4444;
+}
+
+/* ── Rename Input ── */
+.rename-input-wrapper {
+  flex: 1;
+  display: flex;
+}
+
+.rename-input {
+  flex: 1;
+  background: #3c3c3c;
+  border: 1px solid #667eea;
+  border-radius: 3px;
+  color: #fff;
+  font-size: 0.85rem;
+  padding: 1px 6px;
+  outline: none;
+  width: 100%;
+}
+
+/* ── New File Input Row ── */
+.new-file-input-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px 4px 16px;
+  min-height: 28px;
+}
+
+/* ── Responsive: Hide text in collapsed state ── */
+.file-explorer.collapsed .file-list {
+  padding: 4px 0;
+}
+
+.file-explorer.collapsed .folder-wrapper {
+  display: none;
+}

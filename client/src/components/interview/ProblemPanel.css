@@ -1,0 +1,171 @@
+/* ========================================
+     PROBLEM PANEL CSS
+     ======================================== */
+
+/* ProblemPanel.css */
+.problem-panel {
+  background: #1e1e2e;
+  border-radius: 12px;
+  padding: 24px;
+  margin: 16px 24px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.problem-header {
+  margin-bottom: 20px;
+}
+
+.problem-title-section {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.problem-title-section h2 {
+  margin: 0;
+  color: #fff;
+  font-size: 24px;
+}
+
+.problem-difficulty {
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.problem-difficulty.easy {
+  background: rgba(52, 211, 153, 0.2);
+  color: #34d399;
+}
+
+.problem-difficulty.medium {
+  background: rgba(251, 191, 36, 0.2);
+  color: #fbbf24;
+}
+
+.problem-difficulty.hard {
+  background: rgba(239, 68, 68, 0.2);
+  color: #ef4444;
+}
+
+.problem-description h3,
+.problem-examples h3,
+.problem-hints h3 {
+  color: #4ecdc4;
+  font-size: 16px;
+  margin: 20px 0 12px 0;
+}
+
+.description-content p {
+  color: #aaa;
+  line-height: 1.8;
+  margin: 8px 0;
+}
+
+.example-case {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  padding: 12px;
+  margin: 12px 0;
+  border-left: 3px solid #4ecdc4;
+}
+
+.example-label {
+  color: #4ecdc4;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.example-io {
+  font-family: "Courier New", monospace;
+  font-size: 14px;
+}
+
+.example-input,
+.example-output {
+  margin: 4px 0;
+  color: #ccc;
+}
+
+.hints-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 12px;
+  cursor: pointer;
+  color: #fbbf24;
+  width: 100%;
+  margin: 16px 0;
+  transition: all 0.2s;
+}
+
+.hints-toggle:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.hints-list {
+  margin-top: 12px;
+}
+
+.hint-item {
+  margin: 8px 0;
+}
+
+.hint-revealed {
+  display: flex;
+  align-items: start;
+  gap: 8px;
+  color: #aaa;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 8px;
+}
+
+.hint-icon {
+  color: #34d399;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.btn-reveal-hint {
+  background: rgba(251, 191, 36, 0.1);
+  border: 1px dashed #fbbf24;
+  color: #fbbf24;
+  padding: 10px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  width: 100%;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+
+.btn-reveal-hint:hover {
+  background: rgba(251, 191, 36, 0.2);
+}
+
+.problem-constraints {
+  background: rgba(239, 68, 68, 0.05);
+  border-left: 3px solid #ef4444;
+  padding: 16px;
+  border-radius: 8px;
+  margin-top: 20px;
+}
+
+.problem-constraints h4 {
+  color: #ef4444;
+  margin: 0 0 12px 0;
+  font-size: 16px;
+}
+
+.problem-constraints ul {
+  margin: 0;
+  padding-left: 20px;
+  color: #aaa;
+  line-height: 1.8;
+}
