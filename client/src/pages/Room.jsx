@@ -24,6 +24,7 @@ import {
   Github,
   X,
   Terminal,
+  BarChart2,
 } from "lucide-react";
 
 import { RoomProvider, useRoom } from "../contexts/RoomContext";
@@ -42,6 +43,7 @@ import InterviewMode from "../components/interview/InterviewMode";
 import AIAssistant from "../components/ai/AIAssistant";
 import VersionHistory from "../components/version/VersionHistory";
 import RecordingControls from "../components/recording/RecordingControls";
+import ComplexityAnalyzer from "../components/complexity/ComplexityAnalyzer";
 
 import "./Room.css";
 
@@ -81,7 +83,7 @@ function RoomContent() {
 
   const { isInterviewMode } = useInterview();
   const { showAIPanel, setShowAIPanel } = useAI();
-  const { files, activeFile, updateFileContent } = useFiles(); // ✅ Added activeFile and updateFileContent
+  const { files, activeFile, updateFileContent } = useFiles();
 
   const [showTemplateModal, setShowTemplateModal] = useState(false);
   const [showInterviewModal, setShowInterviewModal] = useState(false);
@@ -90,6 +92,7 @@ function RoomContent() {
   const [showSaveGistModal, setShowSaveGistModal] = useState(false);
   const [showImportGistModal, setShowImportGistModal] = useState(false);
   const [showStdinPanel, setShowStdinPanel] = useState(false);
+  const [showComplexity, setShowComplexity] = useState(false); // ✅ NEW
 
   const [gistDescription, setGistDescription] = useState("");
   const [gistUrl, setGistUrl] = useState("");
@@ -114,45 +117,19 @@ function RoomContent() {
     }
   }, [isInterviewMode]);
 
-  const handleCodeChange = (newCode) => {
-    updateCode(newCode);
-  };
+  const handleCodeChange = (newCode) => updateCode(newCode);
+  const handleLanguageChange = (newLang) => updateLanguage(newLang);
+  const handleToggleTheme = () => toggleTheme();
+  const handleToggleOutput = (v) => setShowOutput(v);
+  const handleToggleChat = (v) => setShowChat(v);
+  const handleToggleTestCases = (v) => setShowTestCases(v);
+  const handleToggleAI = (v) => setShowAIPanel(v);
+  const handleToggleVH = (v) => setShowVersionHistory(v);
 
-  const handleLanguageChange = (newLang) => {
-    updateLanguage(newLang);
-  };
-
-  const handleToggleTheme = () => {
-    toggleTheme();
-  };
-
-  const handleToggleOutput = (v) => {
-    setShowOutput(v);
-  };
-
-  const handleToggleChat = (v) => {
-    setShowChat(v);
-  };
-
-  const handleToggleTestCases = (v) => {
-    setShowTestCases(v);
-  };
-
-  const handleToggleAI = (v) => {
-    setShowAIPanel(v);
-  };
-
-  const handleToggleVH = (v) => {
-    setShowVersionHistory(v);
-  };
-
-  // ✅ FIXED: Template now updates the active file
   const handleSelectTemplate = (templateCode) => {
     if (activeFile) {
-      // Update the currently open file
       updateFileContent(activeFile, templateCode);
     } else {
-      // Fallback: update main code (in case no file is open)
       updateCode(templateCode);
     }
     toast.success("Template loaded!");
@@ -438,6 +415,15 @@ function RoomContent() {
                 <div className="menu-divider"></div>
                 <button
                   onClick={() => {
+                    setShowComplexity(true); // ✅ NEW
+                    setShowMoreMenu(false);
+                  }}
+                >
+                  <BarChart2 size={16} />
+                  Complexity Analyzer
+                </button>
+                <button
+                  onClick={() => {
                     setShowTemplateModal(true);
                     setShowMoreMenu(false);
                   }}
@@ -556,6 +542,15 @@ function RoomContent() {
 
       {(showInterviewModal || isInterviewMode) && (
         <InterviewMode onClose={() => setShowInterviewModal(false)} />
+      )}
+
+      {/* ✅ NEW — Complexity Analyzer Modal */}
+      {showComplexity && (
+        <ComplexityAnalyzer
+          code={code}
+          language={language}
+          onClose={() => setShowComplexity(false)}
+        />
       )}
 
       {showSaveGistModal && (
