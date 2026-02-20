@@ -1,4 +1,4 @@
-// server/server.js - COMPLETE WITH GIST SUPPORT
+// server/server.js
 
 const express = require("express");
 const http = require("http");
@@ -19,19 +19,16 @@ console.log(
 const app = express();
 const server = http.createServer(app);
 
-// ✅ FIXED CORS - Must allow credentials!
 app.use(
   cors({
     origin: process.env.CLIENT_URL || "http://localhost:3000",
-    credentials: true, // ✅ This is critical for cookies/sessions!
+    credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE"],
     allowedHeaders: ["Content-Type", "Authorization"],
   }),
 );
 
 app.use(express.json());
-
-// ✅ Session BEFORE routes
 app.use(
   session({
     secret:
@@ -39,15 +36,14 @@ app.use(
     resave: false,
     saveUninitialized: false,
     cookie: {
-      secure: false, // Set to true in production with HTTPS
+      secure: false,
       httpOnly: true,
       sameSite: "lax",
-      maxAge: 24 * 60 * 60 * 1000, // 24 hours
+      maxAge: 24 * 60 * 60 * 1000,
     },
   }),
 );
 
-// ✅ Setup routes
 setupGistRoutes(app);
 setupAIRoutes(app);
 
@@ -67,6 +63,10 @@ const io = new Server(server, {
 });
 
 const rooms = new Map();
+const whiteboardStates = new Map();
+
+// ✅ Track in-flight executions per socket so we can cancel them
+const runningExecutions = new Map(); // socketId → { cancelled: false }
 
 function getRandomColor() {
   const colors = [
@@ -93,7 +93,6 @@ function getDefaultFiles() {
   };
 }
 
-// Auto-save versions every minute
 setInterval(async () => {
   for (const [roomId, room] of rooms) {
     if (room.code && room.code.trim() && room.users.size > 0) {
@@ -124,7 +123,6 @@ io.on("connection", (socket) => {
 
   socket.on("join-room", ({ roomId, username }) => {
     socket.join(roomId);
-
     if (!rooms.has(roomId)) {
       rooms.set(roomId, {
         code: '// Welcome! Start coding together...\nconsole.log("Hello World!");',
@@ -137,16 +135,12 @@ io.on("connection", (socket) => {
         activeFile: "main.js",
       });
     }
-
     const room = rooms.get(roomId);
-    const userColor = getRandomColor();
-
     room.users.set(socket.id, {
       username: username || `Guest${socket.id.slice(0, 4)}`,
       socketId: socket.id,
-      color: userColor,
+      color: getRandomColor(),
     });
-
     socket.emit("room-state", {
       code: room.code,
       language: room.language,
@@ -155,17 +149,14 @@ io.on("connection", (socket) => {
       files: room.files,
       activeFile: room.activeFile,
     });
-
     socket.emit("files-state", {
       files: room.files,
       activeFile: room.activeFile,
     });
-
     socket.to(roomId).emit("user-joined", {
       username: room.users.get(socket.id).username,
       users: Array.from(room.users.values()),
     });
-
     console.log(`👤 ${username} joined room: ${roomId}`);
   });
 
@@ -190,7 +181,6 @@ io.on("connection", (socket) => {
     if (room) {
       room.files[file.name] = file;
       socket.to(roomId).emit("file-created", { file });
-      console.log(`📄 File created in ${roomId}: ${file.name}`);
     }
   });
 
@@ -198,11 +188,9 @@ io.on("connection", (socket) => {
     const room = rooms.get(roomId);
     if (room && room.files[fileName]) {
       delete room.files[fileName];
-      if (room.activeFile === fileName) {
+      if (room.activeFile === fileName)
         room.activeFile = Object.keys(room.files)[0] || null;
-      }
       socket.to(roomId).emit("file-deleted", { fileName });
-      console.log(`🗑️ File deleted in ${roomId}: ${fileName}`);
     }
   });
 
@@ -213,7 +201,6 @@ io.on("connection", (socket) => {
       delete room.files[oldName];
       if (room.activeFile === oldName) room.activeFile = newName;
       socket.to(roomId).emit("file-renamed", { oldName, newName });
-      console.log(`✏️ File renamed in ${roomId}: ${oldName} → ${newName}`);
     }
   });
 
@@ -229,9 +216,7 @@ io.on("connection", (socket) => {
     const room = rooms.get(roomId);
     if (room && room.files[fileName]) {
       room.files[fileName].content = content;
-      if (fileName === room.activeFile) {
-        room.code = content;
-      }
+      if (fileName === room.activeFile) room.code = content;
       socket.to(roomId).emit("file-content-update", { fileName, content });
     }
   });
@@ -247,13 +232,10 @@ io.on("connection", (socket) => {
   socket.on("run-test-cases", async ({ roomId, code, language, testCases }) => {
     try {
       const room = rooms.get(roomId);
-      console.log(`🧪 Running ${testCases.length} test cases...`);
       const results = [];
-
       for (let i = 0; i < testCases.length; i++) {
         const testCase = testCases[i];
         const startTime = Date.now();
-
         try {
           const { output, error } = await executeMultiFile(
             room.files,
@@ -261,11 +243,9 @@ io.on("connection", (socket) => {
             testCase.input || "",
             room.activeFile,
           );
-
           const executionTime = Date.now() - startTime;
           const passed =
             !error && output.trim() === testCase.expectedOutput.trim();
-
           results.push({
             testCase: i + 1,
             input: testCase.input,
@@ -287,7 +267,6 @@ io.on("connection", (socket) => {
           });
         }
       }
-
       const totalPassed = results.filter((r) => r.passed).length;
       socket.emit("test-results", {
         results,
@@ -302,6 +281,7 @@ io.on("connection", (socket) => {
     }
   });
 
+  // ✅ run-code — track execution so cancel can suppress the response
   socket.on("run-code", async ({ roomId, code, language, stdin }) => {
     try {
       const room = rooms.get(roomId);
@@ -314,34 +294,52 @@ io.on("connection", (socket) => {
         return;
       }
 
-      const fileCount = Object.keys(room.files).length;
-      console.log(`▶️  Executing ${fileCount} file(s) in room ${roomId}`);
-      console.log(`📂 Files: ${Object.keys(room.files).join(", ")}`);
-      console.log(`🎯 Active: ${room.activeFile}`);
-      console.log(`📥 Stdin: ${stdin ? "YES" : "NO"}`);
+      // ✅ Create a cancellation token for this execution
+      const token = { cancelled: false };
+      runningExecutions.set(socket.id, token);
 
-      const { output, error } = await executeMultiFile(
-        room.files,
-        language,
-        stdin || "",
-        room.activeFile,
-      );
+      const { output, error, executionTime, memoryUsed } =
+        await executeMultiFile(
+          room.files,
+          language,
+          stdin || "",
+          room.activeFile,
+        );
+
+      // ✅ If cancelled while we were waiting, don't send result
+      if (token.cancelled) {
+        runningExecutions.delete(socket.id);
+        return;
+      }
+
+      runningExecutions.delete(socket.id);
 
       socket.emit("code-output", {
         output: output || "Code executed successfully (no output)",
         error,
         success: !error,
+        executionTime, // ✅ from Judge0 (real CPU time in ms)
+        memoryUsed, // ✅ from Judge0 in KB
       });
-
-      console.log(`✅ Execution complete for room ${roomId}`);
     } catch (err) {
-      console.error("❌ run-code error:", err.message);
+      runningExecutions.delete(socket.id);
       socket.emit("code-output", {
         output: "",
         error: `Execution failed: ${err.message}`,
         success: false,
       });
     }
+  });
+
+  // ✅ cancel-execution — mark token cancelled, tell client immediately
+  socket.on("cancel-execution", () => {
+    const token = runningExecutions.get(socket.id);
+    if (token) {
+      token.cancelled = true;
+      console.log(`🛑 Execution cancelled for socket: ${socket.id}`);
+    }
+    // Tell client it's cancelled right away — don't wait for Judge0 to finish
+    socket.emit("execution-cancelled");
   });
 
   socket.on("start-interview", ({ roomId, problem, difficulty, duration }) => {
@@ -359,7 +357,6 @@ io.on("connection", (socket) => {
         difficulty,
         duration,
       });
-      console.log(`🎯 Interview started in room ${roomId}: ${difficulty}`);
     }
   });
 
@@ -373,7 +370,6 @@ io.on("connection", (socket) => {
       }
       room.interviewMode = null;
       io.to(roomId).emit("interview-ended");
-      console.log(`🏁 Interview ended in room ${roomId}`);
     }
   });
 
@@ -395,7 +391,6 @@ io.on("connection", (socket) => {
         io.to(roomId).emit("code-update", { code: room.previousCode });
         room.previousCode = null;
       }
-      console.log(`📝 Interview submitted in room ${roomId}`);
     },
   );
 
@@ -417,9 +412,7 @@ io.on("connection", (socket) => {
           timestamp: version.timestamp,
         },
       });
-      console.log(`💾 Version saved to MongoDB: ${version._id}`);
     } catch (err) {
-      console.error("❌ Save error:", err);
       socket.emit("version-saved", { error: err.message });
     }
   });
@@ -429,17 +422,16 @@ io.on("connection", (socket) => {
       const dbVersions = await Version.find({ roomId })
         .sort({ timestamp: -1 })
         .limit(50);
-      const versions = dbVersions.map((v) => ({
-        id: v._id.toString(),
-        code: v.code,
-        message: v.message,
-        auto: v.auto,
-        timestamp: v.timestamp,
-      }));
-      socket.emit("versions-list", { versions });
-      console.log(`📚 Sent ${versions.length} versions for room ${roomId}`);
+      socket.emit("versions-list", {
+        versions: dbVersions.map((v) => ({
+          id: v._id.toString(),
+          code: v.code,
+          message: v.message,
+          auto: v.auto,
+          timestamp: v.timestamp,
+        })),
+      });
     } catch (err) {
-      console.error("❌ Get versions error:", err);
       socket.emit("versions-list", { versions: [] });
     }
   });
@@ -461,12 +453,29 @@ io.on("connection", (socket) => {
             },
           });
           io.to(roomId).emit("code-update", { code: version.code });
-          console.log(`🔄 Version restored: ${version._id}`);
         }
       }
     } catch (err) {
       console.error("❌ Restore error:", err);
     }
+  });
+
+  socket.on("whiteboard-join", ({ roomId }) => {
+    const state = whiteboardStates.get(roomId);
+    if (state) socket.emit("whiteboard-state", { imageData: state });
+  });
+
+  socket.on("whiteboard-draw", ({ roomId, drawData }) => {
+    socket.to(roomId).emit("whiteboard-draw", { drawData });
+  });
+
+  socket.on("whiteboard-sync", ({ roomId, imageData }) => {
+    whiteboardStates.set(roomId, imageData);
+  });
+
+  socket.on("whiteboard-clear", ({ roomId }) => {
+    whiteboardStates.delete(roomId);
+    socket.to(roomId).emit("whiteboard-clear");
   });
 
   socket.on("chat-message", ({ roomId, message }) => {
@@ -497,6 +506,7 @@ io.on("connection", (socket) => {
 
   socket.on("disconnect", () => {
     console.log(`❌ User disconnected: ${socket.id}`);
+    runningExecutions.delete(socket.id); // ✅ cleanup on disconnect
     rooms.forEach((room, roomId) => {
       if (room.users.has(socket.id)) {
         const user = room.users.get(socket.id);
@@ -509,6 +519,7 @@ io.on("connection", (socket) => {
           setTimeout(() => {
             if (rooms.get(roomId)?.users.size === 0) {
               rooms.delete(roomId);
+              whiteboardStates.delete(roomId);
               console.log(`🗑️ Deleted empty room: ${roomId}`);
             }
           }, 60000);
@@ -522,16 +533,6 @@ app.get("/", (req, res) => {
   res.json({
     message: "🚀 Code Collab Server Running",
     activeRooms: rooms.size,
-    features: [
-      "Real-time collaboration",
-      "Interview Mode",
-      "AI Assistant (Gemini)",
-      "Version History",
-      "Test Cases",
-      "Multi-file Support ✅",
-      "Module Resolution ✅",
-      "GitHub Gist Integration ✅",
-    ],
     timestamp: new Date().toISOString(),
   });
 });
@@ -543,7 +544,4 @@ app.get("/api/health", (req, res) => {
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
-  console.log(
-    `✨ Features: Multi-file, GitHub Gist, Interview Mode, AI Assistant`,
-  );
 });

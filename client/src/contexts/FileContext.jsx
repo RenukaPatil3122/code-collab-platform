@@ -1,7 +1,4 @@
 // src/contexts/FileContext.jsx
-// ✅ CRITICAL FIX: Eliminates setState during render error
-// ✅ All setState calls are now independent, no nested calls
-
 import React, {
   createContext,
   useContext,
@@ -23,11 +20,7 @@ export const useFiles = () => {
 
 function makeDefaultFiles() {
   return {
-    "main.js": {
-      name: "main.js",
-      content: "",
-      language: "javascript",
-    },
+    "main.js": { name: "main.js", content: "", language: "javascript" },
   };
 }
 
@@ -36,7 +29,7 @@ const getLanguageFromName = (fileName) => {
   return EXT_TO_LANGUAGE[ext] || "plaintext";
 };
 
-export const FileProvider = ({ children, roomId }) => {
+export const FileProvider = ({ children, roomId, onLanguageChange }) => {
   const [files, setFiles] = useState(makeDefaultFiles);
   const [activeFile, setActiveFileState] = useState("main.js");
   const [openTabs, setOpenTabs] = useState(["main.js"]);
@@ -50,7 +43,10 @@ export const FileProvider = ({ children, roomId }) => {
         if (serverFiles && Object.keys(serverFiles).length > 0) {
           setFiles(serverFiles);
           setOpenTabs(Object.keys(serverFiles));
-          if (serverActive) setActiveFileState(serverActive);
+          if (serverActive) {
+            setActiveFileState(serverActive);
+            onLanguageChange?.(serverActive); // ✅ auto-detect on load
+          }
         }
       },
     );
@@ -117,25 +113,23 @@ export const FileProvider = ({ children, roomId }) => {
     (fileName) => {
       if (!fileName.trim()) return;
       const cleanName = fileName.trim();
-
       if (files[cleanName]) {
         toast.error("File already exists!");
         return;
       }
-
       const newFile = {
         name: cleanName,
         content: "",
         language: getLanguageFromName(cleanName),
       };
-
       socket.emit(SOCKET_EVENTS.FILE_CREATE, { roomId, file: newFile });
       setFiles((prev) => ({ ...prev, [cleanName]: newFile }));
       setOpenTabs((t) => (t.includes(cleanName) ? t : [...t, cleanName]));
       setActiveFileState(cleanName);
+      onLanguageChange?.(cleanName); // ✅ auto-detect on create
       toast.success(`Created ${cleanName}`);
     },
-    [roomId, files],
+    [roomId, files, onLanguageChange],
   );
 
   const deleteFile = useCallback(
@@ -144,9 +138,7 @@ export const FileProvider = ({ children, roomId }) => {
         toast.error("Can't delete the last file!");
         return;
       }
-
       const remaining = Object.keys(files).filter((f) => f !== fileName);
-
       setFiles((prev) => {
         const next = { ...prev };
         delete next[fileName];
@@ -154,7 +146,6 @@ export const FileProvider = ({ children, roomId }) => {
       });
       setOpenTabs((t) => t.filter((tab) => tab !== fileName));
       setActiveFileState((cur) => (cur === fileName ? remaining[0] : cur));
-
       socket.emit(SOCKET_EVENTS.FILE_DELETE, { roomId, fileName });
       toast(`🗑️ Deleted ${fileName}`, { duration: 2000 });
     },
@@ -165,12 +156,10 @@ export const FileProvider = ({ children, roomId }) => {
     (oldName, newName) => {
       if (!newName.trim() || oldName === newName) return;
       const cleanNew = newName.trim();
-
       if (files[cleanNew]) {
-        toast.error("A file with that name already exists!");
+        toast.error("File already exists!");
         return;
       }
-
       setFiles((prev) => {
         const next = { ...prev };
         next[cleanNew] = {
@@ -183,7 +172,6 @@ export const FileProvider = ({ children, roomId }) => {
       });
       setOpenTabs((t) => t.map((tab) => (tab === oldName ? cleanNew : tab)));
       setActiveFileState((cur) => (cur === oldName ? cleanNew : cur));
-
       socket.emit(SOCKET_EVENTS.FILE_RENAME, {
         roomId,
         oldName,
@@ -196,20 +184,17 @@ export const FileProvider = ({ children, roomId }) => {
   const selectFile = useCallback(
     (fileName) => {
       if (!files[fileName]) return;
-
       setActiveFileState(fileName);
       setOpenTabs((t) => (t.includes(fileName) ? t : [...t, fileName]));
       socket.emit(SOCKET_EVENTS.FILE_SELECT, { roomId, fileName });
+      onLanguageChange?.(fileName); // ✅ auto-detect on select
     },
-    [roomId, files],
+    [roomId, files, onLanguageChange],
   );
 
   const closeTab = useCallback(
     (fileName) => {
-      setOpenTabs((prev) => {
-        const next = prev.filter((t) => t !== fileName);
-        return next;
-      });
+      setOpenTabs((prev) => prev.filter((t) => t !== fileName));
       setActiveFileState((cur) => {
         if (cur !== fileName) return cur;
         const idx = openTabs.indexOf(fileName);

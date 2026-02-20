@@ -64,7 +64,6 @@ function RecordingControls() {
   // When blob is ready, open modal
   useEffect(() => {
     if (recordedBlob) {
-      // Revoke old URL if any
       if (videoUrlRef.current) URL.revokeObjectURL(videoUrlRef.current);
       videoUrlRef.current = URL.createObjectURL(recordedBlob);
       setShowModal(true);
@@ -82,13 +81,24 @@ function RecordingControls() {
   };
 
   const handleStartRecording = async () => {
-    await startRecording();
-    toast.success("🎬 Recording started!");
+    // ✅ Only show toast HERE — guard with id to prevent any double-fire
+    // Do NOT let RecordingContext also show a toast for this
+    const success = await startRecording();
+    if (success) {
+      toast.success("🎬 Recording started!", {
+        duration: 2000,
+        id: "recording-started", // ✅ deduplication key
+      });
+    }
   };
 
   const handleStopRecording = () => {
     stopRecording();
-    toast.success("💾 Recording saved!");
+    // ✅ id prevents double toast if stopRecording also triggers one
+    toast.success("💾 Recording saved!", {
+      duration: 2000,
+      id: "recording-saved",
+    });
   };
 
   const handlePlayPause = () => {
@@ -140,12 +150,12 @@ function RecordingControls() {
       videoUrlRef.current = null;
     }
     clearRecording();
-    toast("Recording discarded", { icon: "🗑️" });
+    toast("Recording discarded", { icon: "🗑️", id: "recording-discarded" });
   };
 
   const handleDownload = () => {
     downloadRecording();
-    toast.success("Downloading recording...");
+    toast.success("Downloading recording...", { id: "recording-download" });
   };
 
   return (

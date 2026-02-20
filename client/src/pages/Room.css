@@ -339,7 +339,7 @@
   flex-direction: column;
 }
 
-/* CENTER: Editor */
+/* CENTER: Editor — flex: 1 means it always fills remaining space */
 .editor-area {
   flex: 1;
   display: flex;
@@ -371,11 +371,12 @@
   font-size: 0.9rem;
 }
 
-/* RIGHT: Side panels */
+/* RIGHT: Side panels — no fixed width, content defines it */
 .side-panels {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  flex-shrink: 0;
 }
 
 .side-panel {
@@ -416,7 +417,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 5000; /* ✅ was 9999 — interview/template now render above */
+  z-index: 5000;
   animation: fadeIn 0.2s ease-out;
 }
 
@@ -439,6 +440,7 @@
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
   animation: slideUp 0.3s ease-out;
 }
+
 .modal-close-btn {
   display: flex;
   align-items: center;
@@ -456,6 +458,7 @@
   background: rgba(255, 255, 255, 0.1);
   color: #fff;
 }
+
 @keyframes slideUp {
   from {
     opacity: 0;
@@ -666,7 +669,7 @@
 }
 
 /* ========================================
-   RESPONSIVE DESIGN - FIXED
+   RESPONSIVE DESIGN
    ======================================== */
 
 @media (max-width: 1400px) {
@@ -679,7 +682,6 @@
   .side-panel {
     width: 350px;
   }
-
   .chat-sidebar {
     width: 300px;
   }
@@ -692,54 +694,44 @@
     padding: 12px;
     gap: 12px;
   }
-
   .header-section-left {
     order: 1;
     width: 100%;
     justify-content: space-between;
     margin-bottom: 8px;
   }
-
   .header-section-center {
     order: 3;
     width: 100%;
     flex-wrap: wrap;
     max-width: none;
   }
-
   .header-section-right {
     order: 2;
     width: 100%;
     justify-content: space-between;
   }
-
   .app-logo {
     font-size: 18px;
   }
-
   .language-dropdown {
     width: 100%;
     min-width: auto;
   }
-
-  /* MOBILE LAYOUT: File Explorer (80px) + Editor side by side, Output at bottom */
   .room-body {
     flex-direction: row;
     flex-wrap: wrap;
   }
-
   .file-explorer-sidebar {
     width: 80px;
     flex-shrink: 0;
     border-right: 1px solid rgba(255, 255, 255, 0.1);
     border-bottom: none;
   }
-
   .editor-area {
     flex: 1;
     min-width: 0;
   }
-
   .side-panels {
     width: 100%;
     height: 35vh;
@@ -748,7 +740,6 @@
     overflow-y: auto;
     border-top: 1px solid rgba(255, 255, 255, 0.1);
   }
-
   .side-panel,
   .chat-sidebar {
     width: 100%;
@@ -757,7 +748,6 @@
     border-left: none;
     border-top: 1px solid rgba(255, 255, 255, 0.1);
   }
-
   .btn-primary,
   .btn-secondary {
     width: 40px;
@@ -769,16 +759,13 @@
   .room-info span {
     display: none;
   }
-
   .user-count-badge {
     padding: 6px 8px;
   }
-
   .feature-btn {
     width: 32px;
     height: 32px;
   }
-
   .btn-primary,
   .btn-secondary {
     width: 36px;
@@ -786,12 +773,7 @@
   }
 }
 
-/* =====================================================================
-   ADD THESE RULES TO THE BOTTOM OF src/pages/Room.css
-   (don't replace anything — just append)
-   ===================================================================== */
-
-/* ── Stdin bar ────────────────────────────────────────────────────── */
+/* ── Stdin bar ─────────────────────────────────────────────────── */
 .stdin-bar {
   display: flex;
   align-items: flex-start;
@@ -854,14 +836,14 @@
   color: #ef4444;
 }
 
-/* ── Active feature button (e.g. stdin toggled on) ────────────────── */
+/* ── Active feature button ─────────────────────────────────────── */
 .feature-btn.active {
   background: rgba(102, 126, 234, 0.15);
   border-color: rgba(102, 126, 234, 0.5);
   color: #667eea;
 }
 
-/* ── Full-width button inside modal body ──────────────────────────── */
+/* ── Full-width button inside modal body ───────────────────────── */
 .btn-primary.full-width {
   width: 100%;
   height: auto;
@@ -870,7 +852,7 @@
   justify-content: center;
 }
 
-/* ── Gist view link (inside save modal success state) ─────────────── */
+/* ── Gist view link ────────────────────────────────────────────── */
 .gist-view-link {
   display: flex;
   align-items: center;
@@ -888,4 +870,51 @@
 .gist-view-link:hover {
   background: #2d333b;
   border-color: #666;
+}
+
+/* ✅ Output restore tab — VS Code-style vertical strip on the right edge */
+.output-restore-tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 28px;
+  height: 100%;
+  padding: 16px 0;
+  background: #1e1e1e;
+  border: none;
+  border-left: 2px solid #667eea;
+  color: #9ca3af;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition:
+    background 0.15s,
+    color 0.15s;
+}
+
+.output-restore-tab:hover {
+  background: #252530;
+  color: #fff;
+}
+
+.output-restore-tab svg {
+  opacity: 0.7;
+  flex-shrink: 0;
+}
+
+.output-restore-tab:hover svg {
+  opacity: 1;
+}
+
+/* Rotate the text to read bottom-to-top */
+.output-restore-tab span {
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  transform: rotate(180deg);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: inherit;
 }

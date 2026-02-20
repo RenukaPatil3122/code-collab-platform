@@ -24,9 +24,7 @@ export const RecordingProvider = ({ children }) => {
       });
 
       mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          chunksRef.current.push(event.data);
-        }
+        if (event.data.size > 0) chunksRef.current.push(event.data);
       };
 
       mediaRecorder.onstop = () => {
@@ -39,9 +37,10 @@ export const RecordingProvider = ({ children }) => {
       mediaRecorder.start();
       mediaRecorderRef.current = mediaRecorder;
       setIsRecording(true);
+      return true; // ✅ success
     } catch (error) {
       console.error("Failed to start recording:", error);
-      alert("Screen recording failed. Please grant screen sharing permission.");
+      return false; // ✅ user cancelled or denied — no toast
     }
   };
 

@@ -25,6 +25,8 @@ import {
   X,
   Terminal,
   BarChart2,
+  PenLine,
+  Maximize2,
 } from "lucide-react";
 
 import { RoomProvider, useRoom } from "../contexts/RoomContext";
@@ -44,6 +46,7 @@ import AIAssistant from "../components/ai/AIAssistant";
 import VersionHistory from "../components/version/VersionHistory";
 import RecordingControls from "../components/recording/RecordingControls";
 import ComplexityAnalyzer from "../components/complexity/ComplexityAnalyzer";
+import Whiteboard from "../components/whiteboard/Whiteboard";
 
 import "./Room.css";
 
@@ -69,6 +72,7 @@ function RoomContent() {
     theme,
     updateCode,
     updateLanguage,
+    autoDetectLanguage,
     runCode,
     updateTestCases,
     runTests,
@@ -79,6 +83,8 @@ function RoomContent() {
     setCode,
     stdin,
     setStdin,
+    executionTime,
+    memoryUsed,
   } = useRoom();
 
   const { isInterviewMode } = useInterview();
@@ -92,7 +98,11 @@ function RoomContent() {
   const [showSaveGistModal, setShowSaveGistModal] = useState(false);
   const [showImportGistModal, setShowImportGistModal] = useState(false);
   const [showStdinPanel, setShowStdinPanel] = useState(false);
-  const [showComplexity, setShowComplexity] = useState(false); // ✅ NEW
+  const [showComplexity, setShowComplexity] = useState(false);
+  const [showWhiteboard, setShowWhiteboard] = useState(false);
+
+  // ✅ Output minimize state lives HERE so the layout reacts to it
+  const [isOutputMinimized, setIsOutputMinimized] = useState(false);
 
   const [gistDescription, setGistDescription] = useState("");
   const [gistUrl, setGistUrl] = useState("");
@@ -120,7 +130,13 @@ function RoomContent() {
   const handleCodeChange = (newCode) => updateCode(newCode);
   const handleLanguageChange = (newLang) => updateLanguage(newLang);
   const handleToggleTheme = () => toggleTheme();
-  const handleToggleOutput = (v) => setShowOutput(v);
+
+  // ✅ Reset minimized whenever output is toggled open
+  const handleToggleOutput = (v) => {
+    setShowOutput(v);
+    if (v) setIsOutputMinimized(false);
+  };
+
   const handleToggleChat = (v) => setShowChat(v);
   const handleToggleTestCases = (v) => setShowTestCases(v);
   const handleToggleAI = (v) => setShowAIPanel(v);
@@ -132,13 +148,16 @@ function RoomContent() {
     } else {
       updateCode(templateCode);
     }
-    toast.success("Template loaded!");
+    toast.success("Template loaded!", {
+      duration: 2000,
+      id: "template-loaded",
+    });
     setShowTemplateModal(false);
   };
 
   const copyRoomId = () => {
     navigator.clipboard.writeText(roomId);
-    toast.success("Room ID copied!");
+    toast.success("Room ID copied!", { duration: 1500, id: "copy-room-id" });
   };
 
   const handleLeaveRoom = () => {
@@ -161,12 +180,18 @@ function RoomContent() {
       if (!authRes.ok) throw new Error("Failed to check authentication");
       const authData = await authRes.json();
       if (!authData.authenticated) {
-        toast.error("GitHub token not configured. Check server .env");
+        toast.error("GitHub token not configured", {
+          duration: 2000,
+          id: "gist-auth-err",
+        });
         return;
       }
 
       if (!files || Object.keys(files).length === 0) {
-        toast.error("No files to save");
+        toast.error("No files to save", {
+          duration: 2000,
+          id: "gist-no-files",
+        });
         return;
       }
 
@@ -190,12 +215,18 @@ function RoomContent() {
       const data = await response.json();
       if (data.success) {
         setSavedGistUrl(data.gistUrl);
-        toast.success("Saved to GitHub Gist! 🎉");
+        toast.success("Saved to Gist! 🎉", {
+          duration: 2000,
+          id: "gist-save-ok",
+        });
       } else {
         throw new Error(data.error || "Failed to save Gist");
       }
     } catch (error) {
-      toast.error(error.message || "Failed to save to Gist");
+      toast.error(error.message || "Failed to save", {
+        duration: 2000,
+        id: "gist-save-err",
+      });
     } finally {
       setIsSaving(false);
     }
@@ -203,7 +234,10 @@ function RoomContent() {
 
   const handleImportFromGist = async () => {
     if (!gistUrl.trim()) {
-      toast.error("Please enter a Gist URL");
+      toast.error("Enter a Gist URL", {
+        duration: 1500,
+        id: "gist-import-empty",
+      });
       return;
     }
     try {
@@ -255,14 +289,17 @@ function RoomContent() {
           );
         });
 
-        toast.success(`Imported ${Object.keys(data.files).length} files! 🎉`);
+        toast.success(`Imported! 🎉`, { duration: 2000, id: "gist-import-ok" });
         setShowImportGistModal(false);
         setGistUrl("");
       } else {
         throw new Error(data.error || "Failed to import Gist");
       }
     } catch (error) {
-      toast.error(error.message || "Failed to import from Gist");
+      toast.error(error.message || "Import failed", {
+        duration: 2000,
+        id: "gist-import-err",
+      });
     } finally {
       setIsImporting(false);
     }
@@ -270,7 +307,7 @@ function RoomContent() {
 
   const copyGistUrl = () => {
     navigator.clipboard.writeText(savedGistUrl);
-    toast.success("Gist URL copied!");
+    toast.success("Copied!", { duration: 1500, id: "gist-url-copied" });
   };
 
   const handleCloseSaveModal = () => {
@@ -415,12 +452,21 @@ function RoomContent() {
                 <div className="menu-divider"></div>
                 <button
                   onClick={() => {
-                    setShowComplexity(true); // ✅ NEW
+                    setShowComplexity(true);
                     setShowMoreMenu(false);
                   }}
                 >
                   <BarChart2 size={16} />
                   Complexity Analyzer
+                </button>
+                <button
+                  onClick={() => {
+                    setShowWhiteboard(true);
+                    setShowMoreMenu(false);
+                  }}
+                >
+                  <PenLine size={16} />
+                  Whiteboard
                 </button>
                 <button
                   onClick={() => {
@@ -484,52 +530,76 @@ function RoomContent() {
             theme={theme}
           />
         </div>
-        <div className="side-panels">
-          {showOutput && (
-            <div className="side-panel">
+
+        {/* ✅ side-panels only renders when there's actually something visible */}
+        {(showOutput ||
+          showTestCases ||
+          showAIPanel ||
+          showVersionHistory ||
+          showChat) && (
+          <div className="side-panels">
+            {/* ✅ OutputPanel gets minimize state from here — returns null when minimized */}
+            {showOutput && !isOutputMinimized && (
               <OutputPanel
                 output={output}
                 onClose={() => handleToggleOutput(false)}
+                isMinimized={isOutputMinimized}
+                onMinimize={() => setIsOutputMinimized(true)}
+                executionTime={executionTime}
+                memoryUsed={memoryUsed}
               />
-            </div>
-          )}
-          {showTestCases && (
-            <div className="side-panel">
-              <TestCases
-                testCases={testCases}
-                onUpdate={updateTestCases}
-                onClose={() => handleToggleTestCases(false)}
-                testResults={testResults}
-                isRunning={isRunningTests}
-              />
-            </div>
-          )}
-          {showAIPanel && (
-            <div className="side-panel">
-              <AIAssistant onClose={() => handleToggleAI(false)} />
-            </div>
-          )}
-          {showVersionHistory && (
-            <div className="side-panel">
-              <VersionHistory
-                roomId={roomId}
-                currentCode={code}
-                onRestore={handleVersionRestore}
-                onClose={() => handleToggleVH(false)}
-              />
-            </div>
-          )}
-          {showChat && (
-            <div className="side-panel">
-              <Chat
-                roomId={roomId}
-                username={username}
-                users={users}
-                onClose={() => handleToggleChat(false)}
-              />
-            </div>
-          )}
-        </div>
+            )}
+            {showTestCases && (
+              <div className="side-panel">
+                <TestCases
+                  testCases={testCases}
+                  onUpdate={updateTestCases}
+                  onClose={() => handleToggleTestCases(false)}
+                  testResults={testResults}
+                  isRunning={isRunningTests}
+                />
+              </div>
+            )}
+            {showAIPanel && (
+              <div className="side-panel">
+                <AIAssistant onClose={() => handleToggleAI(false)} />
+              </div>
+            )}
+            {showVersionHistory && (
+              <div className="side-panel">
+                <VersionHistory
+                  roomId={roomId}
+                  currentCode={code}
+                  onRestore={handleVersionRestore}
+                  onClose={() => handleToggleVH(false)}
+                />
+              </div>
+            )}
+            {showChat && (
+              <div className="side-panel">
+                <Chat
+                  roomId={roomId}
+                  username={username}
+                  users={users}
+                  onClose={() => handleToggleChat(false)}
+                />
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ✅ Restore tab sits INSIDE room-body as a right-edge strip — exactly where output panel was */}
+        {showOutput && isOutputMinimized && (
+          <button
+            className="output-restore-tab"
+            onClick={() => setIsOutputMinimized(false)}
+            title="Restore Output Panel"
+          >
+            <Terminal size={14} />
+            <span>Output</span>
+            <Maximize2 size={12} />
+          </button>
+        )}
       </div>
 
       {showTemplateModal && (
@@ -544,12 +614,19 @@ function RoomContent() {
         <InterviewMode onClose={() => setShowInterviewModal(false)} />
       )}
 
-      {/* ✅ NEW — Complexity Analyzer Modal */}
       {showComplexity && (
         <ComplexityAnalyzer
           code={code}
           language={language}
           onClose={() => setShowComplexity(false)}
+        />
+      )}
+
+      {showWhiteboard && (
+        <Whiteboard
+          roomId={roomId}
+          username={username}
+          onClose={() => setShowWhiteboard(false)}
         />
       )}
 
@@ -671,6 +748,17 @@ function RoomContent() {
   );
 }
 
+function RoomWithFileProvider({ roomId }) {
+  const { autoDetectLanguage } = useRoom();
+  return (
+    <FileProvider roomId={roomId} onLanguageChange={autoDetectLanguage}>
+      <RecordingProvider roomId={roomId}>
+        <RoomContent />
+      </RecordingProvider>
+    </FileProvider>
+  );
+}
+
 function Room() {
   const { roomId } = useParams();
   const location = useLocation();
@@ -686,11 +774,7 @@ function Room() {
     <RoomProvider roomId={roomId} username={username}>
       <InterviewProvider roomId={roomId}>
         <AIProvider roomId={roomId}>
-          <FileProvider roomId={roomId}>
-            <RecordingProvider roomId={roomId}>
-              <RoomContent />
-            </RecordingProvider>
-          </FileProvider>
+          <RoomWithFileProvider roomId={roomId} />
         </AIProvider>
       </InterviewProvider>
     </RoomProvider>

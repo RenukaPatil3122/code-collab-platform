@@ -95,6 +95,7 @@ function InterviewMode({ onClose }) {
         </div>
 
         <div className="interview-content-split">
+          {/* ✅ problem side fills full height, ProblemPanel scrolls internally */}
           <div className="interview-problem-side" ref={problemPanelRef}>
             <ProblemPanel problem={currentProblem} />
           </div>

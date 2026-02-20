@@ -1,6 +1,7 @@
 // src/contexts/InterviewContext.jsx
 // ✅ Sets state BEFORE socket emit (interview shows immediately)
 // ✅ Handles replay - shows interview read-only without starting real timer
+// ✅ FIXED: "Interview ended" double toast — socket bounce-back guarded with ref
 
 import React, {
   createContext,
@@ -36,6 +37,10 @@ export const InterviewProvider = ({ children, roomId }) => {
   const [interviewLanguage, setInterviewLanguage] = useState("javascript");
   const timerRef = useRef(null);
 
+  // ✅ Prevents socket bounce-back from firing handleEndInterview twice
+  // When WE emit END_INTERVIEW, the server echoes it back — this flag skips that
+  const isEndingLocally = useRef(false);
+
   // Timer logic
   useEffect(() => {
     if (isTimerRunning && timeRemaining > 0) {
@@ -46,9 +51,17 @@ export const InterviewProvider = ({ children, roomId }) => {
             return 0;
           }
           if (prev === 300)
-            toast("⏰ 5 minutes remaining!", { icon: "⚠️", duration: 5000 });
+            toast("⏰ 5 minutes remaining!", {
+              icon: "⚠️",
+              duration: 5000,
+              id: "timer-5min",
+            });
           if (prev === 60)
-            toast("⏰ 1 minute remaining!", { icon: "🚨", duration: 5000 });
+            toast("⏰ 1 minute remaining!", {
+              icon: "🚨",
+              duration: 5000,
+              id: "timer-1min",
+            });
           return prev - 1;
         });
       }, 1000);
@@ -60,12 +73,11 @@ export const InterviewProvider = ({ children, roomId }) => {
     };
   }, [isTimerRunning, timeRemaining]);
 
-  // ✅ Listen for replay events to show interview during playback (READ-ONLY)
+  // ✅ Listen for replay events
   useEffect(() => {
     const handleReplayEvent = (e) => {
       const { type, data } = e.detail;
       if (type === "interview-started") {
-        // Show interview fullscreen during replay WITHOUT starting timer
         if (data.problem) {
           setCurrentProblem(data.problem);
           setDifficulty(data.difficulty || "easy");
@@ -73,10 +85,9 @@ export const InterviewProvider = ({ children, roomId }) => {
           setInterviewCode(data.starterCode || "");
           setTimeRemaining(INTERVIEW_DURATIONS[data.difficulty || "easy"]);
           setIsInterviewMode(true);
-          setIsTimerRunning(false); // ✅ NO timer during replay
+          setIsTimerRunning(false);
         }
       } else if (type === "replay-stopped") {
-        // Clean up interview when replay ends
         setIsInterviewMode(false);
         setCurrentProblem(null);
         setInterviewCode("");
@@ -88,7 +99,7 @@ export const InterviewProvider = ({ children, roomId }) => {
     return () => window.removeEventListener("replay-event", handleReplayEvent);
   }, []);
 
-  // Socket events from other users
+  // ✅ Socket events from OTHER users only
   useEffect(() => {
     socket.on(
       SOCKET_EVENTS.INTERVIEW_STARTED,
@@ -99,19 +110,28 @@ export const InterviewProvider = ({ children, roomId }) => {
         setIsInterviewMode(true);
         setIsTimerRunning(true);
         setStartTime(Date.now());
-        toast.success(
-          `Interview started! Difficulty: ${difficulty.toUpperCase()}`,
-        );
+        toast.success(`Interview started! ${difficulty.toUpperCase()}`, {
+          id: "interview-started",
+          duration: 2000,
+        });
       },
     );
+
     socket.on(SOCKET_EVENTS.INTERVIEW_ENDED, () => {
+      // ✅ If WE triggered the end, skip — we already handled it locally
+      if (isEndingLocally.current) {
+        isEndingLocally.current = false;
+        return;
+      }
       handleEndInterview();
     });
+
     socket.on(SOCKET_EVENTS.INTERVIEW_RESULTS, ({ results }) => {
       setInterviewResults(results);
       setIsInterviewMode(false);
       setIsTimerRunning(false);
     });
+
     return () => {
       socket.off(SOCKET_EVENTS.INTERVIEW_STARTED);
       socket.off(SOCKET_EVENTS.INTERVIEW_ENDED);
@@ -132,7 +152,6 @@ export const InterviewProvider = ({ children, roomId }) => {
         selectedProblem.starterCode?.javascript ||
         `// ${selectedProblem.title}\n// Write your solution here\n\nfunction solve() {\n    // Your code here\n}\n`;
 
-      // ✅ Set state FIRST (don't wait for socket)
       setInterviewCode(starterCode);
       setInterviewLanguage(selectedLanguage);
       setCurrentProblem(selectedProblem);
@@ -156,6 +175,8 @@ export const InterviewProvider = ({ children, roomId }) => {
   );
 
   const endInterview = useCallback(() => {
+    // ✅ Set flag BEFORE emit so the echoed socket event is ignored
+    isEndingLocally.current = true;
     socket.emit(SOCKET_EVENTS.END_INTERVIEW, { roomId });
     handleEndInterview();
   }, [roomId]);
@@ -165,12 +186,21 @@ export const InterviewProvider = ({ children, roomId }) => {
     setIsTimerRunning(false);
     setInterviewCode("");
     setCurrentProblem(null);
-    toast("Interview ended", { icon: "🏁" });
+    // ✅ id prevents double toast
+    toast("Interview ended", {
+      icon: "🏁",
+      id: "interview-ended",
+      duration: 2000,
+    });
   };
 
   const handleTimeUp = () => {
     setIsTimerRunning(false);
-    toast.error("⏰ Time's up! Interview ended.");
+    toast.error("⏰ Time's up! Interview ended.", {
+      id: "interview-timeout",
+      duration: 3000,
+    });
+    isEndingLocally.current = true;
     socket.emit(SOCKET_EVENTS.END_INTERVIEW, { roomId, reason: "timeout" });
   };
 
@@ -202,7 +232,10 @@ export const InterviewProvider = ({ children, roomId }) => {
       setIsInterviewMode(false);
       setIsTimerRunning(false);
       setInterviewCode("");
-      toast.success("Interview submitted!");
+      toast.success("Interview submitted!", {
+        id: "interview-submitted",
+        duration: 2000,
+      });
     },
     [roomId, difficulty, currentProblem, startTime, interviewCode],
   );

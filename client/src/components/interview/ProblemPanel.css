@@ -1,15 +1,14 @@
-/* ========================================
-     PROBLEM PANEL CSS
-     ======================================== */
-
 /* ProblemPanel.css */
 .problem-panel {
   background: #1e1e2e;
-  border-radius: 12px;
+  border-radius: 0; /* ✅ no rounding — flush with container */
   padding: 24px;
-  margin: 16px 24px;
-  max-height: 400px;
+  margin: 0; /* ✅ was margin: 16px 24px — this caused the gap */
+  height: 100%; /* ✅ fill full container height */
+  max-height: none; /* ✅ was 400px — this was capping it */
   overflow-y: auto;
+  overflow-x: hidden;
+  box-sizing: border-box;
 }
 
 .problem-header {

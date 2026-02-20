@@ -1,11 +1,11 @@
 // src/contexts/RoomContext.jsx
-
 import React, {
   createContext,
   useContext,
   useState,
   useEffect,
   useCallback,
+  useRef,
 } from "react";
 import { socket } from "../utils/socket";
 import { SOCKET_EVENTS } from "../utils/constants";
@@ -15,36 +15,60 @@ const RoomContext = createContext();
 
 export const useRoom = () => {
   const context = useContext(RoomContext);
-  if (!context) {
-    throw new Error("useRoom must be used within RoomProvider");
-  }
+  if (!context) throw new Error("useRoom must be used within RoomProvider");
   return context;
 };
 
+const EXT_LANGUAGE_MAP = {
+  js: "javascript",
+  jsx: "javascript",
+  ts: "typescript",
+  tsx: "typescript",
+  py: "python",
+  java: "java",
+  cpp: "cpp",
+  cc: "cpp",
+  cxx: "cpp",
+  c: "c",
+  go: "go",
+  rs: "rust",
+  rb: "ruby",
+  php: "php",
+};
+
+const detectLang = (fileName) => {
+  if (!fileName) return null;
+  const ext = fileName.split(".").pop().toLowerCase();
+  return EXT_LANGUAGE_MAP[ext] || null;
+};
+
 export const RoomProvider = ({ children, roomId, username }) => {
-  // Room State
   const [code, setCode] = useState("");
   const [language, setLanguage] = useState("javascript");
   const [users, setUsers] = useState([]);
   const [isConnected, setIsConnected] = useState(false);
+  const [executionTime, setExecutionTime] = useState(null);
+  const [memoryUsed, setMemoryUsed] = useState(null);
 
-  // Output State
   const [output, setOutput] = useState("");
   const [isRunning, setIsRunning] = useState(false);
-  const [stdin, setStdin] = useState(""); // ✅ stdin input
+  const [stdin, setStdin] = useState("");
 
-  // Test Cases State
   const [testCases, setTestCases] = useState([]);
   const [testResults, setTestResults] = useState(null);
   const [isRunningTests, setIsRunningTests] = useState(false);
 
-  // UI State
   const [showChat, setShowChat] = useState(false);
-  const [showOutput, setShowOutput] = useState(true); // ✅ Show output by default
+  const [showOutput, setShowOutput] = useState(true);
   const [showTestCases, setShowTestCases] = useState(false);
   const [theme, setTheme] = useState("vs-dark");
 
-  // Connect to room
+  useEffect(() => {
+    if (code && roomId) {
+      localStorage.setItem(`ct-code-${roomId}`, code);
+    }
+  }, [code, roomId]);
+
   useEffect(() => {
     if (!roomId || !username) return;
 
@@ -59,12 +83,14 @@ export const RoomProvider = ({ children, roomId, username }) => {
         users: roomUsers,
         testCases: roomTestCases,
       }) => {
-        setCode(initialCode);
+        const saved = localStorage.getItem(`ct-code-${roomId}`);
+        setCode(saved || initialCode);
         setLanguage(initialLang);
         setUsers(roomUsers);
         setTestCases(roomTestCases || []);
         setIsConnected(true);
-        toast.success("Connected to room!");
+        // ✅ id prevents double toast from Strict Mode double-mount
+        toast.success("Connected!", { duration: 1500, id: "room-connected" });
       },
     );
 
@@ -72,7 +98,11 @@ export const RoomProvider = ({ children, roomId, username }) => {
       SOCKET_EVENTS.USER_JOINED,
       ({ username: newUser, users: updatedUsers }) => {
         setUsers(updatedUsers);
-        toast.success(`${newUser} joined the room`);
+        // ✅ id includes username so different users each get one toast
+        toast.success(`${newUser} joined`, {
+          duration: 2000,
+          id: `user-joined-${newUser}`,
+        });
       },
     );
 
@@ -80,7 +110,11 @@ export const RoomProvider = ({ children, roomId, username }) => {
       SOCKET_EVENTS.USER_LEFT,
       ({ username: leftUser, users: updatedUsers }) => {
         setUsers(updatedUsers);
-        toast(`${leftUser} left the room`, { icon: "👋" });
+        toast(`${leftUser} left`, {
+          icon: "👋",
+          duration: 2000,
+          id: `user-left-${leftUser}`,
+        });
       },
     );
 
@@ -90,40 +124,61 @@ export const RoomProvider = ({ children, roomId, username }) => {
 
     socket.on(SOCKET_EVENTS.LANGUAGE_UPDATE, ({ language: newLang }) => {
       setLanguage(newLang);
-      toast(`Language changed to ${newLang}`);
+      toast(`→ ${newLang}`, { duration: 1200, id: `lang-update-${newLang}` });
     });
 
     socket.on(
       SOCKET_EVENTS.CODE_OUTPUT,
-      ({ output: result, error, success }) => {
+      ({
+        output: result,
+        error,
+        success,
+        executionTime: time,
+        memoryUsed: memory,
+      }) => {
         setIsRunning(false);
+        const clientTime = runStartTimeRef.current
+          ? Date.now() - runStartTimeRef.current
+          : null;
+        setExecutionTime(time || clientTime); // prefer real Judge0 CPU time
+        setMemoryUsed(memory || null);
+        runStartTimeRef.current = null;
         if (success) {
           setOutput(result);
-          toast.success("Code executed successfully!");
+          toast.success("Done!", { duration: 1500, id: "code-output-done" });
         } else {
           setOutput(`Error:\n${error}`);
-          toast.error("Execution failed");
+          toast.error("Error", { duration: 2000, id: "code-output-error" });
         }
         setShowOutput(true);
       },
     );
 
-    socket.on(
-      SOCKET_EVENTS.TEST_CASES_UPDATED,
-      ({ testCases: updatedTestCases }) => {
-        setTestCases(updatedTestCases);
-      },
-    );
+    socket.on(SOCKET_EVENTS.TEST_CASES_UPDATED, ({ testCases: updated }) => {
+      setTestCases(updated);
+    });
 
     socket.on(SOCKET_EVENTS.TEST_RESULTS, ({ results, summary, error }) => {
       setIsRunningTests(false);
       if (error) {
-        toast.error("Test execution failed");
+        toast.error("Tests failed", {
+          duration: 2000,
+          id: "test-results-fail",
+        });
         setTestResults({ results: [], error });
       } else {
         setTestResults({ results, summary });
-        toast.success(`${summary.passed}/${summary.total} tests passed!`);
+        toast.success(`${summary.passed}/${summary.total} passed!`, {
+          duration: 2000,
+          id: "test-results-pass",
+        });
       }
+    });
+
+    socket.on("execution-cancelled", () => {
+      setIsRunning(false);
+      setOutput("Execution cancelled.");
+      runStartTimeRef.current = null;
     });
 
     return () => {
@@ -135,12 +190,12 @@ export const RoomProvider = ({ children, roomId, username }) => {
       socket.off(SOCKET_EVENTS.CODE_OUTPUT);
       socket.off(SOCKET_EVENTS.TEST_CASES_UPDATED);
       socket.off(SOCKET_EVENTS.TEST_RESULTS);
+      socket.off("execution-cancelled");
       socket.disconnect();
       setIsConnected(false);
     };
   }, [roomId, username]);
 
-  // Actions
   const updateCode = useCallback(
     (newCode) => {
       setCode(newCode);
@@ -157,15 +212,38 @@ export const RoomProvider = ({ children, roomId, username }) => {
     [roomId],
   );
 
+  const autoDetectLanguage = useCallback(
+    (fileName) => {
+      const detected = detectLang(fileName);
+      if (detected && detected !== language) {
+        setLanguage(detected);
+        socket.emit(SOCKET_EVENTS.LANGUAGE_CHANGE, {
+          roomId,
+          language: detected,
+        });
+      }
+    },
+    [roomId, language],
+  );
+
+  const runStartTimeRef = useRef(null);
+
+  const cancelExecution = useCallback(() => {
+    socket.emit("cancel-execution");
+    setIsRunning(false);
+    runStartTimeRef.current = null;
+  }, []);
+
   const runCode = useCallback(() => {
     if (!code.trim()) {
-      toast.error("Please write some code first!");
+      toast.error("Write some code first!", { id: "run-no-code" });
       return;
     }
     setIsRunning(true);
     setOutput("Running...");
     setShowOutput(true);
-    // ✅ Send stdin with code
+    setExecutionTime(null);
+    runStartTimeRef.current = Date.now(); // ✅ start client-side timer
     socket.emit(SOCKET_EVENTS.RUN_CODE, { roomId, code, language, stdin });
   }, [roomId, code, language, stdin]);
 
@@ -182,11 +260,11 @@ export const RoomProvider = ({ children, roomId, username }) => {
 
   const runTests = useCallback(() => {
     if (testCases.length === 0) {
-      toast.error("Please add test cases first!");
+      toast.error("Add test cases first!", { id: "run-no-tests" });
       return;
     }
     if (!code.trim()) {
-      toast.error("Please write some code first!");
+      toast.error("Write some code first!", { id: "run-no-code" });
       return;
     }
     setIsRunningTests(true);
@@ -204,7 +282,6 @@ export const RoomProvider = ({ children, roomId, username }) => {
   }, []);
 
   const value = {
-    // State
     roomId,
     username,
     code,
@@ -221,10 +298,12 @@ export const RoomProvider = ({ children, roomId, username }) => {
     showTestCases,
     theme,
     isConnected,
-
-    // Actions
+    executionTime,
+    memoryUsed,
+    cancelExecution,
     updateCode,
     updateLanguage,
+    autoDetectLanguage,
     runCode,
     updateTestCases,
     runTests,

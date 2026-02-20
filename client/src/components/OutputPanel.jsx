@@ -1,106 +1,140 @@
 // src/components/OutputPanel.jsx
-
-import React, { useState, useMemo } from "react";
+import React, { useMemo } from "react";
 import { useRoom } from "../contexts/RoomContext";
 import { useFiles } from "../contexts/FileContext";
-import { X, Terminal, Keyboard, Minimize2, Maximize2 } from "lucide-react";
+import {
+  X,
+  Terminal,
+  Keyboard,
+  Minimize2,
+  CheckCircle,
+  AlertCircle,
+  AlertTriangle,
+  Clock,
+} from "lucide-react";
 import "./OutputPanel.css";
 
-function OutputPanel({ output, onClose }) {
-  const { stdin, setStdin, language } = useRoom();
+function cleanErrorText(raw) {
+  const lines = raw.split("\n");
+  const cleaned = lines.filter((line) => {
+    if (/node:internal|node:modules|at node:/.test(line)) return false;
+    if (
+      /at wrapSafe|at Module\._compile|at Module\.load|at Module\._load|at Function\.executeUserEntryPoint|at Object\.<anonymous>/.test(
+        line,
+      )
+    )
+      return false;
+    return true;
+  });
+  while (cleaned.length && !cleaned[cleaned.length - 1].trim()) cleaned.pop();
+  return cleaned.join("\n").trim();
+}
+
+function parseOutput(output) {
+  if (!output || output === "Running...")
+    return { type: "running", text: output };
+  if (output === "Code executed successfully (no output)")
+    return { type: "success-empty", text: output };
+  if (output.startsWith("Error:\n")) {
+    const errorText = output.replace("Error:\n", "");
+    if (/timeout|time limit/i.test(errorText))
+      return { type: "timeout", text: cleanErrorText(errorText) };
+    if (
+      /compile|syntax|unexpected token|cannot find symbol|unterminated/i.test(
+        errorText,
+      )
+    )
+      return { type: "compile-error", text: cleanErrorText(errorText) };
+    return { type: "runtime-error", text: cleanErrorText(errorText) };
+  }
+  return { type: "success", text: output };
+}
+
+// ✅ isMinimized + onMinimize are now props — state lives in Room.jsx
+function OutputPanel({
+  output,
+  onClose,
+  executionTime,
+  memoryUsed,
+  isMinimized,
+  onMinimize,
+}) {
+  const { stdin, setStdin, language, runCode, cancelExecution, isRunning } =
+    useRoom();
   const { files } = useFiles();
-  const [isMinimized, setIsMinimized] = useState(false);
 
-  // ✅ Smart detection: Does the code need input?
   const needsInput = useMemo(() => {
-    // Get all file contents
     const allCode = Object.values(files)
-      .map((file) => file.content)
+      .map((f) => f.content)
       .join("\n");
-
-    // Language-specific input detection
     switch (language) {
       case "javascript":
       case "typescript":
-        // Check for readline, prompt, or stdin usage
-        return /readline|prompt|process\.stdin|Scanner|BufferedReader/.test(
-          allCode,
-        );
-
+        return /readline|prompt|process\.stdin/.test(allCode);
       case "python":
-        // Check for input() function
         return /input\(/.test(allCode);
-
       case "java":
-        // Check for Scanner or BufferedReader
         return /Scanner|BufferedReader|System\.in/.test(allCode);
-
       case "cpp":
       case "c":
-        // Check for cin or scanf
         return /cin\s*>>|scanf|getchar|getline/.test(allCode);
-
       case "go":
-        // Check for fmt.Scan
         return /fmt\.Scan|bufio\.NewReader/.test(allCode);
-
       case "rust":
-        // Check for stdin
         return /stdin\(\)|read_line/.test(allCode);
-
-      case "ruby":
-        // Check for gets
-        return /gets|STDIN/.test(allCode);
-
-      case "php":
-        // Check for fgets or readline
-        return /fgets|readline|STDIN/.test(allCode);
-
       default:
-        // For unknown languages, check for common input patterns
         return /input|scan|read|stdin/i.test(allCode);
     }
   }, [files, language]);
 
-  if (isMinimized) {
-    return (
-      <div className="output-panel-minimized">
-        <div className="output-minimized-header">
-          <div className="output-title">
-            <Terminal size={16} />
-            <span>Output</span>
-          </div>
-          <div className="output-controls">
-            <button
-              className="control-btn"
-              onClick={() => setIsMinimized(false)}
-              title="Maximize"
-            >
-              <Maximize2 size={16} />
-            </button>
-            <button className="control-btn" onClick={onClose} title="Close">
-              <X size={16} />
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  const parsed = parseOutput(output);
+
+  // ✅ Minimized state: render nothing — Room.jsx shows the floating restore tab
+  if (isMinimized) return null;
 
   return (
     <div className="output-panel-container">
-      {/* Header */}
       <div className="output-header">
         <div className="output-title">
           <Terminal size={16} />
           <span>Output</span>
         </div>
         <div className="output-controls">
-          <button
-            className="control-btn"
-            onClick={() => setIsMinimized(true)}
-            title="Minimize"
-          >
+          {parsed.type === "running" && (
+            <>
+              <span className="execution-spinner">
+                <span className="spinner-dot" />
+                Running...
+              </span>
+              <button
+                className="control-btn cancel-btn"
+                onClick={cancelExecution}
+                title="Cancel"
+              >
+                <X size={12} /> Cancel
+              </button>
+            </>
+          )}
+          {executionTime && parsed.type !== "running" && (
+            <span className="execution-time" key={executionTime}>
+              <Clock size={12} /> {executionTime}ms
+              {memoryUsed && (
+                <span className="memory-used">
+                  • {(memoryUsed / 1024).toFixed(1)}MB
+                </span>
+              )}
+            </span>
+          )}
+          {parsed.type !== "running" && output && output !== "Running..." && (
+            <button
+              className="control-btn run-again-btn"
+              onClick={runCode}
+              title="Run Again"
+            >
+              ↺ Run Again
+            </button>
+          )}
+          <button className="control-btn" onClick={onMinimize} title="Minimize">
             <Minimize2 size={16} />
           </button>
           <button className="control-btn" onClick={onClose} title="Close">
@@ -109,7 +143,6 @@ function OutputPanel({ output, onClose }) {
         </div>
       </div>
 
-      {/* ✅ Stdin Section - Only show if code needs input */}
       {needsInput && (
         <div className="stdin-section">
           <div className="stdin-label">
@@ -124,16 +157,43 @@ function OutputPanel({ output, onClose }) {
             rows={3}
           />
           <div className="stdin-hint">
-            💡 Tip: Each line will be read by your program's input function
+            💡 Each line will be read by your program's input function
           </div>
         </div>
       )}
 
-      {/* Output Content */}
       <div className="output-content-wrapper">
+        {parsed.type === "success" && (
+          <div className="output-status-banner success">
+            <CheckCircle size={14} /> Executed successfully
+          </div>
+        )}
+        {parsed.type === "success-empty" && (
+          <div className="output-status-banner success">
+            <CheckCircle size={14} /> Executed — no output
+          </div>
+        )}
+        {parsed.type === "compile-error" && (
+          <div className="output-status-banner compile-error">
+            <AlertCircle size={14} /> Compile Error
+          </div>
+        )}
+        {parsed.type === "runtime-error" && (
+          <div className="output-status-banner runtime-error">
+            <AlertCircle size={14} /> Runtime Error
+          </div>
+        )}
+        {parsed.type === "timeout" && (
+          <div className="output-status-banner timeout">
+            <AlertTriangle size={14} /> Execution Timeout
+          </div>
+        )}
+
         <div className="output-label">Program Output:</div>
-        <pre className="output-content">
-          {output || "No output yet. Run your code to see results."}
+        <pre className={`output-content ${parsed.type}`}>
+          {parsed.type === "success-empty"
+            ? "// No output produced"
+            : parsed.text || "No output yet. Run your code to see results."}
         </pre>
       </div>
     </div>
