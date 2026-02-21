@@ -393,16 +393,13 @@
 }
 
 .chat-sidebar {
-  width: 320px;
+  width: 100%; /* ✅ fill the side-panel wrapper — no more gap */
   height: 100%;
   background: #1e1e2e;
-  border-left: 1px solid rgba(255, 255, 255, 0.1);
   overflow: hidden;
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
-  position: relative;
-  z-index: 10;
 }
 
 /* ========================================

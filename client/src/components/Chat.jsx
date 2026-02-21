@@ -8,58 +8,46 @@ function Chat({ roomId, username, users, onClose }) {
   const [inputMessage, setInputMessage] = useState("");
   const messagesEndRef = useRef(null);
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
-
   useEffect(() => {
-    scrollToBottom();
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
   useEffect(() => {
-    const handleChatMessage = (data) => {
-      setMessages((prev) => [...prev, data]);
-    };
-
+    const handleChatMessage = (data) => setMessages((prev) => [...prev, data]);
     socket.on("chat-message", handleChatMessage);
-
-    return () => {
-      socket.off("chat-message", handleChatMessage);
-    };
+    return () => socket.off("chat-message", handleChatMessage);
   }, []);
 
   const handleSendMessage = (e) => {
     e.preventDefault();
     if (inputMessage.trim()) {
-      socket.emit("chat-message", {
-        roomId,
-        message: inputMessage,
-        username,
-      });
+      socket.emit("chat-message", { roomId, message: inputMessage, username });
       setInputMessage("");
     }
   };
 
-  const formatTime = (timestamp) => {
-    const date = new Date(timestamp);
-    return date.toLocaleTimeString("en-US", {
+  const formatTime = (timestamp) =>
+    new Date(timestamp).toLocaleTimeString("en-US", {
       hour: "2-digit",
       minute: "2-digit",
     });
-  };
+
+  const isOwn = (msg) => msg.username === username;
 
   return (
     <div className="chat-sidebar">
+      {/* Header */}
       <div className="chat-header">
         <div className="chat-header-title">
-          <Users size={20} />
+          <Users size={18} />
           <h3>Chat & Users</h3>
         </div>
         <button className="btn-close-chat" onClick={onClose}>
-          <X size={20} />
+          <X size={16} />
         </button>
       </div>
 
+      {/* Users — compact pill row */}
       <div className="users-list">
         <h4>Active Users ({users.length})</h4>
         <div className="users">
@@ -77,35 +65,49 @@ function Chat({ roomId, username, users, onClose }) {
         </div>
       </div>
 
+      {/* Messages */}
       <div className="chat-messages">
         {messages.length === 0 ? (
           <div className="empty-chat">
-            <p>No messages yet. Start the conversation!</p>
+            <p>No messages yet</p>
           </div>
         ) : (
-          messages.map((msg, index) => (
-            <div
-              key={index}
-              className={`message ${msg.username === username ? "own-message" : ""}`}
-            >
-              <div className="message-header">
-                <span
-                  className="message-username"
-                  style={{ color: msg.color || "#667eea" }}
-                >
-                  {msg.username}
-                </span>
-                <span className="message-time">
-                  {formatTime(msg.timestamp)}
-                </span>
+          messages.map((msg, index) => {
+            const own = isOwn(msg);
+            const prevMsg = messages[index - 1];
+            // New sender = first message or different sender from previous
+            const isNewSender = !prevMsg || prevMsg.username !== msg.username;
+
+            return (
+              <div
+                key={index}
+                className={`message ${own ? "own-message" : ""} ${isNewSender ? "new-sender" : ""}`}
+              >
+                {/* Only show name/time on first message of a group */}
+                {isNewSender && (
+                  <div className="message-header">
+                    <span
+                      className="message-username"
+                      style={{
+                        color: own ? "#9b8fe8" : msg.color || "#667eea",
+                      }}
+                    >
+                      {own ? "You" : msg.username}
+                    </span>
+                    <span className="message-time">
+                      {formatTime(msg.timestamp)}
+                    </span>
+                  </div>
+                )}
+                <div className="message-content">{msg.message}</div>
               </div>
-              <div className="message-content">{msg.message}</div>
-            </div>
-          ))
+            );
+          })
         )}
         <div ref={messagesEndRef} />
       </div>
 
+      {/* Input */}
       <form className="chat-input-form" onSubmit={handleSendMessage}>
         <input
           type="text"
@@ -115,7 +117,7 @@ function Chat({ roomId, username, users, onClose }) {
           className="chat-input"
         />
         <button type="submit" className="btn-send">
-          <Send size={20} />
+          <Send size={15} />
         </button>
       </form>
     </div>
