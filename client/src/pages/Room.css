@@ -1,30 +1,110 @@
-/* src/pages/Room.css - COMPLETE WITH ALL FIXES */
+/* src/pages/Room.css - COMPLETE WITH THEME SYSTEM */
+
+/* ========================================
+   CSS VARIABLES — THEME SYSTEM
+   ======================================== */
+
+.room-container {
+  --bg-primary: #1e1e2e;
+  --bg-secondary: #1a1a2e;
+  --bg-tertiary: #2a2a3e;
+  --bg-surface: rgba(255, 255, 255, 0.05);
+  --bg-surface-hover: rgba(255, 255, 255, 0.1);
+  --border-color: rgba(255, 255, 255, 0.1);
+  --border-hover: rgba(102, 126, 234, 0.5);
+  --text-primary: #ffffff;
+  --text-secondary: #9ca3af;
+  --text-muted: #6b7280;
+  --accent: #667eea;
+  --accent-secondary: #764ba2;
+  --accent-bg: rgba(102, 126, 234, 0.1);
+  --accent-bg-hover: rgba(102, 126, 234, 0.2);
+  --accent-border: rgba(102, 126, 234, 0.3);
+  --green: #34d399;
+  --green-bg: rgba(52, 211, 153, 0.12);
+  --green-bg-hover: rgba(52, 211, 153, 0.2);
+  --green-border: rgba(52, 211, 153, 0.35);
+  --danger: #ef4444;
+  --danger-bg: rgba(239, 68, 68, 0.1);
+  --shadow-sm: 0 2px 10px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 10px 40px rgba(0, 0, 0, 0.5);
+  --modal-bg: #1e1e2e;
+  --input-bg: #252536;
+  --input-bg-focus: #2a2a3e;
+  --editor-bg: #1e1e1e;
+  --stdin-bg: #1a1a2e;
+  --stdin-input-bg: #0d0d1a;
+}
+
+.room-container[data-theme="light"] {
+  --bg-primary: #f0f0f5;
+  --bg-secondary: #ffffff;
+  --bg-tertiary: #e2e2ee;
+  --bg-surface: rgba(0, 0, 0, 0.04);
+  --bg-surface-hover: rgba(0, 0, 0, 0.08);
+  --border-color: rgba(0, 0, 0, 0.12);
+  --border-hover: rgba(90, 111, 214, 0.6);
+  --text-primary: #1a1a2e;
+  --text-secondary: #4b5563;
+  --text-muted: #9ca3af;
+  --accent: #5a6fd6;
+  --accent-secondary: #6a3f92;
+  --accent-bg: rgba(90, 111, 214, 0.1);
+  --accent-bg-hover: rgba(90, 111, 214, 0.2);
+  --accent-border: rgba(90, 111, 214, 0.35);
+  --green: #059669;
+  --green-bg: rgba(5, 150, 105, 0.08);
+  --green-bg-hover: rgba(5, 150, 105, 0.15);
+  --green-border: rgba(5, 150, 105, 0.35);
+  --danger: #dc2626;
+  --danger-bg: rgba(220, 38, 38, 0.08);
+  --shadow-sm: 0 2px 10px rgba(0, 0, 0, 0.1);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.15);
+  --shadow-lg: 0 10px 40px rgba(0, 0, 0, 0.2);
+  --modal-bg: #ffffff;
+  --input-bg: #f5f5fa;
+  --input-bg-focus: #eaeaf5;
+  --editor-bg: #ffffff;
+  --stdin-bg: #f5f5fa;
+  --stdin-input-bg: #eaeaf5;
+}
+
+/* ========================================
+     BASE CONTAINER
+     ======================================== */
 
 .room-container {
   height: 100vh;
   display: flex;
   flex-direction: column;
-  background: #1e1e2e;
-  color: #fff;
+  background: var(--bg-primary);
+  color: var(--text-primary);
   overflow: hidden;
+  transition:
+    background 0.2s ease,
+    color 0.2s ease;
 }
 
 /* ========================================
-   CLEAN HEADER DESIGN
-   ======================================== */
+     CLEAN HEADER DESIGN
+     ======================================== */
 
 .room-header-clean {
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 12px 20px;
-  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
+  box-shadow: var(--shadow-sm);
   gap: 20px;
   min-height: 60px;
   flex-shrink: 0;
   flex-wrap: nowrap;
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease;
 }
 
 /* LEFT SECTION */
@@ -49,17 +129,18 @@
   align-items: center;
   gap: 6px;
   padding: 6px 12px;
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--bg-surface);
   border-radius: 6px;
   font-size: 13px;
   cursor: pointer;
   transition: all 0.2s;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
 }
 
 .room-info:hover {
-  background: rgba(255, 255, 255, 0.1);
-  border-color: #667eea;
+  background: var(--bg-surface-hover);
+  border-color: var(--accent);
 }
 
 .user-count-badge {
@@ -67,12 +148,12 @@
   align-items: center;
   gap: 6px;
   padding: 6px 12px;
-  background: rgba(102, 126, 234, 0.1);
-  border: 1px solid rgba(102, 126, 234, 0.3);
+  background: var(--accent-bg);
+  border: 1px solid var(--accent-border);
   border-radius: 6px;
   font-size: 13px;
   font-weight: 600;
-  color: #667eea;
+  color: var(--accent);
 }
 
 /* CENTER SECTION */
@@ -88,10 +169,10 @@
 
 .language-dropdown {
   padding: 10px 16px;
-  background: #2a2a3e;
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
   border-radius: 8px;
-  color: #fff;
+  color: var(--text-primary);
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
@@ -101,14 +182,14 @@
 }
 
 .language-dropdown option {
-  background: #2a2a3e;
-  color: #fff;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
   padding: 8px;
 }
 
 .language-dropdown:hover {
-  border-color: #667eea;
-  background: rgba(255, 255, 255, 0.08);
+  border-color: var(--accent);
+  background: var(--bg-surface-hover);
 }
 
 .language-dropdown:disabled {
@@ -117,8 +198,8 @@
 }
 
 /* ══════════════════════════════════════════════════════════
-   RUN CODE & RUN TESTS BUTTONS - ICON ONLY
-   ══════════════════════════════════════════════════════════ */
+     RUN CODE & RUN TESTS BUTTONS - ICON ONLY
+     ══════════════════════════════════════════════════════════ */
 
 .btn-primary,
 .btn-secondary {
@@ -151,14 +232,14 @@
 
 /* Run Tests Button - Green */
 .btn-secondary {
-  background: rgba(52, 211, 153, 0.12);
-  border: 1.5px solid rgba(52, 211, 153, 0.35);
-  color: #34d399;
+  background: var(--green-bg);
+  border: 1.5px solid var(--green-border);
+  color: var(--green);
 }
 
 .btn-secondary:hover:not(:disabled) {
-  background: rgba(52, 211, 153, 0.2);
-  border-color: #34d399;
+  background: var(--green-bg-hover);
+  border-color: var(--green);
   transform: translateY(-2px);
   box-shadow: 0 2px 10px rgba(52, 211, 153, 0.3);
 }
@@ -190,14 +271,15 @@
   left: 50%;
   transform: translateX(-50%);
   padding: 6px 12px;
-  background: #1a1a2e;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
   border-radius: 6px;
   font-size: 12px;
   white-space: nowrap;
   z-index: 1000;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  box-shadow: var(--shadow-md);
   pointer-events: none;
+  color: var(--text-primary);
 }
 
 .btn-primary:hover:not(:disabled)::after,
@@ -208,7 +290,7 @@
   left: 50%;
   transform: translateX(-50%);
   border: 6px solid transparent;
-  border-top-color: #1a1a2e;
+  border-top-color: var(--bg-secondary);
   z-index: 1000;
   pointer-events: none;
 }
@@ -233,18 +315,18 @@
   justify-content: center;
   width: 36px;
   height: 36px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
   border-radius: 8px;
-  color: #aaa;
+  color: var(--text-secondary);
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .feature-btn:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.1);
-  color: #fff;
-  border-color: #667eea;
+  background: var(--bg-surface-hover);
+  color: var(--text-primary);
+  border-color: var(--accent);
 }
 
 .feature-btn:disabled {
@@ -256,6 +338,13 @@
   transform: scale(0.95);
 }
 
+/* ── Active feature button ─────────────────────────────────────── */
+.feature-btn.active {
+  background: var(--accent-bg);
+  border-color: var(--accent-border);
+  color: var(--accent);
+}
+
 /* MORE MENU */
 .more-menu-container {
   position: relative;
@@ -265,12 +354,12 @@
   position: absolute;
   top: calc(100% + 8px);
   right: 0;
-  background: #2a2a3e;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
   border-radius: 12px;
   padding: 8px;
   min-width: 180px;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+  box-shadow: var(--shadow-lg);
   z-index: 1000;
   animation: dropdownSlide 0.2s ease-out;
 }
@@ -295,7 +384,7 @@
   background: transparent;
   border: none;
   border-radius: 8px;
-  color: #fff;
+  color: var(--text-primary);
   font-size: 14px;
   cursor: pointer;
   transition: all 0.2s;
@@ -303,26 +392,26 @@
 }
 
 .dropdown-menu button:hover {
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--bg-surface-hover);
 }
 
 .dropdown-menu button.danger {
-  color: #ef4444;
+  color: var(--danger);
 }
 
 .dropdown-menu button.danger:hover {
-  background: rgba(239, 68, 68, 0.1);
+  background: var(--danger-bg);
 }
 
 .menu-divider {
   height: 1px;
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--border-color);
   margin: 4px 0;
 }
 
 /* ========================================
-   3-COLUMN BODY LAYOUT
-   ======================================== */
+     3-COLUMN BODY LAYOUT
+     ======================================== */
 
 .room-body {
   display: flex;
@@ -339,14 +428,14 @@
   flex-direction: column;
 }
 
-/* CENTER: Editor — flex: 1 means it always fills remaining space */
+/* CENTER: Editor */
 .editor-area {
   flex: 1;
   display: flex;
   flex-direction: column;
   overflow: hidden;
   min-width: 0;
-  background: #1e1e1e;
+  background: var(--editor-bg);
 }
 
 .code-editor-wrapper {
@@ -367,11 +456,11 @@
   align-items: center;
   justify-content: center;
   height: 100%;
-  color: #6b7280;
+  color: var(--text-muted);
   font-size: 0.9rem;
 }
 
-/* RIGHT: Side panels — no fixed width, content defines it */
+/* RIGHT: Side panels */
 .side-panels {
   display: flex;
   flex-direction: column;
@@ -382,8 +471,8 @@
 .side-panel {
   width: 400px;
   height: 100%;
-  background: #1e1e2e;
-  border-left: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--bg-primary);
+  border-left: 1px solid var(--border-color);
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -393,9 +482,9 @@
 }
 
 .chat-sidebar {
-  width: 100%; /* ✅ fill the side-panel wrapper — no more gap */
+  width: 100%;
   height: 100%;
-  background: #1e1e2e;
+  background: var(--bg-primary);
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -403,8 +492,8 @@
 }
 
 /* ========================================
-   GIST MODALS
-   ======================================== */
+     GIST MODALS
+     ======================================== */
 
 .modal-overlay {
   position: fixed;
@@ -428,13 +517,14 @@
 }
 
 .modal-content {
-  background: #1e1e2e;
+  background: var(--modal-bg);
   border-radius: 12px;
   width: 90%;
   max-width: 500px;
   max-height: 80vh;
   overflow-y: auto;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  box-shadow: var(--shadow-lg);
+  border: 1px solid var(--border-color);
   animation: slideUp 0.3s ease-out;
 }
 
@@ -446,14 +536,14 @@
   background: transparent;
   border: none;
   border-radius: 6px;
-  color: #9ca3af;
+  color: var(--text-secondary);
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .modal-close-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
-  color: #fff;
+  background: var(--bg-surface-hover);
+  color: var(--text-primary);
 }
 
 @keyframes slideUp {
@@ -472,14 +562,14 @@
   align-items: center;
   justify-content: space-between;
   padding: 20px 24px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  border-bottom: 1px solid var(--border-color);
 }
 
 .modal-title {
   display: flex;
   align-items: center;
   gap: 12px;
-  color: #fff;
+  color: var(--text-primary);
 }
 
 .modal-title h3 {
@@ -491,7 +581,7 @@
 .modal-header button {
   background: transparent;
   border: none;
-  color: #9ca3af;
+  color: var(--text-secondary);
   cursor: pointer;
   padding: 8px;
   border-radius: 6px;
@@ -499,8 +589,8 @@
 }
 
 .modal-header button:hover {
-  background: rgba(255, 255, 255, 0.1);
-  color: #fff;
+  background: var(--bg-surface-hover);
+  color: var(--text-primary);
 }
 
 .modal-body {
@@ -508,7 +598,7 @@
 }
 
 .modal-body p {
-  color: #9ca3af;
+  color: var(--text-secondary);
   font-size: 0.9rem;
   margin-bottom: 20px;
   line-height: 1.5;
@@ -520,7 +610,7 @@
 
 .form-group label {
   display: block;
-  color: #d4d4d4;
+  color: var(--text-primary);
   font-size: 0.85rem;
   font-weight: 600;
   margin-bottom: 8px;
@@ -529,10 +619,10 @@
 .form-group input {
   width: 100%;
   padding: 12px;
-  background: #252536;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--input-bg);
+  border: 1px solid var(--border-color);
   border-radius: 8px;
-  color: #fff;
+  color: var(--text-primary);
   font-size: 0.9rem;
   outline: none;
   transition: all 0.2s;
@@ -540,8 +630,8 @@
 }
 
 .form-group input:focus {
-  border-color: #667eea;
-  background: #2a2a3e;
+  border-color: var(--accent);
+  background: var(--input-bg-focus);
 }
 
 .files-preview {
@@ -550,7 +640,7 @@
 
 .files-preview label {
   display: block;
-  color: #d4d4d4;
+  color: var(--text-primary);
   font-size: 0.85rem;
   font-weight: 600;
   margin-bottom: 8px;
@@ -559,15 +649,15 @@
 .files-list {
   max-height: 150px;
   overflow-y: auto;
-  background: #252536;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--input-bg);
+  border: 1px solid var(--border-color);
   border-radius: 8px;
   padding: 8px;
 }
 
 .files-list div {
   padding: 6px 8px;
-  color: #9ca3af;
+  color: var(--text-secondary);
   font-size: 0.85rem;
   font-family: "Consolas", "Monaco", monospace;
 }
@@ -583,13 +673,13 @@
 }
 
 .success-message h4 {
-  color: #fff;
+  color: var(--text-primary);
   margin: 0 0 8px 0;
   font-size: 1.2rem;
 }
 
 .success-message p {
-  color: #9ca3af;
+  color: var(--text-secondary);
   margin: 0 0 20px 0;
 }
 
@@ -602,28 +692,28 @@
 .gist-url-box input {
   flex: 1;
   padding: 12px;
-  background: #252536;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--input-bg);
+  border: 1px solid var(--border-color);
   border-radius: 8px;
-  color: #fff;
+  color: var(--text-primary);
   font-size: 0.85rem;
   font-family: "Consolas", "Monaco", monospace;
 }
 
 .gist-url-box button {
   padding: 12px 20px;
-  background: rgba(102, 126, 234, 0.1);
-  border: 1px solid rgba(102, 126, 234, 0.3);
+  background: var(--accent-bg);
+  border: 1px solid var(--accent-border);
   border-radius: 8px;
-  color: #667eea;
+  color: var(--accent);
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .gist-url-box button:hover {
-  background: rgba(102, 126, 234, 0.2);
-  border-color: #667eea;
+  background: var(--accent-bg-hover);
+  border-color: var(--accent);
 }
 
 .modal-body .btn-primary,
@@ -640,15 +730,15 @@
   align-items: center;
   gap: 8px;
   text-decoration: none;
-  background: #24292e;
-  border: 1px solid #444c56;
-  color: #fff;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
   margin-top: 12px;
 }
 
 .modal-body .btn-secondary:hover {
-  background: #2d333b;
-  border-color: #555d66;
+  background: var(--bg-surface-hover);
+  border-color: var(--text-muted);
 }
 
 /* UTILITIES */
@@ -666,8 +756,8 @@
 }
 
 /* ========================================
-   RESPONSIVE DESIGN
-   ======================================== */
+     RESPONSIVE DESIGN
+     ======================================== */
 
 @media (max-width: 1400px) {
   .header-section-center {
@@ -722,7 +812,7 @@
   .file-explorer-sidebar {
     width: 80px;
     flex-shrink: 0;
-    border-right: 1px solid rgba(255, 255, 255, 0.1);
+    border-right: 1px solid var(--border-color);
     border-bottom: none;
   }
   .editor-area {
@@ -735,7 +825,7 @@
     max-height: 300px;
     flex-direction: column;
     overflow-y: auto;
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    border-top: 1px solid var(--border-color);
   }
   .side-panel,
   .chat-sidebar {
@@ -743,7 +833,7 @@
     height: auto;
     min-height: 200px;
     border-left: none;
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    border-top: 1px solid var(--border-color);
   }
   .btn-primary,
   .btn-secondary {
@@ -776,8 +866,8 @@
   align-items: flex-start;
   gap: 10px;
   padding: 8px 16px;
-  background: #1a1a2e;
-  border-bottom: 1px solid #2d2d2d;
+  background: var(--stdin-bg);
+  border-bottom: 1px solid var(--border-color);
   flex-shrink: 0;
 }
 
@@ -786,7 +876,7 @@
   align-items: center;
   gap: 6px;
   font-size: 11px;
-  color: #9ca3af;
+  color: var(--text-secondary);
   white-space: nowrap;
   padding-top: 8px;
   font-weight: 700;
@@ -796,10 +886,10 @@
 
 .stdin-textarea {
   flex: 1;
-  background: #0d0d1a;
-  border: 1px solid #2d2d2d;
+  background: var(--stdin-input-bg);
+  border: 1px solid var(--border-color);
   border-radius: 6px;
-  color: #e2e8f0;
+  color: var(--text-primary);
   font-family: "Courier New", Courier, monospace;
   font-size: 13px;
   padding: 6px 10px;
@@ -811,16 +901,17 @@
 }
 
 .stdin-textarea:focus {
-  border-color: #667eea;
+  border-color: var(--accent);
 }
+
 .stdin-textarea::placeholder {
-  color: #4b5563;
+  color: var(--text-muted);
 }
 
 .stdin-close {
   background: transparent;
   border: none;
-  color: #6b7280;
+  color: var(--text-muted);
   cursor: pointer;
   padding: 4px;
   border-radius: 4px;
@@ -830,14 +921,7 @@
   transition: color 0.2s;
 }
 .stdin-close:hover {
-  color: #ef4444;
-}
-
-/* ── Active feature button ─────────────────────────────────────── */
-.feature-btn.active {
-  background: rgba(102, 126, 234, 0.15);
-  border-color: rgba(102, 126, 234, 0.5);
-  color: #667eea;
+  color: var(--danger);
 }
 
 /* ── Full-width button inside modal body ───────────────────────── */
@@ -856,20 +940,20 @@
   justify-content: center;
   margin-top: 12px;
   padding: 12px;
-  background: #24292e;
-  border: 1px solid #444c56;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
   border-radius: 8px;
-  color: #fff;
+  color: var(--text-primary);
   font-weight: 600;
   text-decoration: none;
   transition: all 0.2s;
 }
 .gist-view-link:hover {
-  background: #2d333b;
-  border-color: #666;
+  background: var(--bg-surface-hover);
+  border-color: var(--text-muted);
 }
 
-/* ✅ Output restore tab — VS Code-style vertical strip on the right edge */
+/* ✅ Output restore tab — VS Code-style vertical strip */
 .output-restore-tab {
   display: flex;
   flex-direction: column;
@@ -879,10 +963,10 @@
   width: 28px;
   height: 100%;
   padding: 16px 0;
-  background: #1e1e1e;
+  background: var(--editor-bg);
   border: none;
-  border-left: 2px solid #667eea;
-  color: #9ca3af;
+  border-left: 2px solid var(--accent);
+  color: var(--text-secondary);
   cursor: pointer;
   flex-shrink: 0;
   transition:
@@ -891,8 +975,8 @@
 }
 
 .output-restore-tab:hover {
-  background: #252530;
-  color: #fff;
+  background: var(--bg-surface-hover);
+  color: var(--text-primary);
 }
 
 .output-restore-tab svg {
@@ -904,7 +988,6 @@
   opacity: 1;
 }
 
-/* Rotate the text to read bottom-to-top */
 .output-restore-tab span {
   writing-mode: vertical-rl;
   text-orientation: mixed;

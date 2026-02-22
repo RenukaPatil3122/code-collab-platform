@@ -1,28 +1,29 @@
-/* src/components/interview/TimerWidget.css */
+/* src/components/interview/TimerWidget.css - THEME FIXED */
 
 .timer-widget {
   display: flex;
   align-items: center;
   gap: 10px;
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.15);
   border-radius: 10px;
   padding: 8px 14px;
-  border: 2px solid rgba(255, 255, 255, 0.1);
+  border: 2px solid rgba(255, 255, 255, 0.4);
   position: relative;
   min-width: 120px;
+  backdrop-filter: blur(4px);
 }
 
 .timer-widget.normal {
-  border-color: #667eea;
+  border-color: rgba(255, 255, 255, 0.5);
 }
-
 .timer-widget.warning {
   border-color: #fbbf24;
+  background: rgba(251, 191, 36, 0.2);
   animation: pulse-warning 2s infinite;
 }
-
 .timer-widget.critical {
   border-color: #ef4444;
+  background: rgba(239, 68, 68, 0.2);
   animation: pulse-critical 1s infinite;
 }
 
@@ -53,13 +54,11 @@
 }
 
 .timer-icon {
-  color: #667eea;
+  color: #fff;
 }
-
 .timer-widget.warning .timer-icon {
   color: #fbbf24;
 }
-
 .timer-widget.critical .timer-icon {
   color: #ef4444;
 }
@@ -77,7 +76,7 @@
   left: 0;
   right: 0;
   height: 3px;
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--bg-surface, rgba(255, 255, 255, 0.1));
   border-radius: 0 0 10px 10px;
   overflow: hidden;
 }
@@ -87,11 +86,9 @@
   background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
   transition: width 1s linear;
 }
-
 .timer-widget.warning .timer-progress-fill {
   background: linear-gradient(90deg, #fbbf24 0%, #f59e0b 100%);
 }
-
 .timer-widget.critical .timer-progress-fill {
   background: linear-gradient(90deg, #ef4444 0%, #dc2626 100%);
 }
@@ -99,7 +96,7 @@
 .btn-timer-control {
   background: transparent;
   border: none;
-  color: #888;
+  color: var(--text-secondary, #888);
   cursor: pointer;
   padding: 4px;
   border-radius: 4px;
@@ -107,8 +104,7 @@
   align-items: center;
   transition: all 0.2s;
 }
-
 .btn-timer-control:hover {
-  background: rgba(255, 255, 255, 0.1);
-  color: #fff;
+  background: var(--bg-surface-hover, rgba(255, 255, 255, 0.1));
+  color: var(--text-primary, #fff);
 }

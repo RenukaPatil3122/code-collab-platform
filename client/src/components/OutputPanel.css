@@ -5,8 +5,8 @@
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  background: #1e1e1e;
-  border-left: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--bg-primary, #1e1e1e);
+  border-left: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
   overflow: hidden;
   min-height: 0;
 }
@@ -17,8 +17,8 @@
   align-items: center;
   justify-content: space-between;
   padding: 12px 16px;
-  border-bottom: 1px solid #2d2d2d;
-  background: #252526;
+  border-bottom: 1px solid var(--border-color, #2d2d2d);
+  background: var(--bg-secondary, #252526);
   flex-shrink: 0;
 }
 
@@ -26,7 +26,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  color: #fff;
+  color: var(--text-primary, #fff);
   font-size: 0.9rem;
   font-weight: 600;
 }
@@ -54,15 +54,15 @@
   align-items: center;
   gap: 4px;
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--text-secondary, rgba(255, 255, 255, 0.5));
   padding: 2px 8px;
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--bg-surface, rgba(255, 255, 255, 0.05));
   border-radius: 10px;
   animation: fadeInBadge 0.4s ease-out;
 }
 
 .memory-used {
-  color: rgba(255, 255, 255, 0.35);
+  color: var(--text-muted, rgba(255, 255, 255, 0.35));
   margin-left: 2px;
 }
 
@@ -82,7 +82,7 @@
   align-items: center;
   gap: 6px;
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--text-secondary, rgba(255, 255, 255, 0.4));
   padding: 2px 8px;
 }
 
@@ -90,7 +90,7 @@
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: #667eea;
+  background: var(--accent, #667eea);
   animation: pulse-dot 1s ease-in-out infinite;
 }
 
@@ -112,8 +112,8 @@
   gap: 4px;
   font-size: 11px;
   padding: 3px 8px;
-  background: rgba(239, 68, 68, 0.15);
-  color: #ef4444;
+  background: var(--danger-bg, rgba(239, 68, 68, 0.15));
+  color: var(--danger, #ef4444);
   border: 1px solid rgba(239, 68, 68, 0.3);
   border-radius: 6px;
   cursor: pointer;
@@ -127,16 +127,16 @@
 .run-again-btn {
   font-size: 11px;
   padding: 3px 8px;
-  background: rgba(102, 126, 234, 0.15);
-  color: #667eea;
-  border: 1px solid rgba(102, 126, 234, 0.3);
+  background: var(--accent-bg, rgba(102, 126, 234, 0.15));
+  color: var(--accent, #667eea);
+  border: 1px solid var(--accent-border, rgba(102, 126, 234, 0.3));
   border-radius: 6px;
   cursor: pointer;
   transition: background 0.15s;
 }
 
 .run-again-btn:hover {
-  background: rgba(102, 126, 234, 0.28);
+  background: var(--accent-bg-hover, rgba(102, 126, 234, 0.28));
 }
 
 .control-btn {
@@ -147,20 +147,20 @@
   background: transparent;
   border: none;
   border-radius: 4px;
-  color: #9ca3af;
+  color: var(--text-secondary, #9ca3af);
   cursor: pointer;
   transition: all 0.2s;
 }
 .control-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
-  color: #fff;
+  background: var(--bg-surface-hover, rgba(255, 255, 255, 0.1));
+  color: var(--text-primary, #fff);
 }
 
 /* ── Stdin ── */
 .stdin-section {
   padding: 12px 16px;
-  background: #252526;
-  border-bottom: 1px solid #2d2d2d;
+  background: var(--bg-secondary, #252526);
+  border-bottom: 1px solid var(--border-color, #2d2d2d);
   flex-shrink: 0;
 }
 
@@ -168,7 +168,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  color: #9ca3af;
+  color: var(--text-secondary, #9ca3af);
   font-size: 0.85rem;
   font-weight: 600;
   margin-bottom: 8px;
@@ -177,10 +177,10 @@
 .stdin-input {
   width: 100%;
   padding: 10px;
-  background: #1e1e1e;
-  border: 1px solid #3e3e42;
+  background: var(--bg-primary, #1e1e1e);
+  border: 1px solid var(--border-color, #3e3e42);
   border-radius: 6px;
-  color: #d4d4d4;
+  color: var(--text-primary, #d4d4d4);
   font-family: "Consolas", "Monaco", monospace;
   font-size: 0.85rem;
   resize: vertical;
@@ -189,16 +189,16 @@
   transition: border-color 0.2s;
 }
 .stdin-input:focus {
-  border-color: #667eea;
+  border-color: var(--accent, #667eea);
 }
 .stdin-input::placeholder {
-  color: #6b7280;
+  color: var(--text-muted, #6b7280);
 }
 
 .stdin-hint {
   margin-top: 6px;
   font-size: 0.75rem;
-  color: #6b7280;
+  color: var(--text-muted, #6b7280);
   font-style: italic;
 }
 
@@ -239,10 +239,11 @@
   overflow: hidden;
   padding: 12px 16px;
   min-height: 0;
+  background: var(--bg-primary, #1e1e1e);
 }
 
 .output-label {
-  color: #9ca3af;
+  color: var(--text-secondary, #9ca3af);
   font-size: 0.8rem;
   font-weight: 600;
   margin-bottom: 8px;
@@ -253,12 +254,12 @@
   flex: 1;
   margin: 0;
   padding: 12px;
-  background: #0d1117;
-  border: 1px solid #2d2d2d;
+  background: var(--stdin-input-bg, #0d1117);
+  border: 1px solid var(--border-color, #2d2d2d);
   border-radius: 6px;
   font-family: "Consolas", "Monaco", monospace;
   font-size: 0.85rem;
-  color: #d4d4d4;
+  color: var(--text-primary, #d4d4d4);
   white-space: pre-wrap;
   word-wrap: break-word;
   word-break: break-all;
@@ -269,11 +270,37 @@
   max-height: 100%;
 }
 
+/* In light mode, keep the code output area always dark — easier to read */
+[data-theme="light"] .output-content {
+  background: #1a1a2e;
+  color: #e2e8f0;
+  border-color: rgba(0, 0, 0, 0.15);
+}
+
+[data-theme="light"] .output-content.success-empty {
+  color: #94a3b8;
+}
+
+[data-theme="light"] .output-content.compile-error,
+[data-theme="light"] .output-content.runtime-error {
+  color: #fca5a5;
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+[data-theme="light"] .output-content.timeout {
+  color: #fcd34d;
+  border-color: rgba(245, 158, 11, 0.3);
+}
+
+[data-theme="light"] .output-content.running {
+  color: #94a3b8;
+}
+
 .output-content.success {
-  color: #d4d4d4;
+  color: var(--text-primary, #d4d4d4);
 }
 .output-content.success-empty {
-  color: #6b7280;
+  color: var(--text-muted, #6b7280);
   font-style: italic;
 }
 .output-content.compile-error,
@@ -286,7 +313,7 @@
   border-color: rgba(245, 158, 11, 0.2);
 }
 .output-content.running {
-  color: #9ca3af;
+  color: var(--text-muted, #9ca3af);
   font-style: italic;
 }
 
@@ -294,6 +321,6 @@
   width: 6px;
 }
 .output-content::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--border-color, rgba(255, 255, 255, 0.1));
   border-radius: 3px;
 }

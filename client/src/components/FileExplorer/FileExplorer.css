@@ -2,17 +2,19 @@
 
 .file-explorer {
   width: 240px;
-  background: #252526;
+  background: var(--bg-secondary, #252526);
   display: flex;
   flex-direction: column;
   user-select: none;
-  border-right: 1px solid #1e1e1e;
+  border-right: 1px solid var(--border-color, #1e1e1e);
   height: 100%;
-  transition: width 0.15s ease;
+  transition:
+    width 0.15s ease,
+    background 0.2s ease;
   flex-shrink: 0;
 }
 
-/* ✅ COLLAPSED STATE - shrink to icon bar */
+/* ✅ COLLAPSED STATE */
 .file-explorer.collapsed {
   width: 48px;
   min-width: 48px;
@@ -24,13 +26,12 @@
   align-items: center;
   justify-content: space-between;
   padding: 8px 10px;
-  border-bottom: 1px solid #1e1e1e;
+  border-bottom: 1px solid var(--border-color, #1e1e1e);
   min-height: 36px;
-  background: #252526;
+  background: var(--bg-secondary, #252526);
   flex-shrink: 0;
 }
 
-/* Collapsed header - center the icon */
 .file-explorer.collapsed .explorer-header {
   justify-content: center;
   padding: 8px 0;
@@ -40,7 +41,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  color: #9ca3af;
+  color: var(--text-secondary, #9ca3af);
   font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.8px;
@@ -52,7 +53,6 @@
   white-space: nowrap;
 }
 
-/* Collapsed title - center the icon */
 .file-explorer.collapsed .explorer-title {
   flex: none;
   width: 100%;
@@ -60,7 +60,7 @@
 }
 
 .explorer-title:hover {
-  color: #fff;
+  color: var(--text-primary, #fff);
 }
 
 .chevron {
@@ -86,14 +86,14 @@
   background: transparent;
   border: none;
   border-radius: 4px;
-  color: #6b7280;
+  color: var(--text-muted, #6b7280);
   cursor: pointer;
   transition: all 0.15s;
 }
 
 .explorer-action-btn:hover {
-  background: #2d2d2d;
-  color: #fff;
+  background: var(--bg-surface-hover, #2d2d2d);
+  color: var(--text-primary, #fff);
 }
 
 /* ── File List ── */
@@ -107,7 +107,7 @@
   width: 4px;
 }
 .file-list::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--border-color, rgba(255, 255, 255, 0.08));
   border-radius: 2px;
 }
 
@@ -122,7 +122,7 @@
   gap: 8px;
   padding: 5px 10px 5px 12px;
   cursor: pointer;
-  color: #d4d4d4;
+  color: var(--text-primary, #d4d4d4);
   font-size: 0.85rem;
   transition: background 0.1s;
   min-height: 28px;
@@ -130,13 +130,13 @@
 }
 
 .folder-item:hover {
-  background: #2a2d2e;
+  background: var(--bg-surface, #2a2d2e);
 }
 
 .folder-chevron {
   transition: transform 0.2s;
   flex-shrink: 0;
-  color: #9ca3af;
+  color: var(--text-secondary, #9ca3af);
 }
 
 .folder-chevron.open {
@@ -148,7 +148,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: #dcb67a;
+  color: #dcb67a; /* keep folder color consistent across themes */
 }
 
 .folder-contents {
@@ -162,7 +162,7 @@
   gap: 8px;
   padding: 5px 10px 5px 24px;
   cursor: pointer;
-  color: #d4d4d4;
+  color: var(--text-primary, #d4d4d4);
   font-size: 0.85rem;
   position: relative;
   transition: background 0.1s;
@@ -170,12 +170,12 @@
 }
 
 .file-item:hover {
-  background: #2a2d2e;
+  background: var(--bg-surface, #2a2d2e);
 }
 
 .file-item.active {
-  background: #37373d;
-  color: #fff;
+  background: var(--bg-tertiary, #37373d);
+  color: var(--text-primary, #fff);
 }
 
 .file-item.active::before {
@@ -185,7 +185,7 @@
   top: 0;
   bottom: 0;
   width: 2px;
-  background: #667eea;
+  background: var(--accent, #667eea);
 }
 
 .file-name {
@@ -209,11 +209,11 @@
 }
 
 .file-item-icon:hover {
-  background: #2a2d2e;
+  background: var(--bg-surface, #2a2d2e);
 }
 
 .file-item-icon.active {
-  background: #37373d;
+  background: var(--bg-tertiary, #37373d);
 }
 
 .file-item-icon.active::before {
@@ -223,7 +223,7 @@
   top: 0;
   bottom: 0;
   width: 2px;
-  background: #667eea;
+  background: var(--accent, #667eea);
 }
 
 /* ── File Actions (hover) ── */
@@ -242,19 +242,19 @@
   background: transparent;
   border: none;
   border-radius: 3px;
-  color: #9ca3af;
+  color: var(--text-secondary, #9ca3af);
   cursor: pointer;
   transition: all 0.15s;
 }
 
 .file-action-btn:hover {
-  background: #3e3e3e;
-  color: #fff;
+  background: var(--bg-surface-hover, #3e3e3e);
+  color: var(--text-primary, #fff);
 }
 
 .file-action-btn.danger:hover {
-  background: rgba(239, 68, 68, 0.2);
-  color: #ef4444;
+  background: var(--danger-bg, rgba(239, 68, 68, 0.2));
+  color: var(--danger, #ef4444);
 }
 
 /* ── Rename Input ── */
@@ -265,10 +265,10 @@
 
 .rename-input {
   flex: 1;
-  background: #3c3c3c;
-  border: 1px solid #667eea;
+  background: var(--bg-tertiary, #3c3c3c);
+  border: 1px solid var(--accent, #667eea);
   border-radius: 3px;
-  color: #fff;
+  color: var(--text-primary, #fff);
   font-size: 0.85rem;
   padding: 1px 6px;
   outline: none;
@@ -284,7 +284,7 @@
   min-height: 28px;
 }
 
-/* ── Responsive: Hide text in collapsed state ── */
+/* ── Collapsed: hide folders ── */
 .file-explorer.collapsed .file-list {
   padding: 4px 0;
 }

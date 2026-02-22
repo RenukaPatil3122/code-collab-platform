@@ -1,10 +1,10 @@
-/* src/components/interview/InterviewMode.css */
+/* src/components/interview/InterviewMode.css - THEME FIXED */
 
 /* ── Fullscreen Interview (active) ─────────────────── */
 .interview-mode-fullscreen {
   position: fixed;
   inset: 0;
-  background: #1e1e1e;
+  background: var(--editor-bg, #1e1e1e);
   z-index: 10000;
   display: flex;
   flex-direction: column;
@@ -30,6 +30,7 @@
 .interview-icon {
   font-size: 1.5rem;
 }
+
 .interview-header h3 {
   margin: 0;
   font-size: 1.1rem;
@@ -96,27 +97,25 @@
 .interview-content-split {
   display: flex;
   flex: 1;
-  overflow: hidden; /* ✅ critical — children must not overflow this */
+  overflow: hidden;
   min-height: 0;
 }
 
-/* ✅ LEFT: problem panel — fixed 45% width, scrolls internally, NO empty gap */
 .interview-problem-side {
   flex: 0 0 45%;
   display: flex;
   flex-direction: column;
-  overflow: hidden; /* ✅ let ProblemPanel scroll internally */
-  background: #2d2d2d;
-  border-right: 2px solid #444;
+  overflow: hidden;
+  background: var(--bg-tertiary, #2d2d2d);
+  border-right: 2px solid var(--border-color, #444);
   min-height: 0;
 }
 
-/* ✅ RIGHT: editor side fills remaining space */
 .interview-editor-side {
   flex: 1;
   display: flex;
   flex-direction: column;
-  background: #1e1e1e;
+  background: var(--editor-bg, #1e1e1e);
   overflow: hidden;
   min-height: 0;
   min-width: 0;
@@ -127,9 +126,9 @@
   align-items: center;
   gap: 0.5rem;
   padding: 0.75rem 1rem;
-  background: #2d2d2d;
-  border-bottom: 1px solid #444;
-  color: #fff;
+  background: var(--bg-tertiary, #2d2d2d);
+  border-bottom: 1px solid var(--border-color, #444);
+  color: var(--text-primary, #fff);
   font-weight: 600;
   flex-shrink: 0;
 }
@@ -163,11 +162,12 @@
 }
 
 .interview-mode-modal {
-  background: #2d2d2d;
+  background: var(--bg-tertiary, #2d2d2d);
+  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
   border-radius: 12px;
   width: 100%;
   max-width: 800px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  box-shadow: var(--shadow-lg, 0 20px 60px rgba(0, 0, 0, 0.5));
   animation: modalSlideIn 0.3s ease-out;
   margin: auto;
   position: relative;
@@ -223,66 +223,65 @@
 
 .interview-modal-content {
   padding: 1.5rem;
-  color: #e0e0e0;
+  color: var(--text-primary, #e0e0e0);
 }
 
 .interview-info-card {
   display: flex;
   gap: 1rem;
   padding: 1rem;
-  background: linear-gradient(135deg, #667eea20 0%, #764ba220 100%);
+  background: var(--accent-bg, rgba(102, 126, 234, 0.1));
   border-radius: 8px;
   margin-bottom: 1.5rem;
-  border-left: 4px solid #667eea;
+  border-left: 4px solid var(--accent, #667eea);
 }
 .interview-info-card h4 {
   margin: 0 0 0.5rem 0;
-  color: #667eea;
+  color: var(--accent, #667eea);
 }
 .interview-info-card p {
   margin: 0;
-  color: #b0b0b0;
+  color: var(--text-secondary, #b0b0b0);
 }
 
 .language-selection {
   margin-bottom: 1.5rem;
   padding: 1.5rem;
-  background: rgba(102, 126, 234, 0.1);
+  background: var(--accent-bg, rgba(102, 126, 234, 0.1));
   border-radius: 8px;
-  border: 1px solid rgba(102, 126, 234, 0.3);
+  border: 1px solid var(--accent-border, rgba(102, 126, 234, 0.3));
 }
 .language-selection h3 {
   display: flex;
   align-items: center;
   gap: 0.5rem;
   margin: 0 0 1rem 0;
-  color: #667eea;
+  color: var(--accent, #667eea);
   font-size: 1rem;
 }
 
 .interview-language-dropdown {
   width: 100%;
   padding: 0.75rem;
-  background: #383838;
-  border: 2px solid #667eea;
+  background: var(--bg-secondary, #383838);
+  border: 2px solid var(--accent, #667eea);
   border-radius: 8px;
-  color: #fff;
+  color: var(--text-primary, #fff);
   font-size: 1rem;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
 }
 .interview-language-dropdown:hover {
-  background: #444;
-  border-color: #764ba2;
+  background: var(--bg-surface-hover, #444);
 }
 .interview-language-dropdown:focus {
   outline: none;
-  border-color: #764ba2;
+  border-color: var(--accent-secondary, #764ba2);
 }
 .interview-language-dropdown option {
-  background: #383838;
-  color: #fff;
+  background: var(--bg-secondary, #383838);
+  color: var(--text-primary, #fff);
 }
 
 .difficulty-selection {
@@ -290,7 +289,7 @@
 }
 .difficulty-selection h3 {
   margin-bottom: 1rem;
-  color: #fff;
+  color: var(--text-primary, #fff);
 }
 
 .difficulty-options {
@@ -300,8 +299,8 @@
 }
 
 .difficulty-btn {
-  background: #383838;
-  border: 2px solid #444;
+  background: var(--bg-secondary, #383838);
+  border: 2px solid var(--border-color, #444);
   border-radius: 8px;
   padding: 1rem;
   cursor: pointer;
@@ -309,7 +308,7 @@
   text-align: center;
 }
 .difficulty-btn:hover {
-  border-color: #667eea;
+  border-color: var(--accent, #667eea);
   transform: translateY(-2px);
 }
 .difficulty-btn.easy.active {
@@ -329,16 +328,16 @@
   font-weight: 600;
   font-size: 1.1rem;
   margin-bottom: 0.5rem;
-  color: #fff;
+  color: var(--text-primary, #fff);
 }
 .difficulty-time {
-  color: #667eea;
+  color: var(--accent, #667eea);
   font-weight: 500;
   margin-bottom: 0.5rem;
 }
 .difficulty-desc {
   font-size: 0.85rem;
-  color: #b0b0b0;
+  color: var(--text-secondary, #b0b0b0);
 }
 
 .problem-selection {
@@ -352,11 +351,11 @@
 }
 .problem-selection-header h3 {
   margin: 0;
-  color: #fff;
+  color: var(--text-primary, #fff);
 }
 
 .btn-toggle-problems {
-  background: #667eea;
+  background: var(--accent, #667eea);
   color: white;
   border: none;
   padding: 0.5rem 1rem;
@@ -371,9 +370,9 @@
 .problem-list {
   max-height: 300px;
   overflow-y: auto;
-  border: 1px solid #444;
+  border: 1px solid var(--border-color, #444);
   border-radius: 8px;
-  background: #383838;
+  background: var(--bg-secondary, #383838);
 }
 
 .problem-item {
@@ -381,7 +380,7 @@
   align-items: center;
   gap: 1rem;
   padding: 1rem;
-  border-bottom: 1px solid #444;
+  border-bottom: 1px solid var(--border-color, #444);
   cursor: pointer;
   transition: all 0.2s;
 }
@@ -389,19 +388,19 @@
   border-bottom: none;
 }
 .problem-item:hover {
-  background: #444;
+  background: var(--bg-surface-hover, #444);
 }
 .problem-item.selected {
-  background: linear-gradient(135deg, #667eea20, #764ba220);
-  border-left: 4px solid #667eea;
+  background: var(--accent-bg, rgba(102, 126, 234, 0.12));
+  border-left: 4px solid var(--accent, #667eea);
 }
 .problem-info h4 {
   margin: 0 0 0.25rem 0;
-  color: #fff;
+  color: var(--text-primary, #fff);
 }
 .problem-info p {
   margin: 0;
-  color: #b0b0b0;
+  color: var(--text-secondary, #b0b0b0);
   font-size: 0.9rem;
 }
 .selected-icon {
@@ -444,22 +443,22 @@
 }
 
 .interview-tips {
-  background: #383838;
+  background: var(--bg-secondary, #383838);
   padding: 1rem;
   border-radius: 8px;
-  border-left: 4px solid #667eea;
+  border-left: 4px solid var(--accent, #667eea);
   margin-bottom: 1.5rem;
 }
 .interview-tips h4 {
   margin: 0 0 0.75rem 0;
-  color: #667eea;
+  color: var(--accent, #667eea);
 }
 .interview-tips ul {
   margin: 0;
   padding-left: 1.5rem;
 }
 .interview-tips li {
-  color: #b0b0b0;
+  color: var(--text-secondary, #b0b0b0);
   margin-bottom: 0.5rem;
 }
 
@@ -470,7 +469,7 @@
   .interview-problem-side {
     flex: 0 0 40%;
     border-right: none;
-    border-bottom: 2px solid #444;
+    border-bottom: 2px solid var(--border-color, #444);
   }
 }
 @media (max-width: 768px) {

@@ -1,14 +1,23 @@
-/* ProblemPanel.css */
+/* ProblemPanel.css - THEME FIXED */
+
 .problem-panel {
-  background: #1e1e2e;
-  border-radius: 0; /* ✅ no rounding — flush with container */
+  background: var(--bg-primary, #1e1e2e);
+  border-radius: 0;
   padding: 24px;
-  margin: 0; /* ✅ was margin: 16px 24px — this caused the gap */
-  height: 100%; /* ✅ fill full container height */
-  max-height: none; /* ✅ was 400px — this was capping it */
+  margin: 0;
+  height: 100%;
+  max-height: none;
   overflow-y: auto;
   overflow-x: hidden;
   box-sizing: border-box;
+}
+
+.problem-panel::-webkit-scrollbar {
+  width: 6px;
+}
+.problem-panel::-webkit-scrollbar-thumb {
+  background: var(--border-color, rgba(255, 255, 255, 0.1));
+  border-radius: 3px;
 }
 
 .problem-header {
@@ -24,7 +33,7 @@
 
 .problem-title-section h2 {
   margin: 0;
-  color: #fff;
+  color: var(--text-primary, #fff);
   font-size: 24px;
 }
 
@@ -34,17 +43,14 @@
   font-size: 12px;
   font-weight: 600;
 }
-
 .problem-difficulty.easy {
   background: rgba(52, 211, 153, 0.2);
   color: #34d399;
 }
-
 .problem-difficulty.medium {
   background: rgba(251, 191, 36, 0.2);
   color: #fbbf24;
 }
-
 .problem-difficulty.hard {
   background: rgba(239, 68, 68, 0.2);
   color: #ef4444;
@@ -59,13 +65,13 @@
 }
 
 .description-content p {
-  color: #aaa;
+  color: var(--text-secondary, #aaa);
   line-height: 1.8;
   margin: 8px 0;
 }
 
 .example-case {
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--bg-surface, rgba(255, 255, 255, 0.05));
   border-radius: 8px;
   padding: 12px;
   margin: 12px 0;
@@ -77,24 +83,22 @@
   font-weight: 600;
   margin-bottom: 8px;
 }
-
 .example-io {
   font-family: "Courier New", monospace;
   font-size: 14px;
 }
-
 .example-input,
 .example-output {
   margin: 4px 0;
-  color: #ccc;
+  color: var(--text-primary, #ccc);
 }
 
 .hints-toggle {
   display: flex;
   align-items: center;
   gap: 8px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--bg-surface, rgba(255, 255, 255, 0.05));
+  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
   border-radius: 8px;
   padding: 12px;
   cursor: pointer;
@@ -103,15 +107,13 @@
   margin: 16px 0;
   transition: all 0.2s;
 }
-
 .hints-toggle:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--bg-surface-hover, rgba(255, 255, 255, 0.08));
 }
 
 .hints-list {
   margin-top: 12px;
 }
-
 .hint-item {
   margin: 8px 0;
 }
@@ -120,9 +122,9 @@
   display: flex;
   align-items: start;
   gap: 8px;
-  color: #aaa;
+  color: var(--text-secondary, #aaa);
   padding: 12px;
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--bg-surface, rgba(255, 255, 255, 0.03));
   border-radius: 8px;
 }
 
@@ -143,7 +145,6 @@
   font-size: 14px;
   transition: all 0.2s;
 }
-
 .btn-reveal-hint:hover {
   background: rgba(251, 191, 36, 0.2);
 }
@@ -155,16 +156,14 @@
   border-radius: 8px;
   margin-top: 20px;
 }
-
 .problem-constraints h4 {
   color: #ef4444;
   margin: 0 0 12px 0;
   font-size: 16px;
 }
-
 .problem-constraints ul {
   margin: 0;
   padding-left: 20px;
-  color: #aaa;
+  color: var(--text-secondary, #aaa);
   line-height: 1.8;
 }

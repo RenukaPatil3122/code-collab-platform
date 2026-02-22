@@ -317,7 +317,10 @@ function RoomContent() {
   };
 
   return (
-    <div className="room-container">
+    <div
+      className="room-container"
+      data-theme={theme === "light" ? "light" : "dark"}
+    >
       <header className="room-header-clean">
         <div className="header-section-left">
           <h1 className="app-logo">CodeTogether</h1>

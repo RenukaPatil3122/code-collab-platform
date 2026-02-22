@@ -1,13 +1,14 @@
-/* src/components/ai/AIAssistant.css - FIXED VERSION */
+/* src/components/ai/AIAssistant.css - THEME FIXED VERSION */
 
 .ai-assistant-panel {
   display: flex;
   flex-direction: column;
   height: 100%;
   width: 100%;
-  background: #1a1a2e;
+  background: var(--bg-secondary, #1a1a2e);
   position: relative;
   overflow: hidden;
+  transition: background 0.2s ease;
 }
 
 /* ==================== HEADER ==================== */
@@ -17,9 +18,9 @@
   justify-content: space-between;
   align-items: center;
   padding: 20px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  background: #1a1a2e;
-  flex-shrink: 0; /* Prevent header from shrinking */
+  border-bottom: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
+  background: var(--bg-secondary, #1a1a2e);
+  flex-shrink: 0;
   min-height: 60px;
 }
 
@@ -35,7 +36,7 @@
 }
 
 .ai-title h3 {
-  color: #fff;
+  color: var(--text-primary, #fff);
   font-size: 18px;
   font-weight: 700;
   margin: 0;
@@ -51,9 +52,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--bg-surface, rgba(255, 255, 255, 0.1));
   border: none;
-  color: #fff;
+  color: var(--text-primary, #fff);
   padding: 8px;
   border-radius: 6px;
   cursor: pointer;
@@ -62,7 +63,7 @@
 
 .btn-clear-history:hover,
 .btn-close-ai:hover {
-  background: rgba(255, 255, 255, 0.15);
+  background: var(--bg-surface-hover, rgba(255, 255, 255, 0.15));
 }
 
 /* ==================== QUICK ACTIONS ==================== */
@@ -72,9 +73,9 @@
   grid-template-columns: repeat(2, 1fr);
   gap: 10px;
   padding: 16px 20px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  background: #1a1a2e;
-  flex-shrink: 0; /* Prevent actions from shrinking */
+  border-bottom: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
+  background: var(--bg-secondary, #1a1a2e);
+  flex-shrink: 0;
 }
 
 .ai-action-btn {
@@ -83,9 +84,9 @@
   justify-content: center;
   gap: 8px;
   padding: 12px 16px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
   border-radius: 8px;
-  color: #fff;
+  color: var(--text-primary, #fff);
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
@@ -98,10 +99,10 @@
   cursor: not-allowed;
 }
 
+/* Keep action button colors consistent — they're semantic */
 .ai-action-btn.explain {
   background: rgba(96, 165, 250, 0.1);
 }
-
 .ai-action-btn.explain:hover:not(:disabled) {
   background: rgba(96, 165, 250, 0.2);
   border-color: #60a5fa;
@@ -110,7 +111,6 @@
 .ai-action-btn.debug {
   background: rgba(239, 68, 68, 0.1);
 }
-
 .ai-action-btn.debug:hover:not(:disabled) {
   background: rgba(239, 68, 68, 0.2);
   border-color: #ef4444;
@@ -119,7 +119,6 @@
 .ai-action-btn.optimize {
   background: rgba(251, 191, 36, 0.1);
 }
-
 .ai-action-btn.optimize:hover:not(:disabled) {
   background: rgba(251, 191, 36, 0.2);
   border-color: #fbbf24;
@@ -128,41 +127,36 @@
 .ai-action-btn.tests {
   background: rgba(52, 211, 153, 0.1);
 }
-
 .ai-action-btn.tests:hover:not(:disabled) {
   background: rgba(52, 211, 153, 0.2);
   border-color: #34d399;
 }
 
-/* ==================== RESPONSE AREA - CRITICAL FIX ==================== */
+/* ==================== RESPONSE AREA ==================== */
 
 .ai-response-area {
-  flex: 1; /* Take remaining space */
-  overflow-y: auto; /* Enable scrolling */
+  flex: 1;
+  overflow-y: auto;
   overflow-x: hidden;
   padding: 20px;
-  background: #1a1a2e;
-  min-height: 0; /* CRITICAL: Allows flex child to shrink below content size */
-  max-height: 100%; /* Prevent growing beyond container */
+  background: var(--bg-secondary, #1a1a2e);
+  min-height: 0;
+  max-height: 100%;
 }
 
-/* Scrollbar styling */
 .ai-response-area::-webkit-scrollbar {
   width: 8px;
 }
-
 .ai-response-area::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--bg-surface, rgba(255, 255, 255, 0.05));
   border-radius: 4px;
 }
-
 .ai-response-area::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--border-color, rgba(255, 255, 255, 0.1));
   border-radius: 4px;
 }
-
 .ai-response-area::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.15);
+  background: var(--bg-surface-hover, rgba(255, 255, 255, 0.15));
 }
 
 /* ==================== LOADING & EMPTY STATES ==================== */
@@ -175,7 +169,7 @@
   justify-content: center;
   padding: 40px 20px;
   text-align: center;
-  min-height: 200px; /* Reduced from 300px */
+  min-height: 200px;
 }
 
 .spin {
@@ -192,7 +186,7 @@
 }
 
 .ai-loading p {
-  color: #aaa;
+  color: var(--text-secondary, #aaa);
   margin-top: 12px;
   font-size: 14px;
 }
@@ -203,14 +197,14 @@
 }
 
 .ai-empty-state h4 {
-  color: #fff;
+  color: var(--text-primary, #fff);
   margin: 0 0 12px 0;
   font-size: 18px;
   font-weight: 600;
 }
 
 .ai-empty-state p {
-  color: #888;
+  color: var(--text-secondary, #888);
   margin: 0 0 16px 0;
   font-size: 14px;
 }
@@ -224,13 +218,13 @@
 .ai-empty-state li {
   margin: 8px 0;
   font-size: 14px;
-  color: #aaa;
-  text-align: left; /* Left align list items */
+  color: var(--text-secondary, #aaa);
+  text-align: left;
 }
 
 .hint-text {
   font-size: 12px;
-  color: #666;
+  color: var(--text-muted, #666);
   font-style: italic;
   margin-top: 16px;
 }
@@ -238,16 +232,16 @@
 /* ==================== RESPONSE CARDS ==================== */
 
 .ai-response-card {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--bg-surface, rgba(255, 255, 255, 0.03));
+  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
   border-radius: 10px;
   padding: 16px;
   margin-bottom: 16px;
 }
 
 .ai-response-card.latest {
-  border-color: #667eea;
-  background: rgba(102, 126, 234, 0.05);
+  border-color: var(--accent, #667eea);
+  background: var(--accent-bg, rgba(102, 126, 234, 0.05));
 }
 
 .response-header {
@@ -261,7 +255,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  color: #fff;
+  color: var(--text-primary, #fff);
   font-weight: 600;
   font-size: 14px;
 }
@@ -270,9 +264,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--bg-surface, rgba(255, 255, 255, 0.1));
   border: none;
-  color: #aaa;
+  color: var(--text-secondary, #aaa);
   padding: 6px;
   border-radius: 6px;
   cursor: pointer;
@@ -280,8 +274,8 @@
 }
 
 .btn-copy-response:hover {
-  background: rgba(255, 255, 255, 0.15);
-  color: #fff;
+  background: var(--bg-surface-hover, rgba(255, 255, 255, 0.15));
+  color: var(--text-primary, #fff);
 }
 
 .icon-copied {
@@ -295,7 +289,7 @@
 
 .response-content pre {
   margin: 0;
-  color: #ddd;
+  color: var(--text-primary, #ddd);
   font-size: 13px;
   line-height: 1.6;
   white-space: pre-wrap;
@@ -326,7 +320,7 @@
 }
 
 .ai-history h4 {
-  color: #888;
+  color: var(--text-muted, #888);
   font-size: 14px;
   margin: 0 0 12px 0;
   text-transform: uppercase;
@@ -338,19 +332,19 @@
 
 .ai-tips {
   padding: 16px 20px;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(255, 255, 255, 0.03);
-  flex-shrink: 0; /* Prevent tips from shrinking */
+  border-top: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
+  background: var(--bg-surface, rgba(255, 255, 255, 0.03));
+  flex-shrink: 0;
 }
 
 .ai-tips p {
   margin: 0;
-  color: #888;
+  color: var(--text-secondary, #888);
   font-size: 13px;
 }
 
 .ai-tips strong {
-  color: #fff;
+  color: var(--text-primary, #fff);
 }
 
 /* ==================== RESPONSIVE ==================== */
@@ -359,15 +353,12 @@
   .ai-header {
     padding: 16px;
   }
-
   .ai-quick-actions {
     padding: 12px 16px;
   }
-
   .ai-response-area {
     padding: 16px;
   }
-
   .ai-tips {
     padding: 12px 16px;
   }
