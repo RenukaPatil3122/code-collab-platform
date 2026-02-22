@@ -1,5 +1,4 @@
 // src/components/FileTabs/FileTabs.jsx
-
 import React from "react";
 import { X } from "lucide-react";
 import { useFiles } from "../../contexts/FileContext";
@@ -26,38 +25,48 @@ function FileIcon({ name }) {
     json: "#cbcb41",
     md: "#083fa1",
   };
-  const color = colorMap[ext] || "#9ca3af";
-  return <span className="tab-file-dot" style={{ background: color }} />;
+  return (
+    <span
+      className="tab-file-dot"
+      style={{ background: colorMap[ext] || "#9ca3af" }}
+    />
+  );
 }
 
 function FileTabs() {
-  const { openTabs, activeFile, selectFile, closeTab, files } = useFiles();
-
+  const { openTabs, activeFile, selectFile, closeTab } = useFiles();
   if (openTabs.length === 0) return null;
 
   return (
     <div className="file-tabs-bar">
-      {openTabs.map((fileName) => (
-        <div
-          key={fileName}
-          className={`file-tab ${activeFile === fileName ? "active" : ""}`}
-          onClick={() => selectFile(fileName)}
-          title={fileName}
-        >
-          <FileIcon name={fileName} />
-          <span className="tab-name">{fileName}</span>
-          <button
-            className="tab-close-btn"
-            onClick={(e) => {
-              e.stopPropagation();
-              closeTab(fileName);
-            }}
-            title="Close tab"
+      {openTabs.map((filePath) => {
+        // ✅ Show only the filename, not the full folder path (like VSCode)
+        const displayName = filePath.includes("/")
+          ? filePath.split("/").pop()
+          : filePath;
+
+        return (
+          <div
+            key={filePath}
+            className={`file-tab ${activeFile === filePath ? "active" : ""}`}
+            onClick={() => selectFile(filePath)}
+            title={filePath} // full path on hover tooltip
           >
-            <X size={12} />
-          </button>
-        </div>
-      ))}
+            <FileIcon name={filePath} />
+            <span className="tab-name">{displayName}</span>
+            <button
+              className="tab-close-btn"
+              onClick={(e) => {
+                e.stopPropagation();
+                closeTab(filePath);
+              }}
+              title="Close tab"
+            >
+              <X size={12} />
+            </button>
+          </div>
+        );
+      })}
     </div>
   );
 }

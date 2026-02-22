@@ -1,8 +1,4 @@
 // src/components/FileExplorer/FileExplorer.jsx
-// FIX: Don't manually captureEvent("file-created") here.
-// FileContext emits the socket event, server broadcasts "file-created",
-// and Room.jsx's socket listener captures it for recording.
-
 import React, { useState, useRef, useEffect } from "react";
 import {
   FilePlus,
@@ -27,7 +23,7 @@ function FileIcon({ name }) {
     py: "#3572A5",
     java: "#b07219",
     cpp: "#f34b7d",
-    c: "#555555",
+    c: "#888",
     cs: "#178600",
     go: "#00ADD8",
     rs: "#dea584",
@@ -48,18 +44,61 @@ function FileIcon({ name }) {
 
 function FolderItem({ folderName, children, isCollapsed }) {
   const [isExpanded, setIsExpanded] = useState(true);
-  if (isCollapsed) return null;
+  const [isCreatingFile, setIsCreatingFile] = useState(false);
+  const { createFile } = useFiles();
+
+  // Show folder icon when collapsed — just like file icons
+  if (isCollapsed) {
+    return (
+      <div
+        className="file-item-icon"
+        title={folderName}
+        style={{ cursor: "default" }}
+      >
+        <Folder size={15} style={{ color: "#dcb67a", flexShrink: 0 }} />
+      </div>
+    );
+  }
+
+  const handleAddFileInFolder = (name) => {
+    if (name.trim()) createFile(`${folderName}/${name.trim()}`);
+    setIsCreatingFile(false);
+  };
+
   return (
     <div className="folder-wrapper">
       <div className="folder-item" onClick={() => setIsExpanded(!isExpanded)}>
         <ChevronRight
-          size={14}
+          size={13}
           className={`folder-chevron ${isExpanded ? "open" : ""}`}
         />
-        <Folder size={14} style={{ color: "#dcb67a", flexShrink: 0 }} />
+        <Folder size={13} style={{ color: "#dcb67a", flexShrink: 0 }} />
         <span className="folder-name">{folderName}</span>
+        <button
+          className="folder-add-btn"
+          title="New file in folder"
+          onClick={(e) => {
+            e.stopPropagation();
+            setIsCreatingFile(true);
+            setIsExpanded(true);
+          }}
+        >
+          <FilePlus size={11} />
+        </button>
       </div>
-      {isExpanded && <div className="folder-contents">{children}</div>}
+
+      {isExpanded && (
+        <div className="folder-contents">
+          {children}
+          {isCreatingFile && (
+            <NewFileInput
+              onSubmit={handleAddFileInFolder}
+              onCancel={() => setIsCreatingFile(false)}
+              indent
+            />
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -102,12 +141,17 @@ function FileItem({
     }
   };
 
+  // Display only the filename (not folder path) — like VSCode
+  const displayName = fileName.includes("/")
+    ? fileName.split("/").pop()
+    : fileName;
+
   if (isCollapsed) {
     return (
       <div
         className={`file-item-icon ${isActive ? "active" : ""}`}
         onClick={() => onSelect(fileName)}
-        title={fileName}
+        title={displayName}
       >
         <FileIcon name={fileName} />
       </div>
@@ -138,7 +182,7 @@ function FileItem({
         </div>
       ) : (
         <span className="file-name" title={fileName}>
-          {fileName}
+          {displayName}
         </span>
       )}
       {showActions && !isRenaming && (
@@ -152,7 +196,7 @@ function FileItem({
               setIsRenaming(true);
             }}
           >
-            <Edit3 size={12} />
+            <Edit3 size={11} />
           </button>
           <button
             className="file-action-btn danger"
@@ -162,7 +206,7 @@ function FileItem({
               onDelete(fileName);
             }}
           >
-            <Trash2 size={12} />
+            <Trash2 size={11} />
           </button>
         </div>
       )}
@@ -170,22 +214,29 @@ function FileItem({
   );
 }
 
-function NewFileInput({ onSubmit, onCancel, isFolder = false }) {
+function NewFileInput({
+  onSubmit,
+  onCancel,
+  isFolder = false,
+  indent = false,
+}) {
   const [value, setValue] = useState("");
   const inputRef = useRef(null);
   useEffect(() => {
     inputRef.current?.focus();
   }, []);
+
   const handleSubmit = () => {
     if (value.trim()) onSubmit(value.trim());
     else onCancel();
   };
+
   return (
-    <div className="new-file-input-row">
+    <div className={`new-file-input-row ${indent ? "indent" : ""}`}>
       {isFolder ? (
-        <Folder size={14} style={{ color: "#9ca3af", flexShrink: 0 }} />
+        <Folder size={13} style={{ color: "#dcb67a", flexShrink: 0 }} />
       ) : (
-        <FileCode size={14} style={{ color: "#9ca3af", flexShrink: 0 }} />
+        <FileCode size={13} style={{ color: "#9ca3af", flexShrink: 0 }} />
       )}
       <input
         ref={inputRef}
@@ -209,44 +260,47 @@ function FileExplorer() {
   const [isCreating, setIsCreating] = useState(false);
   const [isCreatingFolder, setIsCreatingFolder] = useState(false);
   const [isExpanded, setIsExpanded] = useState(true);
+  // ✅ FIX: Track folders in local state so empty folders render correctly
+  const [localFolders, setLocalFolders] = useState([]);
 
   const handleCreate = (name) => {
-    // ✅ NO captureEvent here - Room.jsx socket listener handles it
     createFile(name);
     setIsCreating(false);
   };
 
+  // ✅ FIX: No .gitkeep hack — just track folder names locally
   const handleCreateFolder = (name) => {
-    createFile(`${name}/.gitkeep`);
+    if (name.trim()) {
+      setLocalFolders((prev) => (prev.includes(name) ? prev : [...prev, name]));
+    }
     setIsCreatingFolder(false);
   };
 
   const handleDelete = (fileName) => {
     deleteFile(fileName);
-    // Recording handled by Room.jsx socket listener
   };
-
   const handleRename = (oldName, newName) => {
     renameFile(oldName, newName);
-    // Recording handled by Room.jsx socket listener
   };
-
   const handleSelect = (fileName) => {
     selectFile(fileName);
-    // Recording handled by Room.jsx socket listener
   };
 
+  // ✅ FIX: Seed with localFolders so empty folders always appear
   const organizeFiles = () => {
     const structure = {};
+    localFolders.forEach((f) => {
+      if (!structure[f]) structure[f] = [];
+    });
+
     Object.keys(files).forEach((filePath) => {
       if (filePath.includes("/")) {
         const parts = filePath.split("/");
         const folderName = parts[0];
+        const fileName = parts.slice(1).join("/");
+        if (fileName === ".gitkeep") return; // skip legacy gitkeep
         if (!structure[folderName]) structure[folderName] = [];
-        structure[folderName].push({
-          path: filePath,
-          name: parts.slice(1).join("/"),
-        });
+        structure[folderName].push({ path: filePath, name: fileName });
       } else {
         if (!structure["__root__"]) structure["__root__"] = [];
         structure["__root__"].push({ path: filePath, name: filePath });
@@ -263,20 +317,21 @@ function FileExplorer() {
         <div
           className="explorer-title"
           onClick={() => setIsExpanded(!isExpanded)}
-          title={isExpanded ? "Collapse" : "Expand Files"}
+          title={isExpanded ? "Collapse sidebar" : "Expand sidebar"}
         >
           {isExpanded ? (
             <>
               <ChevronRight
-                size={14}
+                size={13}
                 className={`chevron ${isExpanded ? "open" : ""}`}
               />
               <span>FILES</span>
             </>
           ) : (
-            <Files size={18} style={{ margin: "0 auto" }} />
+            <Files size={16} style={{ margin: "0 auto" }} />
           )}
         </div>
+
         {isExpanded && (
           <div className="explorer-actions">
             <button
@@ -287,7 +342,7 @@ function FileExplorer() {
                 setIsCreating(true);
               }}
             >
-              <FilePlus size={15} />
+              <FilePlus size={14} />
             </button>
             <button
               className="explorer-action-btn"
@@ -297,13 +352,14 @@ function FileExplorer() {
                 setIsCreatingFolder(true);
               }}
             >
-              <FolderPlus size={15} />
+              <FolderPlus size={14} />
             </button>
           </div>
         )}
       </div>
 
       <div className="file-list">
+        {/* Root files */}
         {fileStructure["__root__"]?.map(({ path }) => (
           <FileItem
             key={path}
@@ -315,6 +371,8 @@ function FileExplorer() {
             isCollapsed={!isExpanded}
           />
         ))}
+
+        {/* Folders */}
         {Object.keys(fileStructure)
           .filter((key) => key !== "__root__")
           .map((folderName) => (
@@ -336,6 +394,7 @@ function FileExplorer() {
               ))}
             </FolderItem>
           ))}
+
         {isExpanded && isCreating && (
           <NewFileInput
             onSubmit={handleCreate}

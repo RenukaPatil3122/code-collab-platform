@@ -3,23 +3,28 @@
 .file-tabs-bar {
   display: flex;
   align-items: center;
-  background: var(--bg-secondary, #1e1e1e);
-  border-bottom: 1px solid var(--border-color, #2d2d2d);
+  background: var(--bg-primary, #0d0f17);
+  border-bottom: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.05));
   overflow-x: auto;
   overflow-y: hidden;
   flex-shrink: 0;
-  height: 36px;
+  height: 38px;
   transition:
     background 0.2s ease,
     border-color 0.2s ease;
+  /* Subtle inner shadow at bottom for depth */
+  box-shadow: inset 0 -1px 0 var(--border-subtle, rgba(255, 255, 255, 0.05));
 }
 
 .file-tabs-bar::-webkit-scrollbar {
-  height: 3px;
+  height: 2px;
+}
+.file-tabs-bar::-webkit-scrollbar-track {
+  background: transparent;
 }
 .file-tabs-bar::-webkit-scrollbar-thumb {
-  background: var(--border-color, rgba(255, 255, 255, 0.1));
-  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
 }
 
 /* ── Individual Tab ── */
@@ -27,40 +32,54 @@
   display: flex;
   align-items: center;
   gap: 7px;
-  padding: 0 12px;
+  padding: 0 14px;
   height: 100%;
-  min-width: 100px;
+  min-width: 90px;
   max-width: 180px;
   cursor: pointer;
-  color: var(--text-secondary, #9ca3af);
-  font-size: 0.82rem;
-  border-right: 1px solid var(--border-color, #2d2d2d);
+  color: var(--text-tertiary, #4e5769);
+  font-size: 12.5px;
+  font-weight: 500;
+  font-family: "Instrument Sans", system-ui, sans-serif;
+  border-right: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.05));
   position: relative;
   transition:
     background 0.15s,
     color 0.15s;
   flex-shrink: 0;
   white-space: nowrap;
+  /* Start with no top border — active adds it */
+  border-top: 2px solid transparent;
 }
 
 .file-tab:hover {
-  background: var(--bg-surface, #2a2d2e);
-  color: var(--text-primary, #d4d4d4);
+  background: var(--surface-hover, rgba(255, 255, 255, 0.04));
+  color: var(--text-secondary, #8892a4);
 }
 
 .file-tab.active {
-  background: var(--bg-secondary, #1e1e1e);
-  color: var(--text-primary, #fff);
-  border-top: 1px solid var(--accent, #667eea);
+  background: var(--editor-bg, #090b12);
+  color: var(--text-primary, #f1f5f9);
+  border-top: 2px solid var(--accent, #6366f1);
+  /* Glow under the accent border */
+  box-shadow: inset 0 1px 0 rgba(99, 102, 241, 0.15);
 }
 
-/* Colored dot replacing icon */
+/* Colored language dot */
 .tab-file-dot {
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
   flex-shrink: 0;
-  opacity: 0.85;
+  opacity: 0.75;
+  transition: opacity 0.15s;
+}
+
+.file-tab.active .tab-file-dot {
+  opacity: 1;
+}
+.file-tab:hover .tab-file-dot {
+  opacity: 0.9;
 }
 
 .tab-name {
@@ -68,6 +87,16 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  letter-spacing: -0.01em;
+}
+
+/* Modified indicator dot (unsaved) */
+.tab-modified {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent-bright, #818cf8);
+  flex-shrink: 0;
 }
 
 /* ── Close Button ── */
@@ -75,7 +104,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 2px;
+  width: 16px;
+  height: 16px;
   background: transparent;
   border: none;
   border-radius: 3px;
@@ -83,14 +113,16 @@
   cursor: pointer;
   flex-shrink: 0;
   transition: all 0.15s;
+  margin-left: 2px;
 }
 
 .file-tab:hover .tab-close-btn,
 .file-tab.active .tab-close-btn {
-  color: var(--text-muted, #6b7280);
+  color: var(--text-tertiary, #4e5769);
 }
 
 .tab-close-btn:hover {
-  background: var(--bg-surface-hover, rgba(255, 255, 255, 0.1));
-  color: var(--text-primary, #fff) !important;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary, #f1f5f9) !important;
+  border-radius: 4px;
 }
