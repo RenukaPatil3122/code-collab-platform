@@ -281,55 +281,88 @@ io.on("connection", (socket) => {
     }
   });
 
-  // ✅ run-code — track execution so cancel can suppress the response
-  socket.on("run-code", async ({ roomId, code, language, stdin }) => {
-    try {
-      const room = rooms.get(roomId);
-      if (!room) {
+  // ✅ FIXED run-code — syncs latest content before bundling, uses client's activeFile as entry point
+  socket.on(
+    "run-code",
+    async ({ roomId, code, language, stdin, activeFile: clientActiveFile }) => {
+      try {
+        let room = rooms.get(roomId);
+
+        // ✅ FIX: If room doesn't exist (opened folder before room was set up),
+        // create a minimal room on the fly so execution works
+        if (!room) {
+          const entryName = clientActiveFile || "main.js";
+          rooms.set(roomId, {
+            code: code || "",
+            language: language || "javascript",
+            users: new Map(),
+            testCases: [],
+            interviewMode: null,
+            previousCode: null,
+            files: {
+              [entryName]: {
+                name: entryName,
+                content: code || "",
+                language: language || "javascript",
+              },
+            },
+            activeFile: entryName,
+          });
+          room = rooms.get(roomId);
+          console.log(`⚡ Auto-created room ${roomId} for execution`);
+        }
+
+        const token = { cancelled: false };
+        runningExecutions.set(socket.id, token);
+
+        // ✅ Use entry point sent from client (the file the user has open)
+        const entryFile = clientActiveFile || room.activeFile;
+
+        // ✅ Sync the latest editor content into room.files BEFORE bundling
+        // Without this, the bundler uses a stale version of the file
+        if (entryFile) {
+          room.files[entryFile] = {
+            name: entryFile,
+            content: code || "",
+            language: language || "javascript",
+            ...(room.files[entryFile] || {}),
+            content: code || "",
+          };
+          room.code = code;
+          room.activeFile = entryFile;
+        }
+
+        // ✅ Update room language too
+        if (language) room.language = language;
+
+        const { output, error, executionTime, memoryUsed } =
+          await executeMultiFile(room.files, language, stdin || "", entryFile);
+
+        // ✅ If cancelled while we were waiting, don't send result
+        if (token.cancelled) {
+          runningExecutions.delete(socket.id);
+          return;
+        }
+
+        runningExecutions.delete(socket.id);
+
+        socket.emit("code-output", {
+          output: output || "Code executed successfully (no output)",
+          error,
+          success: !error,
+          executionTime,
+          memoryUsed,
+        });
+      } catch (err) {
+        runningExecutions.delete(socket.id);
         socket.emit("code-output", {
           output: "",
-          error: "Room not found",
+          error: `Execution failed: ${err.message}`,
           success: false,
         });
-        return;
       }
-
-      // ✅ Create a cancellation token for this execution
-      const token = { cancelled: false };
-      runningExecutions.set(socket.id, token);
-
-      const { output, error, executionTime, memoryUsed } =
-        await executeMultiFile(
-          room.files,
-          language,
-          stdin || "",
-          room.activeFile,
-        );
-
-      // ✅ If cancelled while we were waiting, don't send result
-      if (token.cancelled) {
-        runningExecutions.delete(socket.id);
-        return;
-      }
-
-      runningExecutions.delete(socket.id);
-
-      socket.emit("code-output", {
-        output: output || "Code executed successfully (no output)",
-        error,
-        success: !error,
-        executionTime, // ✅ from Judge0 (real CPU time in ms)
-        memoryUsed, // ✅ from Judge0 in KB
-      });
-    } catch (err) {
-      runningExecutions.delete(socket.id);
-      socket.emit("code-output", {
-        output: "",
-        error: `Execution failed: ${err.message}`,
-        success: false,
-      });
-    }
-  });
+    },
+  );
 
   // ✅ cancel-execution — mark token cancelled, tell client immediately
   socket.on("cancel-execution", () => {
@@ -338,7 +371,6 @@ io.on("connection", (socket) => {
       token.cancelled = true;
       console.log(`🛑 Execution cancelled for socket: ${socket.id}`);
     }
-    // Tell client it's cancelled right away — don't wait for Judge0 to finish
     socket.emit("execution-cancelled");
   });
 
@@ -506,7 +538,7 @@ io.on("connection", (socket) => {
 
   socket.on("disconnect", () => {
     console.log(`❌ User disconnected: ${socket.id}`);
-    runningExecutions.delete(socket.id); // ✅ cleanup on disconnect
+    runningExecutions.delete(socket.id);
     rooms.forEach((room, roomId) => {
       if (room.users.has(socket.id)) {
         const user = room.users.get(socket.id);

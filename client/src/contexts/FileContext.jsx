@@ -45,7 +45,7 @@ export const FileProvider = ({ children, roomId, onLanguageChange }) => {
           setOpenTabs(Object.keys(serverFiles));
           if (serverActive) {
             setActiveFileState(serverActive);
-            onLanguageChange?.(serverActive); // ✅ auto-detect on load
+            onLanguageChange?.(serverActive);
           }
         }
       },
@@ -109,8 +109,9 @@ export const FileProvider = ({ children, roomId, onLanguageChange }) => {
     };
   }, [roomId, files]);
 
+  // ✅ FIX: Now accepts optional `content` parameter so Open Folder can load real file contents
   const createFile = useCallback(
-    (fileName) => {
+    (fileName, content = "") => {
       if (!fileName.trim()) return;
       const cleanName = fileName.trim();
       if (files[cleanName]) {
@@ -119,17 +120,45 @@ export const FileProvider = ({ children, roomId, onLanguageChange }) => {
       }
       const newFile = {
         name: cleanName,
-        content: "",
+        content: content,
         language: getLanguageFromName(cleanName),
       };
       socket.emit(SOCKET_EVENTS.FILE_CREATE, { roomId, file: newFile });
       setFiles((prev) => ({ ...prev, [cleanName]: newFile }));
       setOpenTabs((t) => (t.includes(cleanName) ? t : [...t, cleanName]));
       setActiveFileState(cleanName);
-      onLanguageChange?.(cleanName); // ✅ auto-detect on create
+      onLanguageChange?.(cleanName);
       toast.success(`Created ${cleanName}`);
     },
     [roomId, files, onLanguageChange],
+  );
+
+  // ✅ Bulk loader — atomically replaces workspace
+  // options.openTabs = false → don't open any tabs (used by Open Folder)
+  const loadFilesFromDisk = useCallback(
+    (fileMap, options = {}) => {
+      const { openTabs: shouldOpenTabs = true } = options;
+      setFiles(fileMap);
+      const paths = Object.keys(fileMap).filter((p) => !p.endsWith(".gitkeep"));
+
+      if (shouldOpenTabs) {
+        setOpenTabs(paths);
+        const first = paths[0] || null;
+        setActiveFileState(first);
+        if (first) onLanguageChange?.(first);
+      } else {
+        // ✅ No tabs open — user clicks a file to open it (like VSCode)
+        setOpenTabs([]);
+        setActiveFileState(null);
+      }
+
+      socket.emit(SOCKET_EVENTS.FILES_STATE, {
+        roomId,
+        files: fileMap,
+        activeFile: shouldOpenTabs ? paths[0] : null,
+      });
+    },
+    [roomId, onLanguageChange],
   );
 
   const deleteFile = useCallback(
@@ -187,7 +216,7 @@ export const FileProvider = ({ children, roomId, onLanguageChange }) => {
       setActiveFileState(fileName);
       setOpenTabs((t) => (t.includes(fileName) ? t : [...t, fileName]));
       socket.emit(SOCKET_EVENTS.FILE_SELECT, { roomId, fileName });
-      onLanguageChange?.(fileName); // ✅ auto-detect on select
+      onLanguageChange?.(fileName);
     },
     [roomId, files, onLanguageChange],
   );
@@ -226,6 +255,7 @@ export const FileProvider = ({ children, roomId, onLanguageChange }) => {
     openTabs,
     activeFileData: files[activeFile] || null,
     createFile,
+    loadFilesFromDisk, // ✅ new: used by Open Folder
     deleteFile,
     renameFile,
     selectFile,

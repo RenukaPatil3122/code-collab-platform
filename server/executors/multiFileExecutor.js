@@ -42,11 +42,10 @@ async function executeWithJudge0(language, code, stdin = "") {
       response.data.message ||
       "";
 
-    // ✅ Judge0 returns time as "0.045" (seconds) and memory in KB
     const executionTime = response.data.time
       ? Math.round(parseFloat(response.data.time) * 1000)
       : null;
-    const memoryUsed = response.data.memory || null; // KB
+    const memoryUsed = response.data.memory || null;
 
     return { output, error, executionTime, memoryUsed };
   } catch (err) {
@@ -57,6 +56,91 @@ async function executeWithJudge0(language, code, stdin = "") {
       memoryUsed: null,
     };
   }
+}
+
+// ✅ Detect if this is a "framework project" that should NOT be bundled
+// Flask, Django, Express, React, Next etc. — just run the active file directly
+function isFrameworkProject(files) {
+  const allNames = Object.keys(files).map((f) => f.toLowerCase());
+  const allContent = Object.values(files)
+    .map((f) => f.content || "")
+    .join("\n");
+
+  const frameworkFiles = [
+    "requirements.txt",
+    "package.json",
+    "dockerfile",
+    "docker-compose.yml",
+    "manage.py",
+    "wsgi.py",
+    "asgi.py",
+    "angular.json",
+    "next.config.js",
+    "vite.config.js",
+    "webpack.config.js",
+    "tsconfig.json",
+    "pom.xml",
+    "cargo.toml",
+    "go.mod",
+  ];
+
+  const frameworkImports = [
+    // Python web
+    "from flask",
+    "import flask",
+    "from django",
+    "import django",
+    "from fastapi",
+    "import fastapi",
+    "from aiohttp",
+    // JS frameworks
+    "from 'react'",
+    'from "react"',
+    "require('express')",
+    'require("express")',
+    "from 'next'",
+    'from "next"',
+    "from 'vue'",
+    'from "vue"',
+    "from '@angular",
+    'from "@angular',
+  ];
+
+  // If >10 files, it's almost certainly a real project
+  if (Object.keys(files).length > 10) return true;
+
+  // Check for framework config files
+  if (allNames.some((n) => frameworkFiles.includes(n))) return true;
+
+  // Check for framework imports in any file
+  if (frameworkImports.some((imp) => allContent.includes(imp))) return true;
+
+  return false;
+}
+
+// ✅ Only bundle if it looks like a simple DSA/algo multi-file script
+// i.e. small number of files with local relative imports
+function shouldBundle(files, language, entryPoint) {
+  const fileCount = Object.keys(files).length;
+
+  // Single file — always just run it
+  if (fileCount === 1) return false;
+
+  // Framework project — never bundle, just run active file
+  if (isFrameworkProject(files)) return false;
+
+  // More than 8 files — don't bundle (too risky, likely a real project)
+  if (fileCount > 8) return false;
+
+  // Check if entry point actually imports from local files
+  const entryContent = files[entryPoint]?.content || "";
+  const hasLocalImports =
+    /from\s+['"]\.\//m.test(entryContent) || // JS: from './'
+    /require\s*\(\s*['"]\.\//m.test(entryContent) || // JS: require('./')
+    /from\s+\.\w+\s+import/m.test(entryContent) || // Python: from .module import
+    /#include\s+"[^"]+"/m.test(entryContent); // C/C++: #include "local.h"
+
+  return hasLocalImports;
 }
 
 function detectEntryPoint(files, language) {
@@ -218,14 +302,63 @@ async function executeMultiFile(
   activeFile = null,
 ) {
   try {
-    if (Object.keys(files).length === 1) {
-      const singleFile = Object.values(files)[0];
-      return await executeWithJudge0(language, singleFile.content, stdin);
-    }
     const entryPoint =
       activeFile && files[activeFile]
         ? activeFile
         : detectEntryPoint(files, language);
+
+    // ✅ Framework projects (Flask, Django, Express, React etc.) can't run in Judge0
+    // Judge0 has no pip/npm packages — show a clear message instead of a confusing error
+    if (isFrameworkProject(files)) {
+      const hints = {
+        python: "flask run  OR  python app.py",
+        javascript: "npm start  OR  node server.js",
+        typescript: "npm run dev",
+        java: "mvn spring-boot:run",
+        go: "go run main.go",
+      };
+      const hint = hints[language] || "your usual run command";
+      return {
+        output: "",
+        error: [
+          "⚠️  Framework project detected — can't run in this sandbox.",
+          "",
+          "Judge0 (the code runner) is an isolated sandbox with no",
+          "installed packages. It doesn't have Flask, Django, Express,",
+          "React, Spring Boot, or any other framework available.",
+          "",
+          "What you CAN run here:",
+          "  ✅ Pure Python scripts (algorithms, data structures, print/input)",
+          "  ✅ Pure JavaScript/TypeScript (console.log, algorithms)",
+          "  ✅ Java, C, C++, Go, Rust standalone programs",
+          "  ✅ Any single-file script with no external dependencies",
+          "",
+          "To run your full project, use your local terminal:",
+          `  → ${hint}`,
+        ].join("\n"),
+        executionTime: null,
+        memoryUsed: null,
+      };
+    }
+
+    // ✅ Check if we should bundle or just run the active file directly
+    if (!shouldBundle(files, language, entryPoint)) {
+      const fileToRun = files[entryPoint];
+      if (!fileToRun) {
+        return {
+          output: "",
+          error: `File not found: ${entryPoint}`,
+          executionTime: null,
+          memoryUsed: null,
+        };
+      }
+      console.log(
+        `▶️  Running single file: ${entryPoint} (${Object.keys(files).length} files in workspace, skipping bundle)`,
+      );
+      return await executeWithJudge0(language, fileToRun.content, stdin);
+    }
+
+    // ✅ Only reaches here for small DSA/algo scripts with local imports
     console.log(
       `📦 Bundling ${Object.keys(files).length} files, entry: ${entryPoint}`,
     );

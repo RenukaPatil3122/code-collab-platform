@@ -43,6 +43,18 @@ const detectLang = (fileName) => {
 };
 
 export const RoomProvider = ({ children, roomId, username }) => {
+  // ✅ NO useFiles() here — avoids provider order issues entirely
+  // Active file data is injected via setActiveFileData() called from outside
+  const activeFileRef = useRef(null); // { name, content, language }
+  const updateFileContentRef = useRef(null); // fn to sync edits back to FileContext
+
+  // ── Call this from wherever you render RoomProvider (Room.jsx / App.jsx)
+  // so RoomContext always has the latest active file without depending on provider order
+  const injectActiveFile = useCallback((fileData, updateFn) => {
+    activeFileRef.current = fileData;
+    if (updateFn) updateFileContentRef.current = updateFn;
+  }, []);
+
   const [code, setCode] = useState("");
   const [language, setLanguage] = useState("javascript");
   const [users, setUsers] = useState([]);
@@ -62,6 +74,8 @@ export const RoomProvider = ({ children, roomId, username }) => {
   const [showOutput, setShowOutput] = useState(true);
   const [showTestCases, setShowTestCases] = useState(false);
   const [theme, setTheme] = useState("vs-dark");
+
+  const runStartTimeRef = useRef(null);
 
   useEffect(() => {
     if (code && roomId) {
@@ -89,7 +103,6 @@ export const RoomProvider = ({ children, roomId, username }) => {
         setUsers(roomUsers);
         setTestCases(roomTestCases || []);
         setIsConnected(true);
-        // ✅ id prevents double toast from Strict Mode double-mount
         toast.success("Connected!", { duration: 1500, id: "room-connected" });
       },
     );
@@ -98,7 +111,6 @@ export const RoomProvider = ({ children, roomId, username }) => {
       SOCKET_EVENTS.USER_JOINED,
       ({ username: newUser, users: updatedUsers }) => {
         setUsers(updatedUsers);
-        // ✅ id includes username so different users each get one toast
         toast.success(`${newUser} joined`, {
           duration: 2000,
           id: `user-joined-${newUser}`,
@@ -140,9 +152,10 @@ export const RoomProvider = ({ children, roomId, username }) => {
         const clientTime = runStartTimeRef.current
           ? Date.now() - runStartTimeRef.current
           : null;
-        setExecutionTime(time || clientTime); // prefer real Judge0 CPU time
+        setExecutionTime(time || clientTime);
         setMemoryUsed(memory || null);
         runStartTimeRef.current = null;
+
         if (success) {
           setOutput(result);
           toast.success("Done!", { duration: 1500, id: "code-output-done" });
@@ -200,6 +213,10 @@ export const RoomProvider = ({ children, roomId, username }) => {
     (newCode) => {
       setCode(newCode);
       socket.emit(SOCKET_EVENTS.CODE_CHANGE, { roomId, code: newCode });
+      // Sync back to FileContext if injected
+      if (activeFileRef.current && updateFileContentRef.current) {
+        updateFileContentRef.current(activeFileRef.current.name, newCode);
+      }
     },
     [roomId],
   );
@@ -226,25 +243,40 @@ export const RoomProvider = ({ children, roomId, username }) => {
     [roomId, language],
   );
 
-  const runStartTimeRef = useRef(null);
-
   const cancelExecution = useCallback(() => {
     socket.emit("cancel-execution");
     setIsRunning(false);
     runStartTimeRef.current = null;
   }, []);
 
+  // ✅ runCode uses injected activeFileRef — always has latest content + correct language
   const runCode = useCallback(() => {
-    if (!code.trim()) {
-      toast.error("Write some code first!", { id: "run-no-code" });
+    const activeFile = activeFileRef.current;
+    const currentContent = activeFile?.content ?? code;
+    const currentFileName = activeFile?.name ?? "main.js";
+    const detectedLang = detectLang(currentFileName) || language;
+
+    if (!currentContent?.trim()) {
+      toast.error("Open a file and write some code first!", {
+        id: "run-no-code",
+      });
       return;
     }
+
     setIsRunning(true);
     setOutput("Running...");
     setShowOutput(true);
     setExecutionTime(null);
-    runStartTimeRef.current = Date.now(); // ✅ start client-side timer
-    socket.emit(SOCKET_EVENTS.RUN_CODE, { roomId, code, language, stdin });
+    setMemoryUsed(null);
+    runStartTimeRef.current = Date.now();
+
+    socket.emit(SOCKET_EVENTS.RUN_CODE, {
+      roomId,
+      code: currentContent,
+      language: detectedLang,
+      stdin: stdin || "",
+      activeFile: currentFileName,
+    });
   }, [roomId, code, language, stdin]);
 
   const updateTestCases = useCallback(
@@ -263,15 +295,17 @@ export const RoomProvider = ({ children, roomId, username }) => {
       toast.error("Add test cases first!", { id: "run-no-tests" });
       return;
     }
-    if (!code.trim()) {
-      toast.error("Write some code first!", { id: "run-no-code" });
+    const activeFile = activeFileRef.current;
+    const currentContent = activeFile?.content ?? code;
+    if (!currentContent?.trim()) {
+      toast.error("Open a file first!", { id: "run-no-code" });
       return;
     }
     setIsRunningTests(true);
     setTestResults(null);
     socket.emit(SOCKET_EVENTS.RUN_TEST_CASES, {
       roomId,
-      code,
+      code: currentContent,
       language,
       testCases,
     });
@@ -314,6 +348,7 @@ export const RoomProvider = ({ children, roomId, username }) => {
     setCode,
     setTestCases,
     setStdin,
+    injectActiveFile, // ✅ expose this so Room.jsx can inject file data
   };
 
   return <RoomContext.Provider value={value}>{children}</RoomContext.Provider>;

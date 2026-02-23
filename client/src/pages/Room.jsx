@@ -85,11 +85,17 @@ function RoomContent() {
     setStdin,
     executionTime,
     memoryUsed,
+    injectActiveFile, // ✅ NEW
   } = useRoom();
 
   const { isInterviewMode } = useInterview();
   const { showAIPanel, setShowAIPanel } = useAI();
-  const { files, activeFile, updateFileContent } = useFiles();
+  const { files, activeFile, activeFileData, updateFileContent } = useFiles(); // ✅ added activeFileData
+
+  // ✅ Inject active file data into RoomContext on every render
+  // This gives runCode access to the latest file content + correct language
+  // without needing useFiles() inside RoomContext (which caused the provider error)
+  injectActiveFile(activeFileData, updateFileContent);
 
   const [showTemplateModal, setShowTemplateModal] = useState(false);
   const [showInterviewModal, setShowInterviewModal] = useState(false);
@@ -534,14 +540,12 @@ function RoomContent() {
           />
         </div>
 
-        {/* ✅ side-panels only renders when there's actually something visible */}
         {(showOutput ||
           showTestCases ||
           showAIPanel ||
           showVersionHistory ||
           showChat) && (
           <div className="side-panels">
-            {/* ✅ OutputPanel gets minimize state from here — returns null when minimized */}
             {showOutput && !isOutputMinimized && (
               <OutputPanel
                 output={output}
@@ -591,7 +595,6 @@ function RoomContent() {
           </div>
         )}
 
-        {/* ✅ Restore tab sits INSIDE room-body as a right-edge strip — exactly where output panel was */}
         {showOutput && isOutputMinimized && (
           <button
             className="output-restore-tab"
