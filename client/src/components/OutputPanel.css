@@ -11,13 +11,14 @@
   background: var(--bg-secondary, #0f1120);
   border-left: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.05));
   overflow: hidden;
+  /* ✅ Must have bounded height for inner flex:1 + overflow-y:auto to scroll */
+  height: 100%;
   min-height: 0;
   box-shadow: -4px 0 28px rgba(0, 0, 0, 0.45);
   animation: panel-slide-in 0.22s cubic-bezier(0.16, 1, 0.3, 1);
   position: relative;
 }
 
-/* Top-edge indigo accent line — matches header style */
 .output-panel-container::before {
   content: "";
   position: absolute;
@@ -80,7 +81,6 @@
   color: var(--accent-bright, #818cf8);
 }
 
-/* ── Status dot ── */
 .output-status-dot {
   width: 7px;
   height: 7px;
@@ -152,6 +152,7 @@
   background: var(--surface-1, rgba(255, 255, 255, 0.04));
   border: 1px solid var(--border-default, rgba(255, 255, 255, 0.08));
   border-radius: 20px;
+  white-space: nowrap;
   animation: badge-pop 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -185,6 +186,7 @@
   border: 1px solid rgba(248, 113, 113, 0.22);
   border-radius: 6px;
   cursor: pointer;
+  white-space: nowrap;
   transition: all 0.15s;
 }
 .cancel-btn:hover {
@@ -193,17 +195,24 @@
   transform: translateY(-1px);
 }
 
-/* Run again button */
+/* ✅ FIXED Run Again button — proper size, no clipping */
 .run-again-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
   font-size: 11.5px;
   font-family: "Instrument Sans", sans-serif;
   font-weight: 600;
-  padding: 4px 10px;
+  padding: 4px 12px;
+  height: 26px;
   background: var(--accent-dim, rgba(99, 102, 241, 0.09));
   color: var(--accent-bright, #818cf8);
   border: 1px solid var(--accent-border, rgba(99, 102, 241, 0.28));
   border-radius: 6px;
   cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  line-height: 1;
   transition: all 0.15s;
 }
 .run-again-btn:hover {
@@ -225,6 +234,7 @@
   color: var(--text-tertiary, #4e5769);
   cursor: pointer;
   transition: all 0.15s;
+  flex-shrink: 0;
 }
 .control-btn:hover {
   background: var(--surface-hover, rgba(255, 255, 255, 0.06));
@@ -333,16 +343,34 @@
 }
 
 /* ══════════════════════════════════════════
-   OUTPUT CONTENT
+   OUTPUT CONTENT — ✅ FIXED SCROLL
 ══════════════════════════════════════════ */
 .output-content-wrapper {
-  flex: 1;
+  /* ✅ flex:1 + min-height:0 only works when container has a bounded height */
+  /* Use overflow-y:auto directly on the wrapper with a max-height */
   display: flex;
   flex-direction: column;
-  overflow: hidden;
-  padding: 14px;
+  overflow-y: auto;
+  padding: 0px;
+  /* Takes remaining space after header (42px) + optional stdin (~100px) */
+  flex: 1;
   min-height: 0;
   background: var(--bg-primary, #0d0f17);
+}
+
+/* ✅ Custom scrollbar on the wrapper itself */
+.output-content-wrapper::-webkit-scrollbar {
+  width: 4px;
+}
+.output-content-wrapper::-webkit-scrollbar-track {
+  background: transparent;
+}
+.output-content-wrapper::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+}
+.output-content-wrapper::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.18);
 }
 
 .output-label {
@@ -356,9 +384,13 @@
   flex-shrink: 0;
 }
 
-/* The terminal pre block */
+/* The terminal pre block — ✅ natural height, no internal scroll fight */
 .output-content {
-  flex: 1;
+  flex: 1; /* 🔥 makes it stretch */
+  min-height: 0; /* 🔥 prevents overflow flex bug */
+  display: flex; /* 🔥 allows inner text to align properly */
+  align-items: flex-start;
+
   margin: 0;
   padding: 14px 16px;
   background: var(--bg-canvas, #080a0f);
@@ -369,20 +401,12 @@
   color: var(--text-primary, #e2e8f0);
   white-space: pre-wrap;
   word-wrap: break-word;
-  word-break: break-all;
+  word-break: break-word;
   line-height: 1.7;
-  overflow-y: auto;
-  overflow-x: hidden;
-  min-height: 0;
-  max-height: 100%;
-  transition: border-color 0.2s;
-  /* Deep terminal feel */
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.025),
     inset 0 0 50px rgba(0, 0, 0, 0.35);
 }
-
-/* State-specific */
 .output-content.success {
   color: #e2e8f0;
   border-color: rgba(16, 185, 129, 0.12);
@@ -407,22 +431,8 @@
   font-style: italic;
 }
 
-.output-content::-webkit-scrollbar {
-  width: 4px;
-}
-.output-content::-webkit-scrollbar-track {
-  background: transparent;
-}
-.output-content::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.07);
-  border-radius: 999px;
-}
-.output-content::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.14);
-}
-
 /* ══════════════════════════════════════════
-   LIGHT THEME — keep terminal dark always
+   LIGHT THEME
 ══════════════════════════════════════════ */
 [data-theme="light"] .output-content-wrapper {
   background: #f0f1f8;

@@ -11,6 +11,7 @@ import {
   AlertCircle,
   AlertTriangle,
   Clock,
+  RotateCcw,
 } from "lucide-react";
 import "./OutputPanel.css";
 
@@ -32,11 +33,15 @@ function cleanErrorText(raw) {
 
 function parseOutput(output) {
   if (!output || output === "Running...")
-    return { type: "running", text: output };
+    return { type: "running", text: "Running..." };
   if (output === "Code executed successfully (no output)")
     return { type: "success-empty", text: output };
+
+  // ✅ Framework project message — show as warning, not hard error
   if (output.startsWith("Error:\n")) {
     const errorText = output.replace("Error:\n", "");
+    if (errorText.includes("⚠️  Framework project detected"))
+      return { type: "warning", text: errorText };
     if (/timeout|time limit/i.test(errorText))
       return { type: "timeout", text: cleanErrorText(errorText) };
     if (
@@ -50,7 +55,6 @@ function parseOutput(output) {
   return { type: "success", text: output };
 }
 
-// ✅ isMinimized + onMinimize are now props — state lives in Room.jsx
 function OutputPanel({
   output,
   onClose,
@@ -89,8 +93,10 @@ function OutputPanel({
 
   const parsed = parseOutput(output);
 
-  // ✅ Minimized state: render nothing — Room.jsx shows the floating restore tab
   if (isMinimized) return null;
+
+  const showRunAgain =
+    parsed.type !== "running" && output && output !== "Running...";
 
   return (
     <div className="output-panel-container">
@@ -100,6 +106,7 @@ function OutputPanel({
           <span>Output</span>
         </div>
         <div className="output-controls">
+          {/* Running state */}
           {parsed.type === "running" && (
             <>
               <span className="execution-spinner">
@@ -115,25 +122,32 @@ function OutputPanel({
               </button>
             </>
           )}
-          {executionTime && parsed.type !== "running" && (
+
+          {/* Time badge — only after execution */}
+          {executionTime != null && parsed.type !== "running" && (
             <span className="execution-time" key={executionTime}>
-              <Clock size={12} /> {executionTime}ms
+              <Clock size={12} />
+              {executionTime}ms
               {memoryUsed && (
                 <span className="memory-used">
-                  • {(memoryUsed / 1024).toFixed(1)}MB
+                  · {(memoryUsed / 1024).toFixed(1)}MB
                 </span>
               )}
             </span>
           )}
-          {parsed.type !== "running" && output && output !== "Running..." && (
+
+          {/* ✅ Run Again — clean button, only after execution */}
+          {showRunAgain && (
             <button
-              className="control-btn run-again-btn"
+              className="run-again-btn"
               onClick={runCode}
               title="Run Again"
             >
-              ↺ Run Again
+              <RotateCcw size={12} />
+              Run Again
             </button>
           )}
+
           <button className="control-btn" onClick={onMinimize} title="Minimize">
             <Minimize2 size={16} />
           </button>
@@ -162,7 +176,9 @@ function OutputPanel({
         </div>
       )}
 
+      {/* ✅ Scrollable wrapper — content grows, panel scrolls */}
       <div className="output-content-wrapper">
+        {/* Status banner */}
         {parsed.type === "success" && (
           <div className="output-status-banner success">
             <CheckCircle size={14} /> Executed successfully
@@ -188,12 +204,20 @@ function OutputPanel({
             <AlertTriangle size={14} /> Execution Timeout
           </div>
         )}
+        {/* ✅ Framework warning — amber, not red */}
+        {parsed.type === "warning" && (
+          <div className="output-status-banner timeout">
+            <AlertTriangle size={14} /> Cannot run in sandbox
+          </div>
+        )}
 
         <div className="output-label">Program Output:</div>
         <pre className={`output-content ${parsed.type}`}>
-          {parsed.type === "success-empty"
-            ? "// No output produced"
-            : parsed.text || "No output yet. Run your code to see results."}
+          {parsed.type === "running"
+            ? "Running..."
+            : parsed.type === "success-empty"
+              ? "// No output produced"
+              : parsed.text || "No output yet. Run your code to see results."}
         </pre>
       </div>
     </div>
