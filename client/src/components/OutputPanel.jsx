@@ -12,6 +12,7 @@ import {
   AlertTriangle,
   Clock,
   RotateCcw,
+  Ban,
 } from "lucide-react";
 import "./OutputPanel.css";
 
@@ -32,12 +33,14 @@ function cleanErrorText(raw) {
 }
 
 function parseOutput(output) {
-  if (!output || output === "Running...")
-    return { type: "running", text: "Running..." };
+  if (!output) return { type: "idle", text: "" };
+  if (output === "Running...") return { type: "running", text: "Running..." };
+  if (output === "Cancelled")
+    return { type: "cancelled", text: "Execution cancelled." };
   if (output === "Code executed successfully (no output)")
     return { type: "success-empty", text: output };
 
-  // ✅ Framework project message — show as warning, not hard error
+  // Framework project message — show as warning, not hard error
   if (output.startsWith("Error:\n")) {
     const errorText = output.replace("Error:\n", "");
     if (errorText.includes("⚠️  Framework project detected"))
@@ -96,7 +99,10 @@ function OutputPanel({
   if (isMinimized) return null;
 
   const showRunAgain =
-    parsed.type !== "running" && output && output !== "Running...";
+    parsed.type !== "running" &&
+    parsed.type !== "idle" &&
+    output &&
+    output !== "Running...";
 
   return (
     <div className="output-panel-container">
@@ -114,7 +120,7 @@ function OutputPanel({
                 Running...
               </span>
               <button
-                className="control-btn cancel-btn"
+                className="cancel-btn"
                 onClick={cancelExecution}
                 title="Cancel"
               >
@@ -123,20 +129,22 @@ function OutputPanel({
             </>
           )}
 
-          {/* Time badge — only after execution */}
-          {executionTime != null && parsed.type !== "running" && (
-            <span className="execution-time" key={executionTime}>
-              <Clock size={12} />
-              {executionTime}ms
-              {memoryUsed && (
-                <span className="memory-used">
-                  · {(memoryUsed / 1024).toFixed(1)}MB
-                </span>
-              )}
-            </span>
-          )}
+          {/* Time badge — only after successful execution */}
+          {executionTime != null &&
+            parsed.type !== "running" &&
+            parsed.type !== "cancelled" && (
+              <span className="execution-time" key={executionTime}>
+                <Clock size={12} />
+                {executionTime}ms
+                {memoryUsed && (
+                  <span className="memory-used">
+                    · {(memoryUsed / 1024).toFixed(1)}MB
+                  </span>
+                )}
+              </span>
+            )}
 
-          {/* ✅ Run Again — clean button, only after execution */}
+          {/* Run Again — only after execution completes (not cancelled) */}
           {showRunAgain && (
             <button
               className="run-again-btn"
@@ -176,9 +184,9 @@ function OutputPanel({
         </div>
       )}
 
-      {/* ✅ Scrollable wrapper — content grows, panel scrolls */}
+      {/* Scrollable wrapper */}
       <div className="output-content-wrapper">
-        {/* Status banner */}
+        {/* Status banners */}
         {parsed.type === "success" && (
           <div className="output-status-banner success">
             <CheckCircle size={14} /> Executed successfully
@@ -204,21 +212,32 @@ function OutputPanel({
             <AlertTriangle size={14} /> Execution Timeout
           </div>
         )}
-        {/* ✅ Framework warning — amber, not red */}
         {parsed.type === "warning" && (
-          <div className="output-status-banner timeout">
+          <div className="output-status-banner warning">
             <AlertTriangle size={14} /> Cannot run in sandbox
           </div>
         )}
+        {parsed.type === "cancelled" && (
+          <div className="output-status-banner cancelled">
+            <Ban size={14} /> Execution cancelled
+          </div>
+        )}
 
-        <div className="output-label">Program Output:</div>
-        <pre className={`output-content ${parsed.type}`}>
-          {parsed.type === "running"
-            ? "Running..."
-            : parsed.type === "success-empty"
-              ? "// No output produced"
-              : parsed.text || "No output yet. Run your code to see results."}
-        </pre>
+        {parsed.type !== "idle" && (
+          <>
+            <div className="output-label">Program Output:</div>
+            <pre className={`output-content ${parsed.type}`}>
+              {parsed.type === "running"
+                ? "Running..."
+                : parsed.type === "success-empty"
+                  ? "// No output produced"
+                  : parsed.type === "cancelled"
+                    ? "// Execution was cancelled"
+                    : parsed.text ||
+                      "No output yet. Run your code to see results."}
+            </pre>
+          </>
+        )}
       </div>
     </div>
   );

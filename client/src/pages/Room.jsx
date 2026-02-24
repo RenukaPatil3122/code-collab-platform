@@ -48,6 +48,9 @@ import RecordingControls from "../components/recording/RecordingControls";
 import ComplexityAnalyzer from "../components/complexity/ComplexityAnalyzer";
 import Whiteboard from "../components/whiteboard/Whiteboard";
 
+// ✅ Import LANGUAGES array so dropdown is always in sync with constants
+import { LANGUAGES } from "../utils/constants";
+
 import "./Room.css";
 
 const API_BASE = "http://localhost:5000";
@@ -85,17 +88,22 @@ function RoomContent() {
     setStdin,
     executionTime,
     memoryUsed,
-    injectActiveFile, // ✅ NEW
+    injectActiveFile,
   } = useRoom();
 
   const { isInterviewMode } = useInterview();
   const { showAIPanel, setShowAIPanel } = useAI();
-  const { files, activeFile, activeFileData, updateFileContent } = useFiles(); // ✅ added activeFileData
+  const { files, activeFile, activeFileData, updateFileContent } = useFiles();
 
   // ✅ Inject active file data into RoomContext on every render
-  // This gives runCode access to the latest file content + correct language
-  // without needing useFiles() inside RoomContext (which caused the provider error)
   injectActiveFile(activeFileData, updateFileContent);
+
+  // ✅ Auto-detect language whenever active file changes
+  useEffect(() => {
+    if (activeFile) {
+      autoDetectLanguage(activeFile);
+    }
+  }, [activeFile]);
 
   const [showTemplateModal, setShowTemplateModal] = useState(false);
   const [showInterviewModal, setShowInterviewModal] = useState(false);
@@ -107,7 +115,6 @@ function RoomContent() {
   const [showComplexity, setShowComplexity] = useState(false);
   const [showWhiteboard, setShowWhiteboard] = useState(false);
 
-  // ✅ Output minimize state lives HERE so the layout reacts to it
   const [isOutputMinimized, setIsOutputMinimized] = useState(false);
 
   const [gistDescription, setGistDescription] = useState("");
@@ -137,7 +144,6 @@ function RoomContent() {
   const handleLanguageChange = (newLang) => updateLanguage(newLang);
   const handleToggleTheme = () => toggleTheme();
 
-  // ✅ Reset minimized whenever output is toggled open
   const handleToggleOutput = (v) => {
     setShowOutput(v);
     if (v) setIsOutputMinimized(false);
@@ -342,20 +348,19 @@ function RoomContent() {
 
         <div className="header-section-center">
           <RecordingControls />
+
+          {/* ✅ Dynamic dropdown from LANGUAGES constant — always in sync */}
           <select
             value={language}
             onChange={(e) => handleLanguageChange(e.target.value)}
             className="language-dropdown"
             disabled={isInterviewMode}
           >
-            <option value="javascript">JavaScript</option>
-            <option value="python">Python</option>
-            <option value="java">Java</option>
-            <option value="cpp">C++</option>
-            <option value="c">C</option>
-            <option value="go">Go</option>
-            <option value="rust">Rust</option>
-            <option value="typescript">TypeScript</option>
+            {LANGUAGES.map((lang) => (
+              <option key={lang.value} value={lang.value}>
+                {lang.label}
+              </option>
+            ))}
           </select>
 
           <button

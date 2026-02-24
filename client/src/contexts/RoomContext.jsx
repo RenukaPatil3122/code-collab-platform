@@ -8,7 +8,7 @@ import React, {
   useRef,
 } from "react";
 import { socket } from "../utils/socket";
-import { SOCKET_EVENTS } from "../utils/constants";
+import { SOCKET_EVENTS, EXT_TO_LANGUAGE } from "../utils/constants";
 import toast from "react-hot-toast";
 
 const RoomContext = createContext();
@@ -19,37 +19,18 @@ export const useRoom = () => {
   return context;
 };
 
-const EXT_LANGUAGE_MAP = {
-  js: "javascript",
-  jsx: "javascript",
-  ts: "typescript",
-  tsx: "typescript",
-  py: "python",
-  java: "java",
-  cpp: "cpp",
-  cc: "cpp",
-  cxx: "cpp",
-  c: "c",
-  go: "go",
-  rs: "rust",
-  rb: "ruby",
-  php: "php",
-};
-
+// ✅ Uses EXT_TO_LANGUAGE from constants — single source of truth
+// cs → csharp, rs → rust, py → python, all covered
 const detectLang = (fileName) => {
   if (!fileName) return null;
   const ext = fileName.split(".").pop().toLowerCase();
-  return EXT_LANGUAGE_MAP[ext] || null;
+  return EXT_TO_LANGUAGE[ext] || null;
 };
 
 export const RoomProvider = ({ children, roomId, username }) => {
-  // ✅ NO useFiles() here — avoids provider order issues entirely
-  // Active file data is injected via setActiveFileData() called from outside
-  const activeFileRef = useRef(null); // { name, content, language }
-  const updateFileContentRef = useRef(null); // fn to sync edits back to FileContext
+  const activeFileRef = useRef(null);
+  const updateFileContentRef = useRef(null);
 
-  // ── Call this from wherever you render RoomProvider (Room.jsx / App.jsx)
-  // so RoomContext always has the latest active file without depending on provider order
   const injectActiveFile = useCallback((fileData, updateFn) => {
     activeFileRef.current = fileData;
     if (updateFn) updateFileContentRef.current = updateFn;
@@ -190,7 +171,9 @@ export const RoomProvider = ({ children, roomId, username }) => {
 
     socket.on("execution-cancelled", () => {
       setIsRunning(false);
-      setOutput("Execution cancelled.");
+      setOutput("Cancelled");
+      setExecutionTime(null);
+      setMemoryUsed(null);
       runStartTimeRef.current = null;
     });
 
@@ -213,7 +196,6 @@ export const RoomProvider = ({ children, roomId, username }) => {
     (newCode) => {
       setCode(newCode);
       socket.emit(SOCKET_EVENTS.CODE_CHANGE, { roomId, code: newCode });
-      // Sync back to FileContext if injected
       if (activeFileRef.current && updateFileContentRef.current) {
         updateFileContentRef.current(activeFileRef.current.name, newCode);
       }
@@ -229,10 +211,12 @@ export const RoomProvider = ({ children, roomId, username }) => {
     [roomId],
   );
 
+  // ✅ FIXED: removed the `detected !== language` guard that was blocking updates
+  // Now always syncs dropdown + socket when switching files
   const autoDetectLanguage = useCallback(
     (fileName) => {
       const detected = detectLang(fileName);
-      if (detected && detected !== language) {
+      if (detected) {
         setLanguage(detected);
         socket.emit(SOCKET_EVENTS.LANGUAGE_CHANGE, {
           roomId,
@@ -240,20 +224,23 @@ export const RoomProvider = ({ children, roomId, username }) => {
         });
       }
     },
-    [roomId, language],
+    [roomId],
   );
 
   const cancelExecution = useCallback(() => {
     socket.emit("cancel-execution");
     setIsRunning(false);
+    setOutput("Cancelled");
+    setExecutionTime(null);
+    setMemoryUsed(null);
     runStartTimeRef.current = null;
   }, []);
 
-  // ✅ runCode uses injected activeFileRef — always has latest content + correct language
   const runCode = useCallback(() => {
     const activeFile = activeFileRef.current;
     const currentContent = activeFile?.content ?? code;
     const currentFileName = activeFile?.name ?? "main.js";
+    // ✅ Always re-detect from filename at run time so it's never stale
     const detectedLang = detectLang(currentFileName) || language;
 
     if (!currentContent?.trim()) {
@@ -348,7 +335,7 @@ export const RoomProvider = ({ children, roomId, username }) => {
     setCode,
     setTestCases,
     setStdin,
-    injectActiveFile, // ✅ expose this so Room.jsx can inject file data
+    injectActiveFile,
   };
 
   return <RoomContext.Provider value={value}>{children}</RoomContext.Provider>;
