@@ -16,7 +16,13 @@ function VersionHistory({ roomId, currentCode, onRestore, onClose }) {
   useEffect(() => {
     if (!socket || !roomId) return;
 
+    // Initial fetch
     socket.emit("get-versions", { roomId });
+
+    // ✅ Poll every 30s to pick up auto-saves without user needing to refresh
+    const pollInterval = setInterval(() => {
+      socket.emit("get-versions", { roomId });
+    }, 30000);
 
     const handleVersionsList = ({ versions: receivedVersions }) => {
       const validVersions = (receivedVersions || []).filter(
@@ -46,6 +52,7 @@ function VersionHistory({ roomId, currentCode, onRestore, onClose }) {
     socket.on("version-restored", handleVersionRestored);
 
     return () => {
+      clearInterval(pollInterval); // ✅ cleanup on unmount
       socket.off("versions-list", handleVersionsList);
       socket.off("version-saved", handleVersionSaved);
       socket.off("version-restored", handleVersionRestored);
@@ -162,7 +169,6 @@ function VersionHistory({ roomId, currentCode, onRestore, onClose }) {
                         <span className="version-message">
                           {version.message || "Untitled version"}
                         </span>
-                        {/* ✅ Badges in a flex row — compact pills */}
                         <div className="version-badges">
                           {index === 0 && (
                             <span className="version-badge-latest">Latest</span>

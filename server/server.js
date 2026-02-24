@@ -64,9 +64,12 @@ const io = new Server(server, {
 
 const rooms = new Map();
 const whiteboardStates = new Map();
+const runningExecutions = new Map();
 
-// ✅ Track in-flight executions per socket so we can cancel them
-const runningExecutions = new Map(); // socketId → { cancelled: false }
+// ✅ Smart auto-save config
+const AUTO_SAVE_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes (not 1 min)
+const AUTO_SAVE_MAX_COUNT = 15; // cap at 15 auto-saves per room
+const AUTO_SAVE_MIN_LENGTH = 10; // ignore trivial code (< 10 chars)
 
 function getRandomColor() {
   const colors = [
@@ -93,29 +96,54 @@ function getDefaultFiles() {
   };
 }
 
+// ✅ Smart auto-save — only triggers if:
+//    1. Code actually changed since last auto-save
+//    2. Code is long enough to be meaningful
+//    3. Room has active users
+//    4. Auto-save count is under the cap
 setInterval(async () => {
   for (const [roomId, room] of rooms) {
-    if (room.code && room.code.trim() && room.users.size > 0) {
-      try {
-        const lastVersion = await Version.findOne({ roomId, auto: true }).sort({
-          timestamp: -1,
-        });
-        if (!lastVersion || lastVersion.code !== room.code) {
-          await Version.create({
-            roomId,
-            code: room.code,
-            message: "Auto-save",
-            auto: true,
-            timestamp: new Date(),
-          });
-          console.log(`💾 Auto-saved room ${roomId} to MongoDB`);
-        }
-      } catch (err) {
-        console.error(`❌ Auto-save error:`, err);
+    try {
+      // Skip rooms with no users or trivial code
+      if (room.users.size === 0) continue;
+      if (!room.code || room.code.trim().length < AUTO_SAVE_MIN_LENGTH)
+        continue;
+
+      // Check last auto-save — skip if code hasn't changed
+      const lastAutoSave = await Version.findOne({ roomId, auto: true })
+        .sort({ timestamp: -1 })
+        .select("code");
+
+      if (lastAutoSave && lastAutoSave.code === room.code) {
+        continue; // No change — don't save
       }
+
+      // ✅ Enforce cap — delete oldest auto-saves if over limit
+      const autoSaveCount = await Version.countDocuments({
+        roomId,
+        auto: true,
+      });
+      if (autoSaveCount >= AUTO_SAVE_MAX_COUNT) {
+        const oldest = await Version.findOne({ roomId, auto: true }).sort({
+          timestamp: 1,
+        });
+        if (oldest) await Version.deleteOne({ _id: oldest._id });
+      }
+
+      await Version.create({
+        roomId,
+        code: room.code,
+        message: "Auto-save",
+        auto: true,
+        timestamp: new Date(),
+      });
+
+      console.log(`💾 Auto-saved room ${roomId} (changed code)`);
+    } catch (err) {
+      console.error(`❌ Auto-save error for room ${roomId}:`, err);
     }
   }
-}, 60000);
+}, AUTO_SAVE_INTERVAL_MS);
 
 io.on("connection", (socket) => {
   console.log(`✅ User connected: ${socket.id}`);
@@ -180,6 +208,7 @@ io.on("connection", (socket) => {
     const room = rooms.get(roomId);
     if (room) {
       room.files[file.name] = file;
+      // ✅ No auto-save triggered here — file creation is not a version event
       socket.to(roomId).emit("file-created", { file });
     }
   });
@@ -281,15 +310,12 @@ io.on("connection", (socket) => {
     }
   });
 
-  // ✅ FIXED run-code — syncs latest content before bundling, uses client's activeFile as entry point
   socket.on(
     "run-code",
     async ({ roomId, code, language, stdin, activeFile: clientActiveFile }) => {
       try {
         let room = rooms.get(roomId);
 
-        // ✅ FIX: If room doesn't exist (opened folder before room was set up),
-        // create a minimal room on the fly so execution works
         if (!room) {
           const entryName = clientActiveFile || "main.js";
           rooms.set(roomId, {
@@ -315,11 +341,8 @@ io.on("connection", (socket) => {
         const token = { cancelled: false };
         runningExecutions.set(socket.id, token);
 
-        // ✅ Use entry point sent from client (the file the user has open)
         const entryFile = clientActiveFile || room.activeFile;
 
-        // ✅ Sync the latest editor content into room.files BEFORE bundling
-        // Without this, the bundler uses a stale version of the file
         if (entryFile) {
           room.files[entryFile] = {
             name: entryFile,
@@ -332,13 +355,11 @@ io.on("connection", (socket) => {
           room.activeFile = entryFile;
         }
 
-        // ✅ Update room language too
         if (language) room.language = language;
 
         const { output, error, executionTime, memoryUsed } =
           await executeMultiFile(room.files, language, stdin || "", entryFile);
 
-        // ✅ If cancelled while we were waiting, don't send result
         if (token.cancelled) {
           runningExecutions.delete(socket.id);
           return;
@@ -364,7 +385,6 @@ io.on("connection", (socket) => {
     },
   );
 
-  // ✅ cancel-execution — mark token cancelled, tell client immediately
   socket.on("cancel-execution", () => {
     const token = runningExecutions.get(socket.id);
     if (token) {
