@@ -1,4 +1,6 @@
-import React, { useState } from "react";
+// src/components/TestCases.jsx
+
+import React, { useState, useCallback } from "react";
 import {
   Plus,
   Trash2,
@@ -7,235 +9,301 @@ import {
   XCircle,
   Clock,
   AlertCircle,
+  FlaskConical,
+  ChevronDown,
+  ChevronUp,
+  Loader,
 } from "lucide-react";
 import "./TestCases.css";
 
 function TestCases({ testCases, onUpdate, onClose, testResults, isRunning }) {
-  const [activeTab, setActiveTab] = useState("cases"); // 'cases' or 'results'
+  const [activeTab, setActiveTab] = useState("cases");
+  const [expandedResults, setExpandedResults] = useState(new Set());
 
-  const addTestCase = () => {
-    const newTestCase = {
-      id: Date.now(),
-      input: "",
-      expectedOutput: "",
-    };
-    onUpdate([...testCases, newTestCase]);
+  // ── Stable callbacks — no unnecessary re-renders ──
+  const addTestCase = useCallback(() => {
+    onUpdate([...testCases, { id: Date.now(), input: "", expectedOutput: "" }]);
+  }, [testCases, onUpdate]);
+
+  const updateTestCase = useCallback(
+    (id, field, value) => {
+      onUpdate(
+        testCases.map((tc) => (tc.id === id ? { ...tc, [field]: value } : tc)),
+      );
+    },
+    [testCases, onUpdate],
+  );
+
+  const deleteTestCase = useCallback(
+    (id) => {
+      onUpdate(testCases.filter((tc) => tc.id !== id));
+    },
+    [testCases, onUpdate],
+  );
+
+  const toggleResultExpand = (idx) => {
+    setExpandedResults((prev) => {
+      const next = new Set(prev);
+      next.has(idx) ? next.delete(idx) : next.add(idx);
+      return next;
+    });
   };
 
-  const updateTestCase = (id, field, value) => {
-    const updated = testCases.map((tc) =>
-      tc.id === id ? { ...tc, [field]: value } : tc,
-    );
-    onUpdate(updated);
-  };
+  // Auto-switch to results tab when results arrive
+  React.useEffect(() => {
+    if (testResults && !isRunning) setActiveTab("results");
+  }, [testResults, isRunning]);
 
-  const deleteTestCase = (id) => {
-    onUpdate(testCases.filter((tc) => tc.id !== id));
-  };
+  const passRate = testResults?.summary
+    ? Math.round((testResults.summary.passed / testResults.summary.total) * 100)
+    : 0;
 
   return (
-    <div className="test-cases-panel">
-      <div className="test-cases-header">
-        <div className="header-tabs">
+    <div className="tc-panel">
+      {/* ── Header ── */}
+      <div className="tc-header">
+        <div className="tc-header-left">
+          <FlaskConical size={14} className="tc-header-icon" />
+          <span className="tc-header-title">Test Cases</span>
+        </div>
+
+        <div className="tc-tabs">
           <button
-            className={`tab ${activeTab === "cases" ? "active" : ""}`}
+            className={`tc-tab ${activeTab === "cases" ? "active" : ""}`}
             onClick={() => setActiveTab("cases")}
           >
-            Test Cases ({testCases.length})
+            Cases
+            <span className="tc-tab-count">{testCases.length}</span>
           </button>
           <button
-            className={`tab ${activeTab === "results" ? "active" : ""}`}
-            onClick={() => setActiveTab("results")}
-            disabled={!testResults}
+            className={`tc-tab ${activeTab === "results" ? "active" : ""} ${!testResults && !isRunning ? "disabled" : ""}`}
+            onClick={() =>
+              (testResults || isRunning) && setActiveTab("results")
+            }
           >
             Results
             {testResults && (
-              <span className="results-badge">
-                {testResults.summary?.passed}/{testResults.summary?.total}
+              <span
+                className={`tc-tab-badge ${passRate === 100 ? "all-pass" : passRate === 0 ? "all-fail" : "partial"}`}
+              >
+                {testResults.summary.passed}/{testResults.summary.total}
               </span>
             )}
+            {isRunning && <Loader size={11} className="tc-tab-spin" />}
           </button>
         </div>
-        <button className="btn-close-panel" onClick={onClose}>
-          <X size={20} />
+
+        <button className="tc-close" onClick={onClose} title="Close">
+          <X size={15} />
         </button>
       </div>
 
-      <div className="test-cases-content">
+      {/* ── Body ── */}
+      <div className="tc-body">
         {activeTab === "cases" ? (
-          <div className="test-cases-list">
+          <div className="tc-cases">
             {testCases.length === 0 ? (
-              <div className="empty-state">
-                <AlertCircle size={48} />
-                <h3>No Test Cases Yet</h3>
-                <p>Add test cases to validate your code</p>
-                <button className="btn-add-first" onClick={addTestCase}>
-                  <Plus size={18} />
-                  Add First Test Case
+              <div className="tc-empty">
+                <FlaskConical size={32} className="tc-empty-icon" />
+                <p className="tc-empty-title">No test cases yet</p>
+                <p className="tc-empty-sub">
+                  Add inputs and expected outputs to validate your code
+                  automatically
+                </p>
+                <button className="tc-btn-add-first" onClick={addTestCase}>
+                  <Plus size={13} /> Add First Test Case
                 </button>
               </div>
             ) : (
               <>
-                {testCases.map((testCase, index) => (
-                  <div key={testCase.id} className="test-case-card">
-                    <div className="test-case-header">
-                      <span className="test-case-number">
-                        Test Case {index + 1}
-                      </span>
-                      <button
-                        className="btn-delete-test"
-                        onClick={() => deleteTestCase(testCase.id)}
-                        title="Delete test case"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
-
-                    <div className="test-case-fields">
-                      <div className="field-group">
-                        <label>Input</label>
-                        <textarea
-                          value={testCase.input}
-                          onChange={(e) =>
-                            updateTestCase(testCase.id, "input", e.target.value)
-                          }
-                          placeholder="Enter input (e.g., [1,2,3])"
-                          rows={2}
-                        />
+                <div className="tc-list">
+                  {testCases.map((tc, index) => (
+                    <div
+                      key={tc.id}
+                      className="tc-card"
+                      style={{ animationDelay: `${index * 0.04}s` }}
+                    >
+                      <div className="tc-card-header">
+                        <div className="tc-card-label">
+                          <span className="tc-card-num">#{index + 1}</span>
+                          <span className="tc-card-title">Test Case</span>
+                        </div>
+                        <button
+                          className="tc-btn-delete"
+                          onClick={() => deleteTestCase(tc.id)}
+                          title="Delete"
+                        >
+                          <Trash2 size={12} />
+                        </button>
                       </div>
 
-                      <div className="field-group">
-                        <label>Expected Output</label>
-                        <textarea
-                          value={testCase.expectedOutput}
-                          onChange={(e) =>
-                            updateTestCase(
-                              testCase.id,
-                              "expectedOutput",
-                              e.target.value,
-                            )
-                          }
-                          placeholder="Enter expected output"
-                          rows={2}
-                        />
+                      <div className="tc-card-fields">
+                        <div className="tc-field">
+                          <label className="tc-field-label">Input</label>
+                          <textarea
+                            className="tc-textarea"
+                            value={tc.input}
+                            onChange={(e) =>
+                              updateTestCase(tc.id, "input", e.target.value)
+                            }
+                            placeholder="e.g. 5&#10;3 1 4 1 5"
+                            rows={2}
+                            spellCheck={false}
+                          />
+                        </div>
+                        <div className="tc-field">
+                          <label className="tc-field-label">
+                            Expected Output
+                          </label>
+                          <textarea
+                            className="tc-textarea expected"
+                            value={tc.expectedOutput}
+                            onChange={(e) =>
+                              updateTestCase(
+                                tc.id,
+                                "expectedOutput",
+                                e.target.value,
+                              )
+                            }
+                            placeholder="e.g. 14"
+                            rows={2}
+                            spellCheck={false}
+                          />
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
 
-                <button className="btn-add-test" onClick={addTestCase}>
-                  <Plus size={18} />
-                  Add Test Case
+                <button className="tc-btn-add" onClick={addTestCase}>
+                  <Plus size={13} /> Add Test Case
                 </button>
               </>
             )}
           </div>
         ) : (
-          <div className="test-results-list">
+          <div className="tc-results">
             {isRunning ? (
-              <div className="loading-results">
-                <div className="spinner"></div>
-                <p>Running tests...</p>
+              <div className="tc-running">
+                <div className="tc-running-dots">
+                  <span />
+                  <span />
+                  <span />
+                </div>
+                <p>
+                  Running {testCases.length} test
+                  {testCases.length !== 1 ? "s" : ""}...
+                </p>
               </div>
             ) : testResults?.error ? (
-              <div className="error-state">
-                <XCircle size={48} />
-                <h3>Test Execution Failed</h3>
-                <p>{testResults.error}</p>
+              <div className="tc-empty">
+                <XCircle size={32} className="tc-empty-icon error" />
+                <p className="tc-empty-title">Execution Failed</p>
+                <p className="tc-empty-sub tc-error-msg">{testResults.error}</p>
               </div>
             ) : testResults?.results ? (
               <>
-                <div className="results-summary">
-                  <div className="summary-card passed">
-                    <CheckCircle size={24} />
-                    <div>
-                      <span className="summary-number">
-                        {testResults.summary.passed}
-                      </span>
-                      <span className="summary-label">Passed</span>
-                    </div>
+                {/* Summary bar */}
+                <div className="tc-summary">
+                  <div className="tc-summary-bar">
+                    <div
+                      className="tc-summary-fill"
+                      style={{ width: `${passRate}%` }}
+                    />
                   </div>
-                  <div className="summary-card failed">
-                    <XCircle size={24} />
-                    <div>
-                      <span className="summary-number">
-                        {testResults.summary.failed}
-                      </span>
-                      <span className="summary-label">Failed</span>
-                    </div>
-                  </div>
-                  <div className="summary-card total">
-                    <AlertCircle size={24} />
-                    <div>
-                      <span className="summary-number">
-                        {testResults.summary.total}
-                      </span>
-                      <span className="summary-label">Total</span>
-                    </div>
+                  <div className="tc-summary-stats">
+                    <span className="tc-stat passed">
+                      <CheckCircle size={12} />
+                      {testResults.summary.passed} passed
+                    </span>
+                    <span className="tc-stat failed">
+                      <XCircle size={12} />
+                      {testResults.summary.failed} failed
+                    </span>
+                    <span className="tc-stat rate">{passRate}%</span>
                   </div>
                 </div>
 
-                <div className="results-list">
-                  {testResults.results.map((result, index) => (
-                    <div
-                      key={index}
-                      className={`result-card ${result.passed ? "passed" : "failed"}`}
-                    >
-                      <div className="result-header">
-                        <div className="result-title">
-                          {result.passed ? (
-                            <CheckCircle size={20} className="icon-passed" />
-                          ) : (
-                            <XCircle size={20} className="icon-failed" />
-                          )}
-                          <span>Test Case {result.testCase}</span>
-                        </div>
-                        <div className="result-time">
-                          <Clock size={14} />
-                          <span>{result.executionTime}ms</span>
-                        </div>
-                      </div>
+                {/* Result cards */}
+                <div className="tc-result-list">
+                  {testResults.results.map((result, idx) => {
+                    const expanded = expandedResults.has(idx);
+                    return (
+                      <div
+                        key={idx}
+                        className={`tc-result-card ${result.passed ? "pass" : "fail"}`}
+                        style={{ animationDelay: `${idx * 0.05}s` }}
+                      >
+                        <button
+                          className="tc-result-header"
+                          onClick={() => toggleResultExpand(idx)}
+                        >
+                          <div className="tc-result-left">
+                            {result.passed ? (
+                              <CheckCircle size={14} className="icon-pass" />
+                            ) : (
+                              <XCircle size={14} className="icon-fail" />
+                            )}
+                            <span className="tc-result-name">
+                              Test #{result.testCase}
+                            </span>
+                            {result.error && (
+                              <span className="tc-result-error-badge">
+                                Error
+                              </span>
+                            )}
+                          </div>
+                          <div className="tc-result-right">
+                            <span className="tc-result-time">
+                              <Clock size={11} />
+                              {result.executionTime}ms
+                            </span>
+                            {expanded ? (
+                              <ChevronUp size={13} />
+                            ) : (
+                              <ChevronDown size={13} />
+                            )}
+                          </div>
+                        </button>
 
-                      <div className="result-details">
-                        <div className="detail-section">
-                          <label>Input:</label>
-                          <pre>{result.input || "None"}</pre>
-                        </div>
-
-                        <div className="detail-section">
-                          <label>Expected Output:</label>
-                          <pre className="expected">
-                            {result.expectedOutput}
-                          </pre>
-                        </div>
-
-                        <div className="detail-section">
-                          <label>Actual Output:</label>
-                          <pre
-                            className={
-                              result.passed ? "actual-passed" : "actual-failed"
-                            }
-                          >
-                            {result.actualOutput}
-                          </pre>
-                        </div>
-
-                        {result.error && (
-                          <div className="error-message">
-                            <AlertCircle size={16} />
-                            <span>Execution Error</span>
+                        {expanded && (
+                          <div className="tc-result-body">
+                            {result.input && (
+                              <div className="tc-result-section">
+                                <span className="tc-result-label">Input</span>
+                                <pre className="tc-result-pre input">
+                                  {result.input}
+                                </pre>
+                              </div>
+                            )}
+                            <div className="tc-result-section">
+                              <span className="tc-result-label">Expected</span>
+                              <pre className="tc-result-pre expected">
+                                {result.expectedOutput}
+                              </pre>
+                            </div>
+                            <div className="tc-result-section">
+                              <span className="tc-result-label">Got</span>
+                              <pre
+                                className={`tc-result-pre ${result.passed ? "got-pass" : "got-fail"}`}
+                              >
+                                {result.actualOutput}
+                              </pre>
+                            </div>
                           </div>
                         )}
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </>
             ) : (
-              <div className="empty-results">
-                <AlertCircle size={48} />
-                <h3>No Results Yet</h3>
-                <p>Run tests to see results here</p>
+              <div className="tc-empty">
+                <FlaskConical size={32} className="tc-empty-icon" />
+                <p className="tc-empty-title">No results yet</p>
+                <p className="tc-empty-sub">
+                  Run your test cases to see results
+                </p>
               </div>
             )}
           </div>
