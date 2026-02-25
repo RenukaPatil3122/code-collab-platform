@@ -3,7 +3,7 @@
 @import url("https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800;900&family=Geist+Mono:wght@300;400;500;600;700&display=swap");
 
 /* ─────────────────────────────────────────────────────────
-   TOKENS — scoped to panel so no global bleed
+   TOKENS — scoped to panel (dark by default)
 ───────────────────────────────────────────────────────── */
 .ai-assistant-panel {
   /* Backgrounds */
@@ -74,8 +74,6 @@
   font-family: var(--ai-font-ui);
   overflow: hidden;
   position: relative;
-
-  /* Same treatment as chat panel — clear left edge */
   border-left: 1px solid var(--ai-border-mid);
   box-shadow:
     -1px 0 0 rgba(139, 92, 246, 0.1),
@@ -114,7 +112,6 @@
     0 1px 14px rgba(0, 0, 0, 0.28);
 }
 
-/* Vivid top stripe — gold/purple gradient matching the Sparkles gold icon */
 .ai-header::after {
   content: "";
   position: absolute;
@@ -132,7 +129,6 @@
   opacity: 0.65;
 }
 
-/* ── Icon wrapper ── */
 .ai-icon-wrapper {
   width: 34px;
   height: 34px;
@@ -198,7 +194,6 @@
   gap: 8px;
 }
 
-/* Pulsing status dot */
 .ai-status-dot {
   width: 6px;
   height: 6px;
@@ -283,10 +278,8 @@
     transform var(--ai-t) var(--ai-spring),
     box-shadow var(--ai-t) var(--ai-ease);
   position: relative;
-  overflow: hidden;
 }
 
-/* Shimmer on hover */
 .ai-action-btn::before {
   content: "";
   position: absolute;
@@ -322,7 +315,6 @@
   cursor: not-allowed;
 }
 
-/* Per-button color themes */
 .ai-action-btn.explain:hover:not(:disabled) {
   border-color: rgba(59, 130, 246, 0.5);
   background: var(--ai-blue-soft);
@@ -366,7 +358,6 @@
   padding: 14px 12px;
   background: var(--ai-bg);
   min-height: 0;
-
   mask-image: linear-gradient(
     to bottom,
     transparent 0px,
@@ -407,7 +398,6 @@
   height: 48px;
 }
 
-/* Outer spinning ring */
 .ai-loading-orb-inner {
   width: 48px;
   height: 48px;
@@ -418,7 +408,6 @@
   animation: spin 0.9s linear infinite;
 }
 
-/* Inner glow pulse */
 .ai-loading-orb-pulse {
   position: absolute;
   inset: 11px;
@@ -431,7 +420,6 @@
   animation: pulse-orb 1.6s ease-in-out infinite;
 }
 
-/* Outer ambient ring */
 .ai-loading-orb::after {
   content: "";
   position: absolute;
@@ -525,7 +513,6 @@
   }
 }
 
-/* Floating icon box */
 .empty-icon-wrapper {
   position: relative;
   width: 54px;
@@ -544,7 +531,6 @@
   animation: float 4.5s ease-in-out infinite;
   box-shadow: 0 8px 24px rgba(245, 158, 11, 0.1);
 }
-/* Inner shimmer on icon bg */
 .empty-icon-bg::after {
   content: "";
   position: absolute;
@@ -590,7 +576,6 @@
   max-width: 200px;
 }
 
-/* Capability list */
 .empty-capabilities {
   display: flex;
   flex-direction: column;
@@ -620,7 +605,6 @@
   height: 5px;
   border-radius: 50%;
   flex-shrink: 0;
-  /* glow set inline per color */
 }
 .capability-item span {
   font-family: var(--ai-font-ui);
@@ -666,7 +650,6 @@
     0 0 40px rgba(139, 92, 246, 0.06);
 }
 
-/* Card header bar */
 .response-header {
   display: flex;
   justify-content: space-between;
@@ -680,7 +663,6 @@
   );
   position: relative;
 }
-/* Colored left accent per feature — set as inline var */
 .response-header::before {
   content: "";
   position: absolute;
@@ -819,4 +801,339 @@
 .ai-tips strong {
   font-weight: 600;
   color: var(--ai-text-secondary);
+}
+
+/* ─────────────────────────────────────────────────────────
+   LIGHT MODE — only when [data-theme="light"] is set
+───────────────────────────────────────────────────────── */
+
+:root.light .ai-assistant-panel,
+[data-theme="light"] .ai-assistant-panel {
+  --ai-bg: #f5f5fb;
+  --ai-header-bg: #ededf7;
+  --ai-section-bg: #eaeaf4;
+  --ai-surface: #ffffff;
+  --ai-surface-2: #f0f0fa;
+  --ai-raised: #e8e8f4;
+  --ai-hover: #e2e2f0;
+
+  --ai-border: rgba(0, 0, 0, 0.07);
+  --ai-border-mid: rgba(0, 0, 0, 0.1);
+  --ai-border-accent: rgba(139, 92, 246, 0.38);
+  --ai-border-input: rgba(0, 0, 0, 0.09);
+
+  --ai-text-primary: #1a1a2e;
+  --ai-text-secondary: #4a4a72;
+  --ai-text-muted: #7a7a9a;
+  --ai-text-ghost: #b0b0cc;
+
+  --ai-accent: #7c3aed;
+  --ai-accent-dim: #5b21b6;
+  --ai-accent-glow: rgba(124, 58, 237, 0.15);
+  --ai-accent-soft: rgba(124, 58, 237, 0.08);
+  --ai-accent-ring: rgba(124, 58, 237, 0.1);
+
+  --ai-gold: #d97706;
+  --ai-gold-soft: rgba(217, 119, 6, 0.09);
+  --ai-gold-border: rgba(217, 119, 6, 0.22);
+  --ai-green: #059669;
+  --ai-green-soft: rgba(5, 150, 105, 0.08);
+  --ai-red: #dc2626;
+  --ai-red-soft: rgba(220, 38, 38, 0.07);
+  --ai-blue: #2563eb;
+  --ai-blue-soft: rgba(37, 99, 235, 0.07);
+  --ai-cyan: #0891b2;
+}
+
+/* Panel shell */
+:root.light .ai-assistant-panel,
+[data-theme="light"] .ai-assistant-panel {
+  box-shadow:
+    -1px 0 0 rgba(124, 58, 237, 0.08),
+    inset 2px 0 16px rgba(124, 58, 237, 0.02),
+    0 0 0 1px rgba(0, 0, 0, 0.06);
+}
+
+/* Hide grain */
+:root.light .ai-assistant-panel::before,
+[data-theme="light"] .ai-assistant-panel::before {
+  display: none;
+}
+
+/* Header */
+:root.light .ai-header,
+[data-theme="light"] .ai-header {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.8),
+    0 1px 8px rgba(0, 0, 0, 0.06);
+}
+
+/* Title */
+:root.light .ai-title h3,
+[data-theme="light"] .ai-title h3 {
+  color: #1a1a2e;
+}
+
+/* Icon wrapper */
+:root.light .ai-icon-wrapper,
+[data-theme="light"] .ai-icon-wrapper {
+  background: rgba(217, 119, 6, 0.09);
+  border-color: rgba(217, 119, 6, 0.22);
+  box-shadow: 0 0 12px rgba(217, 119, 6, 0.1);
+}
+:root.light .ai-icon-wrapper:hover,
+[data-theme="light"] .ai-icon-wrapper:hover {
+  background: rgba(217, 119, 6, 0.14);
+  box-shadow: 0 0 18px rgba(217, 119, 6, 0.18);
+}
+
+/* Status dot */
+:root.light .ai-status-dot,
+[data-theme="light"] .ai-status-dot {
+  background: #059669;
+  box-shadow:
+    0 0 0 2px rgba(5, 150, 105, 0.15),
+    0 0 5px #059669;
+}
+
+/* Close button */
+:root.light .btn-close-ai,
+[data-theme="light"] .btn-close-ai {
+  border-color: rgba(0, 0, 0, 0.1);
+  color: #7a7a9a;
+}
+:root.light .btn-close-ai:hover,
+[data-theme="light"] .btn-close-ai:hover {
+  background: #e2e2f0;
+  border-color: rgba(124, 58, 237, 0.35);
+  color: #1a1a2e;
+  box-shadow: 0 0 8px rgba(124, 58, 237, 0.1);
+}
+
+/* Quick actions grid */
+:root.light .ai-quick-actions,
+[data-theme="light"] .ai-quick-actions {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+/* Action buttons */
+:root.light .ai-action-btn,
+[data-theme="light"] .ai-action-btn {
+  background: #ffffff;
+  border-color: rgba(0, 0, 0, 0.09);
+  color: #4a4a72;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+:root.light .ai-action-btn:hover:not(:disabled),
+[data-theme="light"] .ai-action-btn:hover:not(:disabled) {
+  color: #1a1a2e;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
+}
+
+:root.light .ai-action-btn.explain:hover:not(:disabled),
+[data-theme="light"] .ai-action-btn.explain:hover:not(:disabled) {
+  border-color: rgba(37, 99, 235, 0.45);
+  background: rgba(37, 99, 235, 0.06);
+  color: #1d4ed8;
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.1);
+}
+:root.light .ai-action-btn.debug:hover:not(:disabled),
+[data-theme="light"] .ai-action-btn.debug:hover:not(:disabled) {
+  border-color: rgba(220, 38, 38, 0.4);
+  background: rgba(220, 38, 38, 0.06);
+  color: #b91c1c;
+  box-shadow: 0 4px 14px rgba(220, 38, 38, 0.1);
+}
+:root.light .ai-action-btn.optimize:hover:not(:disabled),
+[data-theme="light"] .ai-action-btn.optimize:hover:not(:disabled) {
+  border-color: rgba(217, 119, 6, 0.4);
+  background: rgba(217, 119, 6, 0.07);
+  color: #b45309;
+  box-shadow: 0 4px 14px rgba(217, 119, 6, 0.1);
+}
+:root.light .ai-action-btn.tests:hover:not(:disabled),
+[data-theme="light"] .ai-action-btn.tests:hover:not(:disabled) {
+  border-color: rgba(5, 150, 105, 0.4);
+  background: rgba(5, 150, 105, 0.07);
+  color: #047857;
+  box-shadow: 0 4px 14px rgba(5, 150, 105, 0.1);
+}
+
+/* Response area */
+:root.light .ai-response-area,
+[data-theme="light"] .ai-response-area {
+  background: #f5f5fb;
+}
+:root.light .ai-response-area::-webkit-scrollbar-thumb,
+[data-theme="light"] .ai-response-area::-webkit-scrollbar-thumb {
+  background: rgba(124, 58, 237, 0.18);
+}
+
+/* Response card */
+:root.light .ai-response-card,
+[data-theme="light"] .ai-response-card {
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.06);
+}
+:root.light .ai-response-card.latest,
+[data-theme="light"] .ai-response-card.latest {
+  border-color: rgba(124, 58, 237, 0.3);
+  box-shadow:
+    0 0 0 1px rgba(124, 58, 237, 0.08),
+    0 6px 24px rgba(0, 0, 0, 0.08),
+    0 0 30px rgba(124, 58, 237, 0.04);
+}
+
+/* Response header */
+:root.light .response-header,
+[data-theme="light"] .response-header {
+  background: linear-gradient(
+    90deg,
+    rgba(124, 58, 237, 0.06) 0%,
+    rgba(124, 58, 237, 0.02) 100%
+  );
+  border-bottom-color: rgba(0, 0, 0, 0.07);
+}
+
+/* Copy button */
+:root.light .btn-copy-response,
+[data-theme="light"] .btn-copy-response {
+  border-color: rgba(0, 0, 0, 0.1);
+  color: #7a7a9a;
+}
+:root.light .btn-copy-response:hover,
+[data-theme="light"] .btn-copy-response:hover {
+  border-color: rgba(124, 58, 237, 0.35);
+  color: #4a4a72;
+  background: rgba(124, 58, 237, 0.06);
+  box-shadow: 0 0 6px rgba(124, 58, 237, 0.08);
+}
+
+/* Empty state */
+:root.light .ai-empty-state h4,
+[data-theme="light"] .ai-empty-state h4 {
+  color: #1a1a2e;
+}
+:root.light .ai-empty-state > p,
+[data-theme="light"] .ai-empty-state > p {
+  color: #4a4a72;
+}
+:root.light .capability-item,
+[data-theme="light"] .capability-item {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+:root.light .hint-text,
+[data-theme="light"] .hint-text {
+  color: #b0b0cc;
+}
+
+/* Error */
+:root.light .ai-error,
+[data-theme="light"] .ai-error {
+  background: rgba(220, 38, 38, 0.05);
+  border-color: rgba(220, 38, 38, 0.18);
+}
+:root.light .ai-error p,
+[data-theme="light"] .ai-error p {
+  color: #b91c1c;
+}
+
+/* Tips footer */
+:root.light .ai-tips,
+[data-theme="light"] .ai-tips {
+  box-shadow:
+    0 -1px 0 rgba(0, 0, 0, 0.06),
+    0 -4px 12px rgba(0, 0, 0, 0.04);
+}
+
+/* MarkdownRenderer in light mode */
+:root.light .md-root,
+[data-theme="light"] .md-root {
+  color: #2d2d5a;
+}
+:root.light .md-h1,
+:root.light .md-h2,
+[data-theme="light"] .md-h1,
+[data-theme="light"] .md-h2 {
+  color: #1a1a2e;
+}
+:root.light .md-h1,
+[data-theme="light"] .md-h1 {
+  border-bottom-color: rgba(0, 0, 0, 0.08);
+}
+:root.light .md-h3,
+[data-theme="light"] .md-h3 {
+  color: #7c3aed;
+}
+:root.light .md-p,
+:root.light .md-li,
+[data-theme="light"] .md-p,
+[data-theme="light"] .md-li {
+  color: #2d2d5a;
+}
+:root.light .md-bold,
+[data-theme="light"] .md-bold {
+  color: #1a1a2e;
+}
+:root.light .md-italic,
+[data-theme="light"] .md-italic {
+  color: #5a5a8a;
+}
+:root.light .md-inline-code,
+[data-theme="light"] .md-inline-code {
+  background: rgba(124, 58, 237, 0.07);
+  border-color: rgba(124, 58, 237, 0.15);
+  color: #6d28d9;
+}
+:root.light .md-blockquote,
+[data-theme="light"] .md-blockquote {
+  background: rgba(217, 119, 6, 0.04);
+  color: #5a5a7a;
+}
+:root.light .md-hr,
+[data-theme="light"] .md-hr {
+  border-top-color: rgba(0, 0, 0, 0.07);
+}
+:root.light .md-code-block,
+[data-theme="light"] .md-code-block {
+  background: #f0f0fa;
+  border-color: rgba(0, 0, 0, 0.08);
+  box-shadow:
+    0 0 0 1px rgba(124, 58, 237, 0.05) inset,
+    0 2px 12px rgba(0, 0, 0, 0.06);
+}
+:root.light .md-code-header,
+[data-theme="light"] .md-code-header {
+  background: rgba(124, 58, 237, 0.05);
+  border-bottom-color: rgba(124, 58, 237, 0.1);
+}
+:root.light .md-code-lang,
+[data-theme="light"] .md-code-lang {
+  color: #7c3aed;
+}
+:root.light .md-code-copy,
+[data-theme="light"] .md-code-copy {
+  border-color: rgba(0, 0, 0, 0.1);
+  color: #7a7a9a;
+}
+:root.light .md-code-copy:hover,
+[data-theme="light"] .md-code-copy:hover {
+  border-color: rgba(124, 58, 237, 0.3);
+  color: #4a4a72;
+  background: rgba(124, 58, 237, 0.06);
+}
+:root.light .md-line-content,
+[data-theme="light"] .md-line-content {
+  color: #2d3a5a;
+}
+:root.light .md-line-num,
+[data-theme="light"] .md-line-num {
+  color: rgba(0, 0, 0, 0.2);
+}
+:root.light .md-code-line:hover,
+[data-theme="light"] .md-code-line:hover {
+  background: rgba(124, 58, 237, 0.04);
+}
+:root.light .md-code-line:hover .md-line-num,
+[data-theme="light"] .md-code-line:hover .md-line-num {
+  color: rgba(124, 58, 237, 0.4);
 }

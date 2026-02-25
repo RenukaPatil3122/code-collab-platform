@@ -3,9 +3,10 @@
 @import url("https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800&family=Geist+Mono:wght@300;400;500;600;700&display=swap");
 
 /* ─────────────────────────────────────────────────────────
-   TOKENS
+   TOKENS — DARK (default)
 ───────────────────────────────────────────────────────── */
-:root {
+:root,
+[data-theme="dark"] {
   --tc-bg: #0f0f1a;
   --tc-header-bg: #131320;
   --tc-section-bg: #161626;
@@ -49,6 +50,44 @@
 }
 
 /* ─────────────────────────────────────────────────────────
+   LIGHT MODE TOKENS
+───────────────────────────────────────────────────────── */
+:root.light,
+[data-theme="light"] {
+  --tc-bg: #f5f5fb;
+  --tc-header-bg: #ededf7;
+  --tc-section-bg: #eaeaf4;
+  --tc-surface: #ffffff;
+  --tc-surface-2: #f0f0fa;
+  --tc-raised: #e8e8f4;
+  --tc-canvas: #f0f0fa;
+  --tc-hover: #e2e2f0;
+
+  --tc-border: rgba(0, 0, 0, 0.07);
+  --tc-border-mid: rgba(0, 0, 0, 0.1);
+  --tc-border-accent: rgba(99, 102, 241, 0.4);
+
+  --tc-text-primary: #1a1a2e;
+  --tc-text-secondary: #4a4a72;
+  --tc-text-muted: #7a7a9a;
+  --tc-text-ghost: #b0b0cc;
+
+  --tc-accent: #6366f1;
+  --tc-accent-glow: rgba(99, 102, 241, 0.15);
+  --tc-accent-soft: rgba(99, 102, 241, 0.1);
+  --tc-accent-ring: rgba(99, 102, 241, 0.12);
+
+  --tc-green: #059669;
+  --tc-green-soft: rgba(5, 150, 105, 0.1);
+  --tc-green-border: rgba(5, 150, 105, 0.28);
+  --tc-red: #dc2626;
+  --tc-red-soft: rgba(220, 38, 38, 0.08);
+  --tc-red-border: rgba(220, 38, 38, 0.25);
+  --tc-amber: #d97706;
+  --tc-amber-soft: rgba(217, 119, 6, 0.1);
+}
+
+/* ─────────────────────────────────────────────────────────
    PANEL SHELL
 ───────────────────────────────────────────────────────── */
 .tc-panel {
@@ -66,7 +105,6 @@
     inset 2px 0 20px rgba(99, 102, 241, 0.03);
 }
 
-/* Grain */
 .tc-panel::before {
   content: "";
   position: absolute;
@@ -98,7 +136,6 @@
     0 1px 14px rgba(0, 0, 0, 0.28);
 }
 
-/* Top accent stripe */
 .tc-header::after {
   content: "";
   position: absolute;
@@ -181,7 +218,6 @@
   box-shadow:
     0 1px 8px rgba(0, 0, 0, 0.3),
     0 0 0 1px rgba(99, 102, 241, 0.08) inset;
-  /* Subtle top accent line on active tab */
   position: relative;
 }
 .tc-tab.active::before {
@@ -220,7 +256,6 @@
   font-weight: 700;
   transition: all var(--tc-t) var(--tc-ease);
 }
-/* Count badge lights up on active tab */
 .tc-tab.active .tc-tab-count {
   background: rgba(99, 102, 241, 0.18);
   border-color: rgba(99, 102, 241, 0.3);
@@ -326,7 +361,6 @@
   gap: 10px;
 }
 
-/* Empty */
 .tc-empty {
   display: flex;
   flex-direction: column;
@@ -389,14 +423,13 @@
   box-shadow: 0 3px 12px var(--tc-accent-glow);
 }
 
-/* ── Test case list ── */
+/* Test case list */
 .tc-list {
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
 
-/* ── Test case card ── */
 @keyframes slideIn {
   from {
     opacity: 0;
@@ -491,7 +524,6 @@
   border: 1px solid var(--tc-red-border);
 }
 
-/* Card fields */
 .tc-card-fields {
   display: flex;
   flex-direction: column;
@@ -547,7 +579,6 @@
   font-size: 11.5px;
 }
 
-/* Add button */
 .tc-btn-add {
   display: flex;
   align-items: center;
@@ -582,7 +613,6 @@
   gap: 10px;
 }
 
-/* Running */
 .tc-running {
   display: flex;
   flex-direction: column;
@@ -629,7 +659,6 @@
   }
 }
 
-/* Summary bar */
 .tc-summary {
   background: var(--tc-surface);
   border: 1px solid var(--tc-border);
@@ -674,7 +703,6 @@
   color: var(--tc-text-secondary);
 }
 
-/* Result cards */
 .tc-result-list {
   display: flex;
   flex-direction: column;
@@ -762,7 +790,6 @@
   color: var(--tc-text-muted);
 }
 
-/* Expanded body */
 .tc-result-body {
   padding: 10px 13px 12px;
   display: flex;
@@ -820,4 +847,230 @@
   .tc-results {
     padding: 10px;
   }
+}
+
+/* ─────────────────────────────────────────────────────────
+   LIGHT MODE OVERRIDES
+───────────────────────────────────────────────────────── */
+
+/* Panel shell */
+:root.light .tc-panel,
+[data-theme="light"] .tc-panel {
+  box-shadow:
+    -1px 0 0 rgba(99, 102, 241, 0.08),
+    inset 2px 0 16px rgba(99, 102, 241, 0.02),
+    0 0 0 1px rgba(0, 0, 0, 0.06);
+}
+
+/* Hide grain */
+:root.light .tc-panel::before,
+[data-theme="light"] .tc-panel::before {
+  display: none;
+}
+
+/* Header */
+:root.light .tc-header,
+[data-theme="light"] .tc-header {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.8),
+    0 1px 8px rgba(0, 0, 0, 0.06);
+}
+
+/* Header stripe — FIX: fully visible in light mode */
+:root.light .tc-header::after,
+[data-theme="light"] .tc-header::after {
+  background: linear-gradient(
+    90deg,
+    #6366f1 0%,
+    rgba(124, 58, 237, 0.7) 55%,
+    transparent 100%
+  );
+  opacity: 1;
+}
+
+/* Title gradient — darker for light bg */
+:root.light .tc-header-title,
+[data-theme="light"] .tc-header-title {
+  background: linear-gradient(90deg, #3730a3 0%, #6366f1 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Tabs */
+:root.light .tc-tabs,
+[data-theme="light"] .tc-tabs {
+  background: rgba(0, 0, 0, 0.04);
+  border-color: rgba(0, 0, 0, 0.08);
+}
+:root.light .tc-tab,
+[data-theme="light"] .tc-tab {
+  color: #7a7a9a;
+}
+:root.light .tc-tab:hover:not(.disabled):not(.active),
+[data-theme="light"] .tc-tab:hover:not(.disabled):not(.active) {
+  background: rgba(0, 0, 0, 0.04);
+  color: #4a4a72;
+}
+:root.light .tc-tab.active,
+[data-theme="light"] .tc-tab.active {
+  background: #ffffff;
+  color: #4338ca;
+  border-color: rgba(99, 102, 241, 0.28);
+  box-shadow:
+    0 1px 6px rgba(0, 0, 0, 0.08),
+    0 0 0 1px rgba(99, 102, 241, 0.06) inset;
+}
+:root.light .tc-tab-count,
+[data-theme="light"] .tc-tab-count {
+  background: rgba(0, 0, 0, 0.06);
+  border-color: rgba(0, 0, 0, 0.08);
+  color: #7a7a9a;
+}
+:root.light .tc-tab.active .tc-tab-count,
+[data-theme="light"] .tc-tab.active .tc-tab-count {
+  background: rgba(99, 102, 241, 0.1);
+  border-color: rgba(99, 102, 241, 0.25);
+  color: #4338ca;
+}
+
+/* Close */
+:root.light .tc-close,
+[data-theme="light"] .tc-close {
+  border-color: rgba(0, 0, 0, 0.1);
+  color: #7a7a9a;
+}
+:root.light .tc-close:hover,
+[data-theme="light"] .tc-close:hover {
+  background: #e2e2f0;
+  border-color: rgba(99, 102, 241, 0.35);
+  color: #1a1a2e;
+  box-shadow: 0 0 8px rgba(99, 102, 241, 0.1);
+}
+
+/* Body */
+:root.light .tc-body,
+[data-theme="light"] .tc-body {
+  background: #f5f5fb;
+}
+
+/* Empty state */
+:root.light .tc-empty-title,
+[data-theme="light"] .tc-empty-title {
+  color: #4a4a72;
+}
+:root.light .tc-empty-sub,
+[data-theme="light"] .tc-empty-sub {
+  color: #7a7a9a;
+}
+
+/* Add first button */
+:root.light .tc-btn-add-first,
+[data-theme="light"] .tc-btn-add-first {
+  background: rgba(99, 102, 241, 0.1);
+  border-color: rgba(99, 102, 241, 0.32);
+  color: #4338ca;
+}
+:root.light .tc-btn-add-first:hover,
+[data-theme="light"] .tc-btn-add-first:hover {
+  background: rgba(99, 102, 241, 0.16);
+  box-shadow: 0 3px 12px rgba(99, 102, 241, 0.14);
+}
+
+/* Test case card */
+:root.light .tc-card,
+[data-theme="light"] .tc-card {
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+}
+:root.light .tc-card:hover,
+[data-theme="light"] .tc-card:hover {
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  border-color: rgba(99, 102, 241, 0.22);
+}
+
+/* Card number badge */
+:root.light .tc-card-num,
+[data-theme="light"] .tc-card-num {
+  background: rgba(99, 102, 241, 0.09);
+  border-color: rgba(99, 102, 241, 0.22);
+  color: #4338ca;
+}
+
+/* Textarea */
+:root.light .tc-textarea,
+[data-theme="light"] .tc-textarea {
+  background: #f0f0fa;
+  border-color: rgba(0, 0, 0, 0.1);
+  color: #1a1a2e;
+}
+:root.light .tc-textarea:focus,
+[data-theme="light"] .tc-textarea:focus {
+  background: #ffffff;
+  border-color: rgba(99, 102, 241, 0.48);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.09);
+}
+:root.light .tc-textarea.expected:focus,
+[data-theme="light"] .tc-textarea.expected:focus {
+  border-color: rgba(5, 150, 105, 0.42);
+  box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.08);
+}
+:root.light .tc-textarea::placeholder,
+[data-theme="light"] .tc-textarea::placeholder {
+  color: #b0b0cc;
+}
+
+/* Add dashed button */
+:root.light .tc-btn-add,
+[data-theme="light"] .tc-btn-add {
+  border-color: rgba(99, 102, 241, 0.22);
+  color: #7a7a9a;
+}
+:root.light .tc-btn-add:hover,
+[data-theme="light"] .tc-btn-add:hover {
+  border-color: rgba(99, 102, 241, 0.42);
+  color: #4338ca;
+  background: rgba(99, 102, 241, 0.07);
+}
+
+/* Delete button */
+:root.light .tc-btn-delete:hover,
+[data-theme="light"] .tc-btn-delete:hover {
+  background: rgba(220, 38, 38, 0.08);
+  color: #dc2626;
+  border-color: rgba(220, 38, 38, 0.22);
+}
+
+/* Summary */
+:root.light .tc-summary,
+[data-theme="light"] .tc-summary {
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+}
+
+/* Result cards */
+:root.light .tc-result-card.pass,
+[data-theme="light"] .tc-result-card.pass {
+  background: rgba(5, 150, 105, 0.04);
+}
+:root.light .tc-result-card.fail,
+[data-theme="light"] .tc-result-card.fail {
+  background: rgba(220, 38, 38, 0.04);
+}
+
+/* Result body border */
+:root.light .tc-result-body,
+[data-theme="light"] .tc-result-body {
+  border-top-color: rgba(0, 0, 0, 0.06);
+}
+
+/* Result pre blocks */
+:root.light .tc-result-pre,
+[data-theme="light"] .tc-result-pre {
+  background: #eaeaf4;
+  color: #4a4a72;
+}
+
+/* Scrollbar */
+:root.light .tc-body::-webkit-scrollbar-thumb,
+[data-theme="light"] .tc-body::-webkit-scrollbar-thumb {
+  background: rgba(99, 102, 241, 0.18);
 }
