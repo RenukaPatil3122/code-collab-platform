@@ -35,7 +35,7 @@ function Whiteboard({ roomId, username, onClose }) {
   const [size, setSize] = useState(4);
   const snapshotRef = useRef(null);
   const startPosRef = useRef(null);
-  const historyRef = useRef([]); // undo stack
+  const historyRef = useRef([]);
 
   const getPos = (e, canvas) => {
     const rect = canvas.getBoundingClientRect();
@@ -61,11 +61,9 @@ function Whiteboard({ roomId, username, onClose }) {
     const handleRemoteDraw = ({ drawData }) => {
       applyDraw(ctx, drawData);
     };
-
     const handleRemoteClear = () => {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
     };
-
     const handleBoardState = ({ imageData }) => {
       if (!imageData) return;
       const img = new Image();
@@ -76,8 +74,6 @@ function Whiteboard({ roomId, username, onClose }) {
     socket.on("whiteboard-draw", handleRemoteDraw);
     socket.on("whiteboard-clear", handleRemoteClear);
     socket.on("whiteboard-state", handleBoardState);
-
-    // Request current board state when joining
     socket.emit("whiteboard-join", { roomId });
 
     return () => {
@@ -88,94 +84,98 @@ function Whiteboard({ roomId, username, onClose }) {
   }, [roomId]);
 
   const applyDraw = (ctx, data) => {
-    ctx.strokeStyle = data.tool === "eraser" ? "#1a1a2e" : data.color;
-    ctx.lineWidth = data.size;
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
+    ctx.lineWidth = data.size;
 
-    if (data.tool === "pen" || data.tool === "eraser") {
+    if (data.tool === "eraser") {
+      // True erase — cuts transparent hole in the canvas pixels
+      ctx.globalCompositeOperation = "destination-out";
+      ctx.strokeStyle = "rgba(0,0,0,1)";
+      ctx.beginPath();
+      ctx.moveTo(data.x0, data.y0);
+      ctx.lineTo(data.x1, data.y1);
+      ctx.stroke();
+      ctx.globalCompositeOperation = "source-over"; // always reset
+      return;
+    }
+
+    // All other tools use normal composite
+    ctx.globalCompositeOperation = "source-over";
+    ctx.strokeStyle = data.color;
+
+    if (data.tool === "pen") {
       ctx.beginPath();
       ctx.moveTo(data.x0, data.y0);
       ctx.lineTo(data.x1, data.y1);
       ctx.stroke();
     } else if (data.tool === "rect") {
-      if (data.snapshot) {
-        const img = new Image();
-        img.onload = () => {
-          ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-          ctx.drawImage(img, 0, 0);
-          ctx.strokeStyle = data.color;
-          ctx.lineWidth = data.size;
-          ctx.strokeRect(
-            data.x0,
-            data.y0,
-            data.x1 - data.x0,
-            data.y1 - data.y0,
-          );
-        };
-        img.src = data.snapshot;
-      }
+      if (!data.snapshot) return;
+      const img = new Image();
+      img.onload = () => {
+        ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+        ctx.drawImage(img, 0, 0);
+        ctx.strokeStyle = data.color;
+        ctx.lineWidth = data.size;
+        ctx.strokeRect(data.x0, data.y0, data.x1 - data.x0, data.y1 - data.y0);
+      };
+      img.src = data.snapshot;
     } else if (data.tool === "circle") {
-      if (data.snapshot) {
-        const img = new Image();
-        img.onload = () => {
-          ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-          ctx.drawImage(img, 0, 0);
-          ctx.strokeStyle = data.color;
-          ctx.lineWidth = data.size;
-          ctx.beginPath();
-          const rx = (data.x1 - data.x0) / 2;
-          const ry = (data.y1 - data.y0) / 2;
-          ctx.ellipse(
-            data.x0 + rx,
-            data.y0 + ry,
-            Math.abs(rx),
-            Math.abs(ry),
-            0,
-            0,
-            2 * Math.PI,
-          );
-          ctx.stroke();
-        };
-        img.src = data.snapshot;
-      }
+      if (!data.snapshot) return;
+      const img = new Image();
+      img.onload = () => {
+        ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+        ctx.drawImage(img, 0, 0);
+        ctx.strokeStyle = data.color;
+        ctx.lineWidth = data.size;
+        ctx.beginPath();
+        const rx = (data.x1 - data.x0) / 2;
+        const ry = (data.y1 - data.y0) / 2;
+        ctx.ellipse(
+          data.x0 + rx,
+          data.y0 + ry,
+          Math.abs(rx),
+          Math.abs(ry),
+          0,
+          0,
+          2 * Math.PI,
+        );
+        ctx.stroke();
+      };
+      img.src = data.snapshot;
     } else if (data.tool === "line") {
-      if (data.snapshot) {
-        const img = new Image();
-        img.onload = () => {
-          ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-          ctx.drawImage(img, 0, 0);
-          ctx.strokeStyle = data.color;
-          ctx.lineWidth = data.size;
-          ctx.beginPath();
-          ctx.moveTo(data.x0, data.y0);
-          ctx.lineTo(data.x1, data.y1);
-          ctx.stroke();
-        };
-        img.src = data.snapshot;
-      }
+      if (!data.snapshot) return;
+      const img = new Image();
+      img.onload = () => {
+        ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+        ctx.drawImage(img, 0, 0);
+        ctx.strokeStyle = data.color;
+        ctx.lineWidth = data.size;
+        ctx.beginPath();
+        ctx.moveTo(data.x0, data.y0);
+        ctx.lineTo(data.x1, data.y1);
+        ctx.stroke();
+      };
+      img.src = data.snapshot;
     }
   };
 
   const emitDraw = useCallback(
-    (drawData) => {
-      socket.emit("whiteboard-draw", { roomId, drawData });
-    },
+    (drawData) => socket.emit("whiteboard-draw", { roomId, drawData }),
     [roomId],
   );
 
   const handleMouseDown = (e) => {
     e.preventDefault();
     const canvas = canvasRef.current;
-    const ctx = canvas.getContext("2d");
     const pos = getPos(e, canvas);
     isDrawing.current = true;
     lastPos.current = pos;
     startPosRef.current = pos;
-    // Save current state to undo history before drawing
+
     historyRef.current.push(canvas.toDataURL());
     if (historyRef.current.length > 40) historyRef.current.shift();
-    // Save snapshot for shapes
+
     if (["rect", "circle", "line"].includes(tool)) {
       snapshotRef.current = canvas.toDataURL();
     }
@@ -192,7 +192,7 @@ function Whiteboard({ roomId, username, onClose }) {
       const drawData = {
         tool,
         color,
-        size,
+        size: tool === "eraser" ? size * 3 : size, // eraser is wider
         x0: lastPos.current.x,
         y0: lastPos.current.y,
         x1: pos.x,
@@ -201,33 +201,9 @@ function Whiteboard({ roomId, username, onClose }) {
       applyDraw(ctx, drawData);
       emitDraw(drawData);
       lastPos.current = pos;
-    } else if (tool === "rect") {
+    } else {
       const drawData = {
-        tool: "rect",
-        color,
-        size,
-        x0: startPosRef.current.x,
-        y0: startPosRef.current.y,
-        x1: pos.x,
-        y1: pos.y,
-        snapshot: snapshotRef.current,
-      };
-      applyDraw(ctx, drawData);
-    } else if (tool === "circle") {
-      const drawData = {
-        tool: "circle",
-        color,
-        size,
-        x0: startPosRef.current.x,
-        y0: startPosRef.current.y,
-        x1: pos.x,
-        y1: pos.y,
-        snapshot: snapshotRef.current,
-      };
-      applyDraw(ctx, drawData);
-    } else if (tool === "line") {
-      const drawData = {
-        tool: "line",
+        tool,
         color,
         size,
         x0: startPosRef.current.x,
@@ -244,7 +220,6 @@ function Whiteboard({ roomId, username, onClose }) {
     if (!isDrawing.current) return;
     isDrawing.current = false;
     const canvas = canvasRef.current;
-    const ctx = canvas.getContext("2d");
     const pos = getPos(e, canvas);
 
     if (["rect", "circle", "line"].includes(tool)) {
@@ -261,7 +236,6 @@ function Whiteboard({ roomId, username, onClose }) {
       emitDraw(drawData);
     }
 
-    // Send full board state to sync late joiners
     socket.emit("whiteboard-sync", { roomId, imageData: canvas.toDataURL() });
     snapshotRef.current = null;
   };
@@ -290,9 +264,17 @@ function Whiteboard({ roomId, username, onClose }) {
 
   const handleDownload = () => {
     const canvas = canvasRef.current;
+    // Composite onto a solid background for the download
+    const offscreen = document.createElement("canvas");
+    offscreen.width = canvas.width;
+    offscreen.height = canvas.height;
+    const octx = offscreen.getContext("2d");
+    octx.fillStyle = "#13131f";
+    octx.fillRect(0, 0, offscreen.width, offscreen.height);
+    octx.drawImage(canvas, 0, 0);
     const a = document.createElement("a");
     a.download = `whiteboard-${roomId}-${Date.now()}.png`;
-    a.href = canvas.toDataURL();
+    a.href = offscreen.toDataURL();
     a.click();
   };
 
@@ -310,7 +292,6 @@ function Whiteboard({ roomId, username, onClose }) {
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
       <div className="wb-modal">
-        {/* Header */}
         <div className="wb-header">
           <div className="wb-title">
             <Pen size={18} />
@@ -342,9 +323,7 @@ function Whiteboard({ roomId, username, onClose }) {
         </div>
 
         <div className="wb-body">
-          {/* Toolbar */}
           <div className="wb-toolbar">
-            {/* Tools */}
             <div className="wb-tool-group">
               {tools.map((t) => (
                 <button
@@ -360,7 +339,6 @@ function Whiteboard({ roomId, username, onClose }) {
 
             <div className="wb-divider" />
 
-            {/* Colors */}
             <div className="wb-tool-group">
               {COLORS.map((c) => (
                 <button
@@ -375,7 +353,6 @@ function Whiteboard({ roomId, username, onClose }) {
 
             <div className="wb-divider" />
 
-            {/* Sizes */}
             <div className="wb-tool-group">
               {SIZES.map((s) => (
                 <button
@@ -393,7 +370,6 @@ function Whiteboard({ roomId, username, onClose }) {
             </div>
           </div>
 
-          {/* Canvas */}
           <div className="wb-canvas-wrapper">
             <canvas
               ref={canvasRef}
