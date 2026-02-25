@@ -33,16 +33,20 @@
   line-height: 1.3;
 }
 
+/* FIX #2: H2 left accent bar was invisible — 
+   increased opacity, ensured position:relative is set,
+   and ::before height uses px not % so it always renders */
 .md-h2 {
   font-family: var(--ai-font-ui, "Geist", sans-serif);
   font-size: 12.5px;
   font-weight: 700;
   color: var(--ai-text-primary, #eaeaf8);
   margin: 16px 0 6px;
-  padding-left: 10px;
+  padding-left: 11px;
   position: relative;
   letter-spacing: -0.015em;
   line-height: 1.4;
+  display: block; /* ensure ::before renders correctly */
 }
 .md-h2::before {
   content: "";
@@ -51,10 +55,10 @@
   top: 50%;
   transform: translateY(-50%);
   width: 2px;
-  height: 65%;
+  height: 14px; /* fixed px height — % was unreliable */
   border-radius: 2px;
   background: var(--ai-accent, #8b5cf6);
-  opacity: 0.85;
+  opacity: 1; /* was 0.85 — bumped to full so it's visible */
 }
 
 .md-h3 {
@@ -92,10 +96,13 @@
   color: var(--ai-text-primary, #eaeaf8);
 }
 
+/* FIX #3: italic was blending with normal text —
+   gave it a distinct color + slight opacity so it reads
+   as genuinely different from regular body copy */
 .md-italic {
   font-style: italic;
-  /* Slightly brighter than before — was too hard to read */
-  color: #9898c0;
+  color: #7e7eaa; /* darker/cooler than before to contrast body */
+  opacity: 0.88;
 }
 
 .md-strike {
@@ -103,18 +110,17 @@
   opacity: 0.45;
 }
 
-/* Inline code — tighter, less dominant */
+/* Inline code */
 .md-inline-code {
   font-family: var(--ai-font-mono, "Geist Mono", monospace);
   font-size: 10.5px;
   background: rgba(139, 92, 246, 0.1);
-  border: 1px solid rgba(139, 92, 246, 0.18);
+  border: 1px solid rgba(139, 92, 246, 0.22);
   color: #c4b5fd;
   padding: 1px 5px;
   border-radius: 4px;
   white-space: nowrap;
   letter-spacing: 0;
-  /* Prevent inline code from feeling too heavy */
   font-weight: 400;
   line-height: 1.4;
   vertical-align: baseline;
@@ -148,7 +154,7 @@
   margin-bottom: 0;
 }
 
-/* UL bullet — smaller, more refined */
+/* UL bullet */
 .md-li-ul::before {
   content: "▸";
   position: absolute;
@@ -159,33 +165,38 @@
   opacity: 0.7;
 }
 
-/* OL counter — compact, not oversized */
+/* FIX #1: OL counters were rendering as plain browser text —
+   counter-reset must be on .md-ol, and the ::before pseudo
+   needs display:flex which only works on block/inline-flex.
+   Switched to inline-flex on a span-like pseudo via 
+   absolute positioning with explicit flex centering. */
 .md-ol {
   counter-reset: md-ol;
 }
 .md-li-ol {
   counter-increment: md-ol;
-  padding-left: 24px;
+  padding-left: 26px; /* slightly wider for the box */
 }
 .md-li-ol::before {
   content: counter(md-ol);
   position: absolute;
   left: 0;
-  top: 4px;
-  width: 15px;
-  height: 15px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(139, 92, 246, 0.09);
-  border: 1px solid rgba(139, 92, 246, 0.2);
+  top: 3px;
+  width: 16px;
+  height: 16px;
+  /* flex centering doesn't work on ::before directly in all browsers
+     — use grid instead which is better supported for pseudo centering */
+  display: grid;
+  place-items: center;
+  background: rgba(139, 92, 246, 0.1);
+  border: 1px solid rgba(139, 92, 246, 0.25);
   border-radius: 3px;
   font-family: var(--ai-font-mono, "Geist Mono", monospace);
   font-size: 7.5px;
   font-weight: 700;
-  color: var(--ai-accent, #8b5cf6);
+  color: #a78bfa; /* brighter than accent so box reads clearly */
   line-height: 1;
-  opacity: 0.85;
+  box-shadow: 0 0 6px rgba(139, 92, 246, 0.12);
 }
 
 /* ─────────────────────────────────────────────────────────
@@ -222,8 +233,9 @@
   overflow: hidden;
   background: #08080f;
   font-size: 0;
-  /* Subtle purple tint on border */
-  box-shadow: 0 0 0 1px rgba(139, 92, 246, 0.05) inset;
+  box-shadow:
+    0 0 0 1px rgba(139, 92, 246, 0.07) inset,
+    0 4px 20px rgba(0, 0, 0, 0.3); /* added outer shadow for depth */
 }
 .md-code-block:first-child {
   margin-top: 0;
@@ -232,14 +244,16 @@
   margin-bottom: 0;
 }
 
-/* Code header */
+/* FIX #4: Code block header was too flat/light —
+   darker background + stronger bottom border + subtle gradient */
 .md-code-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 7px 12px;
-  background: rgba(255, 255, 255, 0.022);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(139, 92, 246, 0.045); /* purple-tinted, not grey */
+  border-bottom: 1px solid rgba(139, 92, 246, 0.12); /* accent border not white */
+  backdrop-filter: none;
 }
 
 .md-code-lang {
@@ -248,8 +262,8 @@
   font-weight: 700;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--ai-accent, #8b5cf6);
-  opacity: 0.8;
+  color: #a78bfa; /* slightly brighter so JAVASCRIPT label pops */
+  opacity: 1; /* was 0.8 — now full */
 }
 
 /* Copy button */
@@ -294,16 +308,29 @@
   border-radius: 3px;
 }
 
-/* Code lines */
+/* FIX #5: line hover was imperceptible —
+   stronger background + left accent flash on hover */
 .md-code-line {
   display: flex;
   align-items: flex-start;
   padding: 0 14px 0 0;
   min-height: 20px;
   transition: background 0.1s;
+  position: relative;
 }
 .md-code-line:hover {
-  background: rgba(255, 255, 255, 0.015);
+  background: rgba(139, 92, 246, 0.06); /* purple tint vs plain white */
+}
+/* Left glow bar on hovered line */
+.md-code-line:hover::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: rgba(139, 92, 246, 0.5);
+  border-radius: 0 1px 1px 0;
 }
 
 .md-line-num {
@@ -313,9 +340,14 @@
   padding-right: 14px;
   font-family: var(--ai-font-mono, "Geist Mono", monospace);
   font-size: 10px;
-  color: rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.15); /* slightly brighter for readability */
   user-select: none;
   line-height: 20px;
+  transition: color 0.1s;
+}
+/* Line number brightens on row hover */
+.md-code-line:hover .md-line-num {
+  color: rgba(167, 139, 250, 0.5);
 }
 
 .md-line-content {
