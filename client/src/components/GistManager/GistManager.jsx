@@ -1,4 +1,4 @@
-// src/components/GistManager/GistManager.jsx - FIXED VERSION
+// src/components/GistManager/GistManager.jsx
 
 import React, { useState } from "react";
 import { Github, Upload, Download, X, ExternalLink } from "lucide-react";
@@ -8,6 +8,13 @@ import toast from "react-hot-toast";
 import "./GistManager.css";
 
 const API_BASE = "http://localhost:5000";
+
+function getTheme() {
+  return document.documentElement.dataset.theme === "light" ||
+    document.documentElement.classList.contains("light")
+    ? "light"
+    : "dark";
+}
 
 function GistManager() {
   const { files } = useFiles();
@@ -20,45 +27,31 @@ function GistManager() {
   const [isImporting, setIsImporting] = useState(false);
   const [savedGistUrl, setSavedGistUrl] = useState("");
 
-  // ═══════════════════════════════════════════════════════════
-  // SAVE TO GIST
-  // ═══════════════════════════════════════════════════════════
+  const theme = getTheme();
+
   const handleSaveToGist = async () => {
     try {
       setIsSaving(true);
-      console.log("💾 Saving to Gist...", {
-        fileCount: Object.keys(files).length,
-      });
 
-      // Check authentication
       const authResponse = await fetch(`${API_BASE}/api/gist/check-auth`, {
         credentials: "include",
       });
-
-      if (!authResponse.ok) {
-        throw new Error("Failed to check authentication");
-      }
+      if (!authResponse.ok) throw new Error("Failed to check authentication");
 
       const authData = await authResponse.json();
-      console.log("🔐 Auth status:", authData);
-
       if (!authData.authenticated) {
         toast.error("GitHub token not configured. Check server .env file");
         return;
       }
 
-      // Validate files
       if (!files || Object.keys(files).length === 0) {
         toast.error("No files to save");
         return;
       }
 
-      // Save to Gist
       const response = await fetch(`${API_BASE}/api/gist/save`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({
           files,
@@ -75,25 +68,19 @@ function GistManager() {
       }
 
       const data = await response.json();
-
       if (data.success) {
         setSavedGistUrl(data.gistUrl);
         toast.success(`Saved ${data.filesCount} files to GitHub Gist! 🎉`);
-        console.log("✅ Gist created:", data.gistUrl);
       } else {
         throw new Error(data.error || "Failed to save Gist");
       }
     } catch (error) {
-      console.error("❌ Save to Gist error:", error);
       toast.error(error.message || "Failed to save to Gist");
     } finally {
       setIsSaving(false);
     }
   };
 
-  // ═══════════════════════════════════════════════════════════
-  // IMPORT FROM GIST
-  // ═══════════════════════════════════════════════════════════
   const handleImportFromGist = async () => {
     if (!gistUrl.trim()) {
       toast.error("Please enter a Gist URL");
@@ -102,7 +89,6 @@ function GistManager() {
 
     try {
       setIsImporting(true);
-      console.log("📥 Importing from:", gistUrl);
 
       const response = await fetch(`${API_BASE}/api/gist/import`, {
         method: "POST",
@@ -116,17 +102,10 @@ function GistManager() {
       }
 
       const data = await response.json();
-
       if (data.success) {
-        console.log("✅ Import successful:", data);
-
-        // Notify parent component to handle file creation
-        // This should trigger the file import in Room.jsx
-        const event = new CustomEvent("gist-import", {
-          detail: { files: data.files },
-        });
-        window.dispatchEvent(event);
-
+        window.dispatchEvent(
+          new CustomEvent("gist-import", { detail: { files: data.files } }),
+        );
         toast.success(`Imported ${data.filesCount} files! 🎉`);
         setShowImportModal(false);
         setGistUrl("");
@@ -134,22 +113,17 @@ function GistManager() {
         throw new Error(data.error || "Failed to import Gist");
       }
     } catch (error) {
-      console.error("❌ Import from Gist error:", error);
       toast.error(error.message || "Failed to import from Gist");
     } finally {
       setIsImporting(false);
     }
   };
 
-  // ═══════════════════════════════════════════════════════════
-  // COPY GIST URL
-  // ═══════════════════════════════════════════════════════════
   const copyGistUrl = () => {
     navigator.clipboard.writeText(savedGistUrl);
     toast.success("Gist URL copied!");
   };
 
-  // Reset saved URL when closing modal
   const handleCloseSaveModal = () => {
     setShowSaveModal(false);
     setSavedGistUrl("");
@@ -158,7 +132,6 @@ function GistManager() {
 
   return (
     <div className="gist-manager">
-      {/* Action Buttons */}
       <div className="gist-actions">
         <button
           className="gist-btn gist-btn-save"
@@ -179,11 +152,12 @@ function GistManager() {
         </button>
       </div>
 
-      {/* ═══════════════════════════════════════════════════════
-          SAVE MODAL
-          ═══════════════════════════════════════════════════════ */}
       {showSaveModal && (
-        <div className="gist-modal-overlay" onClick={handleCloseSaveModal}>
+        <div
+          className="gist-modal-overlay"
+          data-theme={theme}
+          onClick={handleCloseSaveModal}
+        >
           <div className="gist-modal" onClick={(e) => e.stopPropagation()}>
             <div className="gist-modal-header">
               <div className="gist-modal-title">
@@ -291,19 +265,17 @@ function GistManager() {
         </div>
       )}
 
-      {/* ═══════════════════════════════════════════════════════
-          IMPORT MODAL
-          ═══════════════════════════════════════════════════════ */}
       {showImportModal && (
         <div
           className="gist-modal-overlay"
+          data-theme={theme}
           onClick={() => setShowImportModal(false)}
         >
           <div className="gist-modal" onClick={(e) => e.stopPropagation()}>
             <div className="gist-modal-header">
               <div className="gist-modal-title">
                 <Github size={20} />
-                <h3>Import from GitHub Gist</h3>
+                <h3>Import from Gist</h3>
               </div>
               <button
                 className="gist-modal-close"
@@ -315,7 +287,7 @@ function GistManager() {
 
             <div className="gist-modal-body">
               <p className="gist-modal-description">
-                Paste a GitHub Gist URL to import all files into this room.
+                Paste a GitHub Gist URL to import files into this room.
               </p>
 
               <div className="gist-form-group">

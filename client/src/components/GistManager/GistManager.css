@@ -1,7 +1,93 @@
 /* src/components/GistManager/GistManager.css */
-/* ✅ KEY FIX: gist-modal-overlay z-index LOWERED to 5000 */
-/* Interview (10000) and Template (10000) now render above gist */
 
+@import url("https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800&family=Geist+Mono:wght@300;400;500;600;700&display=swap");
+
+/* ─────────────────────────────────────────────────────────
+   TOKENS — dark (default)
+───────────────────────────────────────────────────────── */
+:root,
+[data-theme="dark"] {
+  --gist-bg: #0f0f1a;
+  --gist-header-bg: #131320;
+  --gist-surface: #1a1a2e;
+  --gist-surface-2: #1e1e35;
+  --gist-canvas: #0b0b14;
+  --gist-hover: #282848;
+
+  --gist-border: rgba(255, 255, 255, 0.07);
+  --gist-border-mid: rgba(255, 255, 255, 0.1);
+  --gist-border-accent: rgba(99, 102, 241, 0.38);
+
+  --gist-text-primary: #eaeaf8;
+  --gist-text-secondary: #8a8ab0;
+  --gist-text-muted: #50506a;
+  --gist-text-ghost: #2e2e48;
+
+  --gist-accent: #818cf8;
+  --gist-accent-glow: rgba(99, 102, 241, 0.22);
+  --gist-accent-soft: rgba(99, 102, 241, 0.08);
+
+  --gist-green: #34d399;
+  --gist-green-soft: rgba(52, 211, 153, 0.08);
+  --gist-green-border: rgba(52, 211, 153, 0.25);
+
+  --gist-header-stripe: linear-gradient(
+    90deg,
+    #818cf8 0%,
+    rgba(139, 92, 246, 0.6) 55%,
+    transparent 100%
+  );
+
+  --gist-font-ui: "Geist", sans-serif;
+  --gist-font-mono: "Geist Mono", monospace;
+
+  --gist-radius: 10px;
+  --gist-radius-sm: 6px;
+  --gist-ease: cubic-bezier(0.4, 0, 0.2, 1);
+  --gist-spring: cubic-bezier(0.34, 1.4, 0.64, 1);
+  --gist-t: 0.15s;
+}
+
+/* ─────────────────────────────────────────────────────────
+   TOKENS — light
+───────────────────────────────────────────────────────── */
+:root.light,
+[data-theme="light"] {
+  --gist-bg: #ffffff;
+  --gist-header-bg: #f7f7fd;
+  --gist-surface: #ffffff;
+  --gist-surface-2: #f4f4fb;
+  --gist-canvas: #f4f4fb;
+  --gist-hover: #ebebf8;
+
+  --gist-border: rgba(0, 0, 0, 0.08);
+  --gist-border-mid: rgba(0, 0, 0, 0.1);
+  --gist-border-accent: rgba(99, 102, 241, 0.35);
+
+  --gist-text-primary: #18181f;
+  --gist-text-secondary: #52527a;
+  --gist-text-muted: #8080a8;
+  --gist-text-ghost: #c0c0d8;
+
+  --gist-accent: #6366f1;
+  --gist-accent-glow: rgba(99, 102, 241, 0.2);
+  --gist-accent-soft: rgba(99, 102, 241, 0.08);
+
+  --gist-green: #059669;
+  --gist-green-soft: rgba(5, 150, 105, 0.08);
+  --gist-green-border: rgba(5, 150, 105, 0.28);
+
+  --gist-header-stripe: linear-gradient(
+    90deg,
+    #6366f1 0%,
+    rgba(139, 92, 246, 0.5) 55%,
+    transparent 100%
+  );
+}
+
+/* ─────────────────────────────────────────────────────────
+   ACTION BUTTONS (toolbar)
+───────────────────────────────────────────────────────── */
 .gist-manager {
   display: flex;
   gap: 8px;
@@ -16,52 +102,64 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 8px 16px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
-  font-size: 14px;
+  padding: 7px 14px;
+  border-radius: var(--gist-radius-sm);
+  font-family: var(--gist-font-ui);
+  font-size: 12px;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s;
+  transition:
+    background var(--gist-t) var(--gist-ease),
+    border-color var(--gist-t) var(--gist-ease),
+    transform var(--gist-t) var(--gist-spring),
+    box-shadow var(--gist-t) var(--gist-ease);
+  letter-spacing: -0.01em;
 }
 
 .gist-btn-save {
-  background: linear-gradient(135deg, #24292e 0%, #1a1e22 100%);
-  color: #fff;
+  background: var(--gist-accent-soft);
+  border: 1px solid var(--gist-border-accent);
+  color: var(--gist-accent);
 }
-
 .gist-btn-save:hover {
-  background: linear-gradient(135deg, #2d333b 0%, #22272e 100%);
-  border-color: #444c56;
+  background: rgba(99, 102, 241, 0.15);
+  border-color: rgba(99, 102, 241, 0.5);
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(36, 41, 46, 0.3);
+  box-shadow: 0 4px 14px var(--gist-accent-glow);
 }
 
 .gist-btn-import {
-  background: rgba(34, 139, 230, 0.1);
-  border: 1px solid rgba(34, 139, 230, 0.3);
-  color: #228be6;
+  background: var(--gist-green-soft);
+  border: 1px solid var(--gist-green-border);
+  color: var(--gist-green);
 }
-
 .gist-btn-import:hover {
-  background: rgba(34, 139, 230, 0.2);
-  border-color: #228be6;
+  background: rgba(52, 211, 153, 0.13);
+  border-color: rgba(52, 211, 153, 0.45);
   transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(52, 211, 153, 0.15);
 }
 
-/* ✅ FIXED: was 9999, now 5000 so interview/template overlay above */
+/* ─────────────────────────────────────────────────────────
+   MODAL OVERLAY
+───────────────────────────────────────────────────────── */
 .gist-modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.7);
+  background: rgba(0, 0, 0, 0.72);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 5000;
-  animation: fadeIn 0.2s ease-out;
+  backdrop-filter: blur(6px);
+  animation: gist-fade 0.18s var(--gist-ease);
 }
 
-@keyframes fadeIn {
+.gist-modal-overlay[data-theme="light"] {
+  background: rgba(20, 20, 50, 0.4);
+}
+
+@keyframes gist-fade {
   from {
     opacity: 0;
   }
@@ -70,265 +168,419 @@
   }
 }
 
+/* ─────────────────────────────────────────────────────────
+   MODAL CARD
+───────────────────────────────────────────────────────── */
 .gist-modal {
-  background: #1e1e2e;
-  border-radius: 12px;
-  width: 90%;
-  max-width: 500px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
-  animation: slideUp 0.3s ease-out;
+  background: var(--gist-bg);
+  border: 1px solid var(--gist-border-mid);
+  border-radius: 14px;
+  width: 92%;
+  max-width: 480px;
+  overflow: hidden;
+  box-shadow:
+    0 28px 72px rgba(0, 0, 0, 0.52),
+    0 0 0 1px rgba(99, 102, 241, 0.08);
+  animation: gist-up 0.22s var(--gist-spring);
+  font-family: var(--gist-font-ui);
+  position: relative;
 }
 
-@keyframes slideUp {
+.gist-modal::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.025'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 0;
+  mix-blend-mode: soft-light;
+}
+.gist-modal > * {
+  position: relative;
+  z-index: 1;
+}
+
+.gist-modal-overlay[data-theme="light"] .gist-modal {
+  box-shadow:
+    0 16px 48px rgba(0, 0, 0, 0.12),
+    0 0 0 1px rgba(0, 0, 0, 0.07);
+}
+.gist-modal-overlay[data-theme="light"] .gist-modal::before {
+  display: none;
+}
+
+@keyframes gist-up {
   from {
     opacity: 0;
-    transform: translateY(20px);
+    transform: translateY(12px) scale(0.985);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: none;
   }
 }
 
+/* ─────────────────────────────────────────────────────────
+   MODAL HEADER
+───────────────────────────────────────────────────────── */
 .gist-modal-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 20px 24px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 14px 16px 13px;
+  background: var(--gist-header-bg);
+  /* Explicit border so it always shows regardless of bg similarity */
+  border-bottom: 1px solid var(--gist-border-mid);
+  position: relative;
+}
+
+/* Top accent stripe */
+.gist-modal-header::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--gist-header-stripe);
+  opacity: 0.85;
 }
 
 .gist-modal-title {
   display: flex;
   align-items: center;
-  gap: 12px;
-  color: #fff;
+  gap: 9px;
 }
 
-.gist-modal-title h3 {
-  margin: 0;
-  font-size: 1.1rem;
-  font-weight: 600;
+.gist-modal-title svg {
+  color: var(--gist-accent);
+  flex-shrink: 0;
+}
+
+/* ── Title: fight global h3 styles with high specificity ── */
+.gist-modal .gist-modal-title h3 {
+  margin: 0 !important;
+  padding: 0 !important;
+  font-family: var(--gist-font-ui) !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  letter-spacing: -0.015em !important;
+  line-height: 1 !important;
+  text-transform: none !important;
+  /* Dark: light gradient */
+  background: linear-gradient(90deg, #d8dcf8 0%, #9aa5e8 100%) !important;
+  -webkit-background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+  background-clip: text !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+/* Light: plain dark colour, no gradient */
+.gist-modal-overlay[data-theme="light"] .gist-modal .gist-modal-title h3 {
+  background: none !important;
+  -webkit-text-fill-color: #18181f !important;
+  color: #18181f !important;
 }
 
 .gist-modal-close {
+  width: 26px;
+  height: 26px;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 8px;
   background: transparent;
-  border: none;
-  border-radius: 6px;
-  color: #9ca3af;
+  border: 1px solid var(--gist-border);
+  color: var(--gist-text-muted);
+  border-radius: var(--gist-radius-sm);
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all var(--gist-t) var(--gist-ease);
 }
-
 .gist-modal-close:hover {
-  background: rgba(255, 255, 255, 0.1);
-  color: #fff;
+  background: var(--gist-hover);
+  border-color: var(--gist-border-accent);
+  color: var(--gist-text-primary);
 }
 
+/* ─────────────────────────────────────────────────────────
+   MODAL BODY
+───────────────────────────────────────────────────────── */
 .gist-modal-body {
-  padding: 24px;
+  padding: 20px 18px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
 }
 
-.gist-modal-description {
-  color: #9ca3af;
-  font-size: 0.9rem;
-  margin-bottom: 20px;
-  line-height: 1.5;
+/* Fight global p styles */
+.gist-modal .gist-modal-description {
+  color: var(--gist-text-secondary) !important;
+  font-family: var(--gist-font-ui) !important;
+  font-size: 13px !important;
+  font-weight: 400 !important;
+  line-height: 1.6 !important;
+  margin: 0 0 18px !important;
+  padding: 0 !important;
+  -webkit-font-smoothing: antialiased;
 }
 
+/* ─────────────────────────────────────────────────────────
+   FORM ELEMENTS
+───────────────────────────────────────────────────────── */
 .gist-form-group {
-  margin-bottom: 20px;
+  margin-bottom: 14px;
 }
 
-.gist-form-group label {
-  display: block;
-  color: #d4d4d4;
-  font-size: 0.85rem;
-  font-weight: 600;
-  margin-bottom: 8px;
+/* Fight global label styles */
+.gist-modal .gist-form-group label,
+.gist-modal .gist-files-preview label {
+  display: block !important;
+  font-family: var(--gist-font-mono) !important;
+  font-size: 9.5px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.14em !important;
+  text-transform: uppercase !important;
+  color: var(--gist-text-muted) !important;
+  margin-bottom: 7px !important;
+  padding-left: 2px !important;
 }
 
-.gist-input {
-  width: 100%;
-  padding: 12px;
-  background: #252536;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
-  color: #fff;
-  font-size: 0.9rem;
-  outline: none;
-  transition: all 0.2s;
-  box-sizing: border-box;
+/* Fight global input styles */
+.gist-modal .gist-input {
+  width: 100% !important;
+  padding: 9px 13px !important;
+  background: var(--gist-surface) !important;
+  border: 1px solid var(--gist-border) !important;
+  border-radius: var(--gist-radius-sm) !important;
+  color: var(--gist-text-primary) !important;
+  font-family: var(--gist-font-ui) !important;
+  font-size: 12.5px !important;
+  outline: none !important;
+  box-sizing: border-box !important;
+  box-shadow: none !important;
+  transition:
+    border-color var(--gist-t) var(--gist-ease),
+    box-shadow var(--gist-t) var(--gist-ease),
+    background var(--gist-t) var(--gist-ease);
+  caret-color: var(--gist-accent);
+}
+.gist-modal .gist-input:focus {
+  border-color: var(--gist-border-accent) !important;
+  background: var(--gist-surface-2) !important;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1) !important;
+}
+.gist-modal .gist-input::placeholder {
+  color: var(--gist-text-ghost);
+  font-family: var(--gist-font-mono);
+  font-size: 11.5px;
 }
 
-.gist-input:focus {
-  border-color: #667eea;
-  background: #2a2a3e;
-}
-
-.gist-input::placeholder {
-  color: #6b7280;
-}
-
+/* ─────────────────────────────────────────────────────────
+   FILES PREVIEW
+───────────────────────────────────────────────────────── */
 .gist-files-preview {
-  margin-bottom: 20px;
-}
-
-.gist-files-preview label {
-  display: block;
-  color: #d4d4d4;
-  font-size: 0.85rem;
-  font-weight: 600;
-  margin-bottom: 8px;
+  margin-bottom: 14px;
 }
 
 .gist-files-list {
-  max-height: 150px;
+  max-height: 130px;
   overflow-y: auto;
-  background: #252536;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
-  padding: 8px;
+  background: var(--gist-canvas);
+  border: 1px solid var(--gist-border);
+  border-radius: var(--gist-radius-sm);
+  padding: 4px;
 }
-
 .gist-files-list::-webkit-scrollbar {
-  width: 6px;
+  width: 2px;
+}
+.gist-files-list::-webkit-scrollbar-track {
+  background: transparent;
 }
 .gist-files-list::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 3px;
+  background: rgba(99, 102, 241, 0.2);
+  border-radius: 4px;
 }
 
 .gist-file-item {
-  padding: 6px 8px;
-  color: #9ca3af;
-  font-size: 0.85rem;
-  font-family: "Consolas", "Monaco", monospace;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  padding: 5px 10px;
+  color: var(--gist-text-secondary);
+  font-family: var(--gist-font-mono);
+  font-size: 11.5px;
+  border-radius: 4px;
+  border-bottom: 1px solid var(--gist-border);
+  transition: background var(--gist-t) var(--gist-ease);
 }
 .gist-file-item:last-child {
   border-bottom: none;
 }
-
-.gist-btn-primary {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  width: 100%;
-  padding: 12px 24px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border: none;
-  border-radius: 8px;
-  color: #fff;
-  font-size: 0.95rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.3s;
-  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+.gist-file-item:hover {
+  background: rgba(99, 102, 241, 0.05);
 }
 
-.gist-btn-primary:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+/* ─────────────────────────────────────────────────────────
+   PRIMARY BUTTON
+   Both themes: solid filled gradient. No more ghost/outline.
+───────────────────────────────────────────────────────── */
+.gist-modal .gist-btn-primary {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 7px !important;
+  width: 100% !important;
+  padding: 10px 18px !important;
+  /* Solid gradient — same vibe as the dark mode pill button in screenshots */
+  background: linear-gradient(135deg, #6366f1 0%, #7c3aed 100%) !important;
+  border: none !important;
+  border-radius: var(--gist-radius-sm) !important;
+  color: #ffffff !important;
+  font-family: var(--gist-font-ui) !important;
+  font-size: 12.5px !important;
+  font-weight: 600 !important;
+  cursor: pointer !important;
+  box-shadow: 0 2px 14px rgba(99, 102, 241, 0.3) !important;
+  transition:
+    background var(--gist-t) var(--gist-ease),
+    transform var(--gist-t) var(--gist-spring),
+    box-shadow var(--gist-t) var(--gist-ease),
+    opacity var(--gist-t) var(--gist-ease) !important;
+  position: relative;
+  overflow: hidden;
+}
+.gist-modal .gist-btn-primary:hover:not(:disabled) {
+  background: linear-gradient(135deg, #4f52e0 0%, #6d28d9 100%) !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 4px 20px rgba(99, 102, 241, 0.45) !important;
+}
+.gist-modal .gist-btn-primary:active:not(:disabled) {
+  transform: translateY(0) scale(0.98) !important;
+}
+/* Disabled: clearly inactive but still recognisable as a button */
+.gist-modal .gist-btn-primary:disabled {
+  background: rgba(99, 102, 241, 0.25) !important;
+  box-shadow: none !important;
+  cursor: not-allowed !important;
+  transform: none !important;
+  color: rgba(255, 255, 255, 0.55) !important;
 }
 
-.gist-btn-primary:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-  transform: none;
-}
-
+/* ─────────────────────────────────────────────────────────
+   SUCCESS STATE
+───────────────────────────────────────────────────────── */
 .gist-success {
   text-align: center;
-  padding: 20px 0;
+  padding: 8px 0 20px;
 }
 
 .gist-success-icon {
-  font-size: 3rem;
+  font-size: 2.4rem;
+  margin-bottom: 10px;
+  display: block;
+}
+
+.gist-modal .gist-success h4 {
+  color: var(--gist-text-primary) !important;
+  font-family: var(--gist-font-ui) !important;
+  font-size: 13.5px !important;
+  font-weight: 700 !important;
+  margin: 0 0 5px !important;
+  letter-spacing: -0.02em !important;
+}
+
+.gist-modal .gist-success p {
+  color: var(--gist-text-secondary) !important;
+  font-family: var(--gist-font-ui) !important;
+  font-size: 12px !important;
+  font-weight: 400 !important;
+  margin: 0 0 18px !important;
+  line-height: 1.55 !important;
+}
+
+/* ─────────────────────────────────────────────────────────
+   URL BOX
+───────────────────────────────────────────────────────── */
+.gist-url-container {
+  display: flex;
+  gap: 7px;
   margin-bottom: 12px;
 }
 
-.gist-success h4 {
-  color: #fff;
-  font-size: 1.1rem;
-  margin: 0 0 8px 0;
-}
-
-.gist-success p {
-  color: #9ca3af;
-  font-size: 0.9rem;
-  margin: 0 0 20px 0;
-}
-
-.gist-url-container {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 16px;
-}
-
-.gist-url-input {
+.gist-modal .gist-url-input {
   flex: 1;
-  padding: 12px;
-  background: #252536;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
-  color: #fff;
-  font-size: 0.85rem;
-  font-family: "Consolas", "Monaco", monospace;
+  padding: 8px 12px !important;
+  background: var(--gist-canvas) !important;
+  border: 1px solid var(--gist-border) !important;
+  border-radius: var(--gist-radius-sm) !important;
+  color: var(--gist-text-secondary) !important;
+  font-family: var(--gist-font-mono) !important;
+  font-size: 11px !important;
+  outline: none !important;
+  box-shadow: none !important;
+  letter-spacing: 0.01em;
 }
 
 .gist-copy-btn {
-  padding: 12px 20px;
-  background: rgba(102, 126, 234, 0.1);
-  border: 1px solid rgba(102, 126, 234, 0.3);
-  border-radius: 8px;
-  color: #667eea;
+  padding: 8px 16px;
+  background: var(--gist-accent-soft);
+  border: 1px solid var(--gist-border-accent);
+  border-radius: var(--gist-radius-sm);
+  color: var(--gist-accent);
+  font-family: var(--gist-font-ui);
+  font-size: 12px;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all var(--gist-t) var(--gist-ease);
+  white-space: nowrap;
 }
-
 .gist-copy-btn:hover {
-  background: rgba(102, 126, 234, 0.2);
-  border-color: #667eea;
+  background: rgba(99, 102, 241, 0.15);
+  border-color: rgba(99, 102, 241, 0.55);
+  box-shadow: 0 2px 10px var(--gist-accent-glow);
 }
 
+/* ─────────────────────────────────────────────────────────
+   VIEW ON GITHUB LINK
+───────────────────────────────────────────────────────── */
 .gist-view-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 6px;
   width: 100%;
-  padding: 12px 24px;
-  background: #24292e;
-  border: 1px solid #444c56;
-  border-radius: 8px;
-  color: #fff;
+  padding: 9px 16px;
+  background: var(--gist-green-soft);
+  border: 1px solid var(--gist-green-border);
+  border-radius: var(--gist-radius-sm);
+  color: var(--gist-green);
+  font-family: var(--gist-font-ui);
+  font-size: 12px;
   font-weight: 600;
   text-decoration: none;
-  transition: all 0.2s;
+  transition:
+    background var(--gist-t) var(--gist-ease),
+    border-color var(--gist-t) var(--gist-ease),
+    transform var(--gist-t) var(--gist-spring),
+    box-shadow var(--gist-t) var(--gist-ease);
 }
-
 .gist-view-btn:hover {
-  background: #2d333b;
-  border-color: #666;
+  background: rgba(52, 211, 153, 0.13);
+  border-color: rgba(52, 211, 153, 0.48);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(52, 211, 153, 0.15);
 }
 
+/* ─────────────────────────────────────────────────────────
+   SPINNER
+───────────────────────────────────────────────────────── */
 .spinner {
-  width: 16px;
-  height: 16px;
-  border: 2px solid rgba(255, 255, 255, 0.3);
-  border-top-color: #fff;
+  width: 14px;
+  height: 14px;
+  border: 1.5px solid rgba(255, 255, 255, 0.3);
+  border-top-color: #ffffff;
   border-radius: 50%;
-  animation: spin 0.6s linear infinite;
+  animation: gist-spin 0.7s linear infinite;
+  flex-shrink: 0;
 }
-
-@keyframes spin {
+@keyframes gist-spin {
   to {
     transform: rotate(360deg);
   }

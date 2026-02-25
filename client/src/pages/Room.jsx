@@ -95,10 +95,8 @@ function RoomContent() {
   const { showAIPanel, setShowAIPanel } = useAI();
   const { files, activeFile, activeFileData, updateFileContent } = useFiles();
 
-  // ✅ Inject active file data into RoomContext on every render
   injectActiveFile(activeFileData, updateFileContent);
 
-  // ✅ Auto-detect language whenever active file changes
   useEffect(() => {
     if (activeFile) {
       autoDetectLanguage(activeFile);
@@ -348,8 +346,6 @@ function RoomContent() {
 
         <div className="header-section-center">
           <RecordingControls />
-
-          {/* ✅ Dynamic dropdown from LANGUAGES constant — always in sync */}
           <select
             value={language}
             onChange={(e) => handleLanguageChange(e.target.value)}
@@ -620,11 +616,9 @@ function RoomContent() {
           onClose={() => setShowTemplateModal(false)}
         />
       )}
-
       {(showInterviewModal || isInterviewMode) && (
         <InterviewMode onClose={() => setShowInterviewModal(false)} />
       )}
-
       {showComplexity && (
         <ComplexityAnalyzer
           code={code}
@@ -632,7 +626,6 @@ function RoomContent() {
           onClose={() => setShowComplexity(false)}
         />
       )}
-
       {showWhiteboard && (
         <Whiteboard
           roomId={roomId}
@@ -641,6 +634,7 @@ function RoomContent() {
         />
       )}
 
+      {/* ── SAVE GIST MODAL ── */}
       {showSaveGistModal && (
         <div
           className="modal-overlay"
@@ -661,9 +655,10 @@ function RoomContent() {
                 <X size={20} />
               </button>
             </div>
+
             <div className="modal-body">
               {!savedGistUrl ? (
-                <div>
+                <>
                   <p>Save all your files to a GitHub Gist for easy sharing.</p>
                   <div className="form-group">
                     <label>Description (optional)</label>
@@ -681,9 +676,9 @@ function RoomContent() {
                   >
                     {isSaving ? "Saving..." : "Save to Gist"}
                   </button>
-                </div>
+                </>
               ) : (
-                <div>
+                <>
                   <div className="success-message">
                     <div className="success-icon">✅</div>
                     <h4>Gist Created!</h4>
@@ -701,13 +696,14 @@ function RoomContent() {
                   >
                     View on GitHub
                   </a>
-                </div>
+                </>
               )}
             </div>
           </div>
         </div>
       )}
 
+      {/* ── IMPORT GIST MODAL ── */}
       {showImportGistModal && (
         <div
           className="modal-overlay"
@@ -728,6 +724,7 @@ function RoomContent() {
                 <X size={20} />
               </button>
             </div>
+
             <div className="modal-body">
               <p>Paste a GitHub Gist URL to import files into this room.</p>
               <div className="form-group">

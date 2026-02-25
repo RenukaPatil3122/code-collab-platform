@@ -786,8 +786,9 @@
 }
 
 /* ═══════════════════════════════════════════════════════════════
-     MODALS (Gist / generic)
-     ═══════════════════════════════════════════════════════════════ */
+   MODALS (Gist / generic)
+   Replace the existing MODALS section in Room.css with this.
+   ═══════════════════════════════════════════════════════════════ */
 
 .modal-overlay {
   position: fixed;
@@ -824,6 +825,12 @@
   animation: modal-up 0.22s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+.room-container[data-theme="light"] .modal-content {
+  box-shadow:
+    0 16px 48px rgba(0, 0, 0, 0.12),
+    0 0 0 1px rgba(0, 0, 0, 0.07);
+}
+
 @keyframes modal-up {
   from {
     opacity: 0;
@@ -839,8 +846,28 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 18px 22px;
-  border-bottom: 1px solid var(--border-subtle);
+  padding: 16px 20px 15px;
+  background: var(--bg-secondary);
+  /* FIX: border-subtle was invisible — use border-default */
+  border-bottom: 1px solid var(--border-strong);
+  position: relative;
+}
+
+/* Top accent stripe */
+.modal-header::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(
+    90deg,
+    var(--accent-bright) 0%,
+    rgba(139, 92, 246, 0.5) 55%,
+    transparent 100%
+  );
+  opacity: 0.75;
 }
 
 .modal-title {
@@ -852,13 +879,27 @@
 
 .modal-title svg {
   color: var(--accent-bright);
+  flex-shrink: 0;
 }
 
+/* FIX: was 650 — now 500, consistent across both modals */
 .modal-title h3 {
   margin: 0;
+  font-family: "Instrument Sans", system-ui, sans-serif;
   font-size: 14px;
-  font-weight: 650;
-  letter-spacing: -0.01em;
+  font-weight: 500;
+  letter-spacing: -0.015em;
+  line-height: 1;
+  background: linear-gradient(90deg, #d8dcf8 0%, #9aa5e8 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.room-container[data-theme="light"] .modal-title h3 {
+  background: none;
+  -webkit-text-fill-color: var(--text-primary);
+  color: var(--text-primary);
 }
 
 .modal-close-btn {
@@ -882,39 +923,50 @@
 }
 
 .modal-body {
-  padding: 22px;
+  padding: 22px 20px;
+  /* min-height so Save modal and Import modal are the same size */
+  min-height: 200px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
+/* FIX: explicit weight + margin so description has room to breathe */
 .modal-body > p {
   color: var(--text-secondary);
   font-size: 13px;
+  font-weight: 400;
   line-height: 1.6;
-  margin-bottom: 18px;
+  margin: 0;
+  -webkit-font-smoothing: antialiased;
 }
-
 .form-group {
-  margin-bottom: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin: 0;
 }
-
 .form-group label {
   display: block;
-  color: var(--text-secondary);
-  font-size: 11px;
+  color: var(--text-tertiary);
+  font-size: 10px;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.07em;
-  margin-bottom: 7px;
+  letter-spacing: 0.1em;
+  margin-bottom: 0;
+  font-family: "Geist Mono", monospace;
 }
 
 .form-group input {
   width: 100%;
-  padding: 10px 12px;
+  padding: 9px 12px;
   background: var(--bg-canvas);
   border: 1px solid var(--border-default);
   border-radius: var(--radius-md);
   color: var(--text-primary);
   font-family: "Instrument Sans", sans-serif;
   font-size: 13px;
+  font-weight: 400;
   outline: none;
   transition: var(--transition);
   box-sizing: border-box;
@@ -929,7 +981,6 @@
   color: var(--text-tertiary);
 }
 
-/* Gist URL box */
 .gist-url-box {
   display: flex;
   gap: 8px;
@@ -938,17 +989,18 @@
 
 .gist-url-box input {
   flex: 1;
-  padding: 10px 12px;
+  padding: 9px 12px;
   background: var(--bg-canvas);
   border: 1px solid var(--border-default);
   border-radius: var(--radius-md);
-  color: var(--text-primary);
+  color: var(--text-secondary);
   font-family: "Geist Mono", monospace;
   font-size: 11.5px;
+  outline: none;
 }
 
 .gist-url-box button {
-  padding: 10px 16px;
+  padding: 9px 16px;
   background: var(--accent-dim);
   border: 1px solid var(--accent-border);
   border-radius: var(--radius-md);
@@ -1008,19 +1060,54 @@
 .success-message p {
   color: var(--text-secondary);
   font-size: 13px;
+  font-weight: 400;
   margin: 0 0 18px;
 }
 
-/* Primary btn inside modal */
+/* ── Primary btn inside modal ── */
 .btn-primary.full-width,
 .modal-body .btn-primary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   width: 100%;
-  height: 38px;
+  height: 40px;
   padding: 0 16px;
   border-radius: var(--radius-md);
-  justify-content: center;
   font-size: 13px;
   font-weight: 600;
+  font-family: "Instrument Sans", sans-serif;
+  cursor: pointer;
+  border: none;
+  background: linear-gradient(135deg, #6366f1 0%, #7c3aed 100%);
+  color: #ffffff;
+  box-shadow: 0 2px 14px rgba(99, 102, 241, 0.3);
+  transition: var(--transition);
+}
+
+.btn-primary.full-width:hover:not(:disabled),
+.modal-body .btn-primary:hover:not(:disabled) {
+  background: linear-gradient(135deg, #4f52e0 0%, #6d28d9 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 20px rgba(99, 102, 241, 0.45);
+}
+
+.btn-primary.full-width:active:not(:disabled),
+.modal-body .btn-primary:active:not(:disabled) {
+  transform: translateY(0) scale(0.98);
+  box-shadow: none;
+}
+
+/* Disabled: desaturated fill so it doesn't look lavender/broken */
+.btn-primary.full-width:disabled,
+.modal-body .btn-primary:disabled {
+  background: rgba(99, 102, 241, 0.28);
+  color: rgba(255, 255, 255, 0.5);
+  box-shadow: none;
+  cursor: not-allowed;
+  transform: none;
+  opacity: 1;
 }
 
 /* ═══════════════════════════════════════════════════════════════
