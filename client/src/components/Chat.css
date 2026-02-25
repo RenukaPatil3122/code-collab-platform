@@ -1,90 +1,228 @@
-/* src/components/Chat.css - THEME FIXED */
+/* src/components/Chat.css — CodeTogether · 10/10 Edition */
 
+@import url("https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800;900&family=Geist+Mono:wght@300;400;500;600;700&display=swap");
+
+/* ─────────────────────────────────────────────────────────
+   TOKENS
+───────────────────────────────────────────────────────── */
+:root {
+  /* Backgrounds — each step is visibly distinct */
+  --bg-editor: #0e0e16; /* editor sits here — panel must be lighter */
+  --bg-panel: #13131f; /* chat panel base — clearly lighter than editor */
+  --bg-header: #16162a; /* header / footer zones */
+  --bg-section: #1a1a2e; /* users section — distinct from header */
+  --bg-surface: #1e1e35; /* input, user pills */
+  --bg-raised: #23233c; /* message bubbles (others) */
+  --bg-hover: #28284a; /* hover states */
+
+  /* Borders — layered visibility */
+  --border-subtle: rgba(255, 255, 255, 0.055); /* section dividers */
+  --border-strong: rgba(255, 255, 255, 0.09); /* header bottom */
+  --border-accent: rgba(102, 126, 234, 0.32); /* focus / glow */
+  --border-input: rgba(255, 255, 255, 0.08); /* input resting */
+
+  /* Left-edge accent stripe on panel */
+  --panel-stripe: rgba(90, 111, 232, 0.5);
+
+  /* Text — strong contrast steps */
+  --text-primary: #eef0fa; /* headers, own message text */
+  --text-secondary: #b0b8d8; /* message body text */
+  --text-tertiary: #6a6e8e; /* section labels, timestamps */
+  --text-ghost: #33364e; /* "No messages yet" */
+
+  /* Accent */
+  --accent-a: #5a6fe8;
+  --accent-b: #8b5cf6;
+  --accent-glow: rgba(90, 111, 232, 0.25);
+  --accent-ring: rgba(90, 111, 232, 0.1);
+
+  /* Type */
+  --font-ui: "Geist", sans-serif;
+  --font-mono: "Geist Mono", monospace;
+
+  /* Motion */
+  --ease: cubic-bezier(0.4, 0, 0.2, 1);
+  --t-fast: 0.14s;
+  --t-mid: 0.2s;
+}
+
+/* ─────────────────────────────────────────────────────────
+   SHELL  — visually separated from the code editor
+───────────────────────────────────────────────────────── */
 .chat-sidebar {
   width: 100%;
   height: 100%;
-  background: var(--bg-primary, #13131f);
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  font-family: var(--font-ui);
+  position: relative;
+
+  background: var(--bg-panel);
+
+  /* Left accent stripe — makes panel edge pop against editor */
+  border-left: 1px solid var(--border-strong);
+  box-shadow:
+    -1px 0 0 rgba(90, 111, 232, 0.12),
+    /* subtle purple glow on left edge */ inset 2px 0 18px
+      rgba(90, 111, 232, 0.04); /* inner ambient */
 }
 
-/* ── Header ── */
+/* Noise grain overlay for texture depth */
+.chat-sidebar::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.028'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 0;
+  mix-blend-mode: soft-light;
+}
+
+.chat-sidebar > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* ─────────────────────────────────────────────────────────
+   HEADER  — strong bottom divider, accent top line
+───────────────────────────────────────────────────────── */
 .chat-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 14px 18px;
-  background: var(--bg-secondary, #1a1a2e);
-  border-bottom: 1px solid var(--border-color, rgba(255, 255, 255, 0.06));
+  padding: 13px 16px 12px;
+  background: var(--bg-header);
   flex-shrink: 0;
+
+  /* Clear top-to-users boundary */
+  border-bottom: 1px solid var(--border-strong);
+
+  /* Accent line at the very top of the panel */
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 1px 12px rgba(0, 0, 0, 0.25);
+
+  position: relative;
+}
+
+/* Vivid top accent stripe */
+.chat-header::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(
+    90deg,
+    var(--accent-a) 0%,
+    var(--accent-b) 55%,
+    transparent 100%
+  );
+  opacity: 0.7;
 }
 
 .chat-header-title {
   display: flex;
   align-items: center;
-  gap: 10px;
-  color: var(--text-primary, #fff);
+  gap: 8px;
+}
+
+.chat-header-title svg {
+  color: var(--accent-a);
+  opacity: 0.9;
+  flex-shrink: 0;
 }
 
 .chat-header-title h3 {
   margin: 0;
-  font-size: 0.95rem;
+  font-family: var(--font-ui);
+  font-size: 0.72rem;
   font-weight: 700;
-  letter-spacing: 0.01em;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  /* Bright gradient title — visible against header bg */
+  background: linear-gradient(90deg, #d8dcf8 0%, #9aa5e8 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
 .btn-close-chat {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 30px;
-  height: 30px;
+  width: 26px;
+  height: 26px;
   background: transparent;
-  color: var(--text-muted, #555570);
-  border: none;
-  border-radius: 8px;
+  color: var(--text-tertiary);
+  border: 1px solid var(--border-subtle);
+  border-radius: 7px;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: all var(--t-fast) var(--ease);
 }
 .btn-close-chat:hover {
-  background: var(--bg-surface-hover, rgba(255, 255, 255, 0.07));
-  color: var(--text-secondary, #aaa);
+  background: var(--bg-hover);
+  color: var(--text-secondary);
+  border-color: var(--border-accent);
+  box-shadow: 0 0 10px var(--accent-glow);
 }
 
-/* ── Users ── */
+/* ─────────────────────────────────────────────────────────
+   USERS SECTION  — distinct bg, readable label
+───────────────────────────────────────────────────────── */
 .users-list {
-  padding: 10px 14px;
-  background: var(--bg-secondary, #1a1a2e);
-  border-bottom: 1px solid var(--border-color, rgba(255, 255, 255, 0.06));
+  padding: 10px 14px 12px;
+  background: var(--bg-section);
   flex-shrink: 0;
+
+  /* Strong visible border separating from messages */
+  border-bottom: 1px solid var(--border-strong);
+  /* Subtle inner top shadow to separate from header */
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
 }
 
 .users-list h4 {
-  margin: 0 0 8px 0;
-  color: var(--text-muted, #44445a);
-  font-size: 0.65rem;
-  font-weight: 700;
+  margin: 0 0 8px;
+  font-family: var(--font-mono);
+  /* Noticeably brighter than before — was invisible */
+  color: var(--text-tertiary);
+  font-size: 0.595rem;
+  font-weight: 600;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
-  letter-spacing: 0.1em;
+  /* Faint left accent stripe */
+  padding-left: 8px;
+  border-left: 2px solid rgba(90, 111, 232, 0.45);
 }
 
 .users {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 5px;
 }
 
 .user-item {
   display: flex;
   align-items: center;
-  gap: 7px;
-  padding: 4px 10px 4px 5px;
-  background: var(--bg-surface, rgba(255, 255, 255, 0.04));
-  border-radius: 20px;
-  color: var(--text-secondary, #9ca3af);
-  font-size: 0.78rem;
-  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.06));
+  gap: 6px;
+  padding: 3px 10px 3px 4px;
+  background: var(--bg-surface);
+  border-radius: 999px;
+  color: var(--text-secondary);
+  font-family: var(--font-ui);
+  font-size: 0.74rem;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  border: 1px solid var(--border-subtle);
+  transition: all var(--t-fast) var(--ease);
+}
+.user-item:hover {
+  border-color: var(--border-accent);
+  background: var(--bg-raised);
+  color: var(--text-primary);
+  box-shadow: 0 0 10px var(--accent-glow);
 }
 
 .user-avatar {
@@ -94,197 +232,274 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  color: white;
-  font-weight: 800;
-  font-size: 0.65rem;
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.6rem;
+  font-family: var(--font-mono);
   flex-shrink: 0;
-  /* background set inline per user color — keep as-is */
+  /* Ring around avatar for definition */
+  box-shadow:
+    0 0 0 1.5px rgba(255, 255, 255, 0.12),
+    0 2px 6px rgba(0, 0, 0, 0.5);
 }
 
-/* ── Messages area ── */
+/* ─────────────────────────────────────────────────────────
+   MESSAGES AREA  — clear distinction from section above
+───────────────────────────────────────────────────────── */
 .chat-messages {
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
-  padding: 18px 16px 10px;
+  padding: 16px 14px 10px;
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 2px;
   min-height: 0;
-  background: var(--bg-primary, #13131f);
+
+  /* Slightly different from sections above */
+  background: var(--bg-panel);
+
+  /* Elegant content fade at edges */
+  mask-image: linear-gradient(
+    to bottom,
+    transparent 0px,
+    black 20px,
+    black calc(100% - 20px),
+    transparent 100%
+  );
 }
 
 .chat-messages::-webkit-scrollbar {
-  width: 3px;
+  width: 2px;
 }
 .chat-messages::-webkit-scrollbar-track {
   background: transparent;
 }
 .chat-messages::-webkit-scrollbar-thumb {
-  background: var(--border-color, rgba(255, 255, 255, 0.08));
-  border-radius: 10px;
+  background: rgba(90, 111, 232, 0.18);
+  border-radius: 4px;
+}
+.chat-messages::-webkit-scrollbar-thumb:hover {
+  background: rgba(90, 111, 232, 0.35);
 }
 
-/* ── Empty state ── */
+/* ─────────────────────────────────────────────────────────
+   EMPTY STATE
+───────────────────────────────────────────────────────── */
 .empty-chat {
   flex: 1;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  color: var(--text-muted, #2d2d45);
-  text-align: center;
+  pointer-events: none;
 }
 
 .empty-chat p {
   margin: 0;
-  font-size: 0.85rem;
-  color: var(--text-muted, #3a3a55);
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  color: var(--text-ghost);
+  letter-spacing: 0.1em;
 }
 
-/* ── Message ── */
+/* ─────────────────────────────────────────────────────────
+   MESSAGES
+───────────────────────────────────────────────────────── */
+@keyframes msgIn {
+  from {
+    opacity: 0;
+    transform: translateY(7px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
 .message {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  animation: msgIn 0.15s ease-out;
-}
-
-.message + .message {
-  margin-top: 2px;
+  animation: msgIn var(--t-mid) cubic-bezier(0.34, 1.3, 0.64, 1) both;
 }
 
 .message.new-sender {
-  margin-top: 12px;
-}
-
-@keyframes msgIn {
-  from {
-    opacity: 0;
-    transform: translateY(6px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  margin-top: 16px;
 }
 
 .message-header {
   display: flex;
   align-items: baseline;
   gap: 6px;
-  padding: 0 4px;
-  margin-bottom: 2px;
+  padding: 0 5px;
+  margin-bottom: 3px;
 }
-
 .own-message .message-header {
   flex-direction: row-reverse;
 }
 
 .message-username {
-  font-weight: 700;
-  font-size: 0.72rem;
-  letter-spacing: 0.02em;
-  /* color set inline per user — keep as-is */
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: 0.63rem;
+  letter-spacing: 0.03em;
+  /* color is set inline per user */
 }
 
 .message-time {
-  font-size: 0.65rem;
-  color: var(--text-muted, #33334a);
+  font-family: var(--font-mono);
+  font-size: 0.57rem;
+  color: var(--text-ghost);
+  letter-spacing: 0.03em;
 }
 
-/* Bubble — other users */
+/* ── Bubble — other users ── */
 .message-content {
   display: inline-block;
-  padding: 9px 14px;
-  background: var(--bg-tertiary, #1e1e35);
-  border-radius: 4px 18px 18px 18px;
-  color: var(--text-primary, #c8ccd8);
-  font-size: 0.875rem;
+  padding: 9px 13px;
+  background: var(--bg-raised);
+  border-radius: 3px 14px 14px 14px;
+  color: var(--text-secondary);
+  font-family: var(--font-ui);
+  font-size: 0.84rem;
+  font-weight: 400;
+  line-height: 1.58;
   word-wrap: break-word;
-  line-height: 1.5;
-  max-width: 82%;
-  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.05));
+  max-width: 86%;
+  border: 1px solid var(--border-subtle);
   align-self: flex-start;
+  transition:
+    border-color var(--t-fast) var(--ease),
+    box-shadow var(--t-fast) var(--ease);
+  position: relative;
+}
+.message:hover .message-content {
+  border-color: rgba(255, 255, 255, 0.09);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
 }
 
+/* ── Bubble — own ── */
 .own-message {
   align-items: flex-end;
 }
-
 .own-message .message-header {
   text-align: right;
 }
-
-/* Own message bubble — keep gradient, it's identity */
 .own-message .message-content {
-  background: linear-gradient(135deg, #5a6fe8 0%, #7c5cbf 100%);
-  border-radius: 18px 4px 18px 18px;
-  color: #fff;
+  background: linear-gradient(135deg, var(--accent-a) 0%, var(--accent-b) 100%);
+  border-radius: 14px 3px 14px 14px;
+  color: rgba(255, 255, 255, 0.96);
+  font-weight: 500;
   border: none;
   align-self: flex-end;
-  box-shadow: 0 2px 12px rgba(90, 111, 232, 0.25);
+  box-shadow:
+    0 3px 18px rgba(90, 111, 232, 0.35),
+    0 0 0 1px rgba(255, 255, 255, 0.07) inset;
+}
+/* Glass highlight on own bubble */
+.own-message .message-content::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(
+    140deg,
+    rgba(255, 255, 255, 0.1) 0%,
+    transparent 55%
+  );
+  pointer-events: none;
 }
 
-/* ── Input ── */
+/* ─────────────────────────────────────────────────────────
+   INPUT ZONE  — strongly anchored at bottom
+───────────────────────────────────────────────────────── */
 .chat-input-form {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 9px;
   padding: 12px 14px;
-  border-top: 1px solid var(--border-color, rgba(255, 255, 255, 0.05));
-  background: var(--bg-secondary, #1a1a2e);
+  background: var(--bg-header);
   flex-shrink: 0;
+
+  /* Strong visible separator from messages */
+  border-top: 1px solid var(--border-strong);
+  box-shadow:
+    0 -1px 0 rgba(255, 255, 255, 0.03),
+    0 -8px 24px rgba(0, 0, 0, 0.3);
 }
 
 .chat-input {
   flex: 1;
-  padding: 10px 16px;
-  background: var(--bg-surface, rgba(255, 255, 255, 0.04));
-  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.07));
-  border-radius: 24px;
-  color: var(--text-primary, #e2e8f0);
-  font-size: 0.875rem;
+  padding: 9px 16px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-input);
+  border-radius: 999px;
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+  font-size: 0.835rem;
+  font-weight: 400;
   outline: none;
   transition:
-    border-color 0.2s,
-    background 0.2s;
+    border-color var(--t-fast) var(--ease),
+    background var(--t-fast) var(--ease),
+    box-shadow var(--t-fast) var(--ease);
+  caret-color: var(--accent-a);
 }
-
 .chat-input:focus {
-  border-color: var(--accent-border, rgba(102, 126, 234, 0.45));
-  background: var(--bg-surface-hover, rgba(255, 255, 255, 0.06));
+  border-color: var(--border-accent);
+  background: var(--bg-raised);
+  box-shadow:
+    0 0 0 3px var(--accent-ring),
+    0 0 16px rgba(90, 111, 232, 0.18);
 }
-
 .chat-input::placeholder {
-  color: var(--text-muted, #33334a);
+  color: var(--text-ghost);
+  font-family: var(--font-mono);
+  font-size: 0.76rem;
+  letter-spacing: 0.03em;
 }
 
-/* Send button — keep gradient */
+/* ── Send button ── */
 .btn-send {
   width: 36px;
   height: 36px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #5a6fe8 0%, #7c5cbf 100%);
-  color: white;
+  background: linear-gradient(135deg, var(--accent-a) 0%, var(--accent-b) 100%);
+  color: #fff;
   border: none;
   border-radius: 50%;
   cursor: pointer;
   flex-shrink: 0;
   transition:
-    transform 0.15s,
-    box-shadow 0.15s;
-  box-shadow: 0 2px 8px rgba(90, 111, 232, 0.3);
+    transform var(--t-fast) var(--ease),
+    box-shadow var(--t-fast) var(--ease);
+  box-shadow:
+    0 2px 14px rgba(90, 111, 232, 0.45),
+    0 0 0 1px rgba(255, 255, 255, 0.1) inset;
+  position: relative;
+  overflow: hidden;
 }
-
+/* Glass sheen on button */
+.btn-send::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.16) 0%,
+    transparent 52%
+  );
+}
 .btn-send:hover {
-  transform: scale(1.1);
-  box-shadow: 0 4px 16px rgba(90, 111, 232, 0.45);
+  transform: scale(1.1) translateY(-1px);
+  box-shadow:
+    0 6px 24px rgba(90, 111, 232, 0.6),
+    0 0 0 1px rgba(255, 255, 255, 0.14) inset;
 }
-
 .btn-send:active {
   transform: scale(0.92);
+  box-shadow: 0 2px 8px rgba(90, 111, 232, 0.3);
 }
