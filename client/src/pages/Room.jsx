@@ -48,12 +48,39 @@ import RecordingControls from "../components/recording/RecordingControls";
 import ComplexityAnalyzer from "../components/complexity/ComplexityAnalyzer";
 import Whiteboard from "../components/whiteboard/Whiteboard";
 
-// ✅ Import LANGUAGES array so dropdown is always in sync with constants
 import { LANGUAGES } from "../utils/constants";
 
 import "./Room.css";
 
 const API_BASE = "http://localhost:5000";
+
+// Tooltip wrapper — uses fixed positioning to escape overflow:hidden header
+function BtnTooltip({ label, children, disabled }) {
+  const wrapRef = React.useRef(null);
+  const tipRef = React.useRef(null);
+
+  const handleMouseEnter = () => {
+    if (disabled || !wrapRef.current || !tipRef.current) return;
+    const rect = wrapRef.current.getBoundingClientRect();
+    const tip = tipRef.current;
+    tip.style.left = rect.left + rect.width / 2 + "px";
+    tip.style.top = rect.top - 10 + "px";
+    tip.style.transform = "translateX(-50%) translateY(-100%)";
+  };
+
+  return (
+    <div
+      className="btn-tooltip-wrap"
+      ref={wrapRef}
+      onMouseEnter={handleMouseEnter}
+    >
+      {children}
+      <span className="btn-tip" ref={tipRef}>
+        {label}
+      </span>
+    </div>
+  );
+}
 
 function RoomContent() {
   const { roomId } = useParams();
@@ -196,7 +223,6 @@ function RoomContent() {
         });
         return;
       }
-
       if (!files || Object.keys(files).length === 0) {
         toast.error("No files to save", {
           duration: 2000,
@@ -204,7 +230,6 @@ function RoomContent() {
         });
         return;
       }
-
       const response = await fetch(`${API_BASE}/api/gist/save`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -216,12 +241,10 @@ function RoomContent() {
           username,
         }),
       });
-
       if (!response.ok) {
         const e = await response.json();
         throw new Error(e.error || "Failed to save");
       }
-
       const data = await response.json();
       if (data.success) {
         setSavedGistUrl(data.gistUrl);
@@ -257,12 +280,10 @@ function RoomContent() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ gistUrl: gistUrl.trim() }),
       });
-
       if (!response.ok) {
         const e = await response.json();
         throw new Error(e.error || "Failed to import");
       }
-
       const data = await response.json();
       if (data.success) {
         const ext = Object.keys(data.files)[0]?.split(".").pop();
@@ -278,7 +299,6 @@ function RoomContent() {
           go: "go",
           rs: "rust",
         };
-
         Object.entries(data.files).forEach(([fileName, content]) => {
           socket.emit("file-create", {
             roomId,
@@ -298,7 +318,6 @@ function RoomContent() {
             100,
           );
         });
-
         toast.success(`Imported! 🎉`, { duration: 2000, id: "gist-import-ok" });
         setShowImportGistModal(false);
         setGistUrl("");
@@ -362,7 +381,7 @@ function RoomContent() {
           <button
             className={`feature-btn ${showStdinPanel ? "active" : ""}`}
             onClick={() => setShowStdinPanel((v) => !v)}
-            title="Standard Input"
+            title={showStdinPanel ? "Close stdin" : "Standard Input"}
           >
             <Terminal size={16} />
           </button>
@@ -371,7 +390,7 @@ function RoomContent() {
             className="btn-primary"
             onClick={runCode}
             disabled={isRunning || isInterviewMode}
-            data-tooltip="Run Code"
+            title={isRunning ? "Running..." : "Run Code"}
           >
             {isRunning ? (
               <Loader size={16} className="spin" />
@@ -379,11 +398,12 @@ function RoomContent() {
               <Play size={16} />
             )}
           </button>
+
           <button
             className="btn-secondary"
             onClick={runTests}
             disabled={isRunningTests}
-            data-tooltip="Run Tests"
+            title={isRunningTests ? "Running Tests..." : "Run Test Cases"}
           >
             {isRunningTests ? (
               <Loader size={16} className="spin" />
@@ -425,7 +445,7 @@ function RoomContent() {
             </button>
             <button
               className="feature-btn"
-              title="Toggle Theme"
+              title={theme === "vs-dark" ? "Light Mode" : "Dark Mode"}
               onClick={handleToggleTheme}
             >
               {theme === "vs-dark" ? <Sun size={18} /> : <Moon size={18} />}
@@ -435,6 +455,7 @@ function RoomContent() {
           <div className="more-menu-container" ref={moreMenuRef}>
             <button
               className="feature-btn"
+              title="More Options"
               onClick={() => setShowMoreMenu((v) => !v)}
             >
               <MoreVertical size={18} />
@@ -447,8 +468,7 @@ function RoomContent() {
                     setShowMoreMenu(false);
                   }}
                 >
-                  <Upload size={16} />
-                  Save to Gist
+                  <Upload size={16} /> Save to Gist
                 </button>
                 <button
                   onClick={() => {
@@ -456,8 +476,7 @@ function RoomContent() {
                     setShowMoreMenu(false);
                   }}
                 >
-                  <Download size={16} />
-                  Import from Gist
+                  <Download size={16} /> Import from Gist
                 </button>
                 <div className="menu-divider"></div>
                 <button
@@ -466,8 +485,7 @@ function RoomContent() {
                     setShowMoreMenu(false);
                   }}
                 >
-                  <BarChart2 size={16} />
-                  Complexity Analyzer
+                  <BarChart2 size={16} /> Complexity Analyzer
                 </button>
                 <button
                   onClick={() => {
@@ -475,8 +493,7 @@ function RoomContent() {
                     setShowMoreMenu(false);
                   }}
                 >
-                  <PenLine size={16} />
-                  Whiteboard
+                  <PenLine size={16} /> Whiteboard
                 </button>
                 <button
                   onClick={() => {
@@ -484,8 +501,7 @@ function RoomContent() {
                     setShowMoreMenu(false);
                   }}
                 >
-                  <BookTemplate size={16} />
-                  Templates
+                  <BookTemplate size={16} /> Templates
                 </button>
                 <button
                   onClick={() => {
@@ -493,12 +509,10 @@ function RoomContent() {
                     setShowMoreMenu(false);
                   }}
                 >
-                  <MessageSquare size={16} />
-                  Chat
+                  <MessageSquare size={16} /> Chat
                 </button>
                 <button onClick={handleLeaveRoom} className="danger">
-                  <LogOut size={16} />
-                  Leave Room
+                  <LogOut size={16} /> Leave Room
                 </button>
               </div>
             )}
@@ -655,7 +669,6 @@ function RoomContent() {
                 <X size={20} />
               </button>
             </div>
-
             <div className="modal-body">
               {!savedGistUrl ? (
                 <>
@@ -724,7 +737,6 @@ function RoomContent() {
                 <X size={20} />
               </button>
             </div>
-
             <div className="modal-body">
               <p>Paste a GitHub Gist URL to import files into this room.</p>
               <div className="form-group">
