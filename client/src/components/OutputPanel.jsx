@@ -6,6 +6,7 @@ import {
   X,
   Terminal,
   Keyboard,
+  Maximize2,
   Minimize2,
   CheckCircle,
   AlertCircle,
@@ -40,7 +41,6 @@ function parseOutput(output) {
   if (output === "Code executed successfully (no output)")
     return { type: "success-empty", text: output };
 
-  // Framework project message — show as warning, not hard error
   if (output.startsWith("Error:\n")) {
     const errorText = output.replace("Error:\n", "");
     if (errorText.includes("⚠️  Framework project detected"))
@@ -65,6 +65,9 @@ function OutputPanel({
   memoryUsed,
   isMinimized,
   onMinimize,
+  isPanelMaximized,
+  onToggleMaximize,
+  isMobile,
 }) {
   const { stdin, setStdin, language, runCode, cancelExecution, isRunning } =
     useRoom();
@@ -129,7 +132,7 @@ function OutputPanel({
             </>
           )}
 
-          {/* Time badge — only after successful execution */}
+          {/* Time badge */}
           {executionTime != null &&
             parsed.type !== "running" &&
             parsed.type !== "cancelled" && (
@@ -144,7 +147,7 @@ function OutputPanel({
               </span>
             )}
 
-          {/* Run Again — only after execution completes (not cancelled) */}
+          {/* Run Again */}
           {showRunAgain && (
             <button
               className="run-again-btn"
@@ -156,11 +159,28 @@ function OutputPanel({
             </button>
           )}
 
-          <button className="control-btn" onClick={onMinimize} title="Minimize">
-            <Minimize2 size={16} />
-          </button>
-          <button className="control-btn" onClick={onClose} title="Close">
-            <X size={16} />
+          {/* Maximize / Minimize — shown on mobile only */}
+          {isMobile && (
+            <button
+              className="control-btn"
+              onClick={onToggleMaximize}
+              title={isPanelMaximized ? "Restore" : "Maximize"}
+            >
+              {isPanelMaximized ? (
+                <Minimize2 size={15} />
+              ) : (
+                <Maximize2 size={15} />
+              )}
+            </button>
+          )}
+
+          {/* Close X */}
+          <button
+            className="control-btn control-btn-close"
+            onClick={onClose}
+            title="Close"
+          >
+            <X size={15} />
           </button>
         </div>
       </div>
@@ -184,9 +204,7 @@ function OutputPanel({
         </div>
       )}
 
-      {/* Scrollable wrapper */}
       <div className="output-content-wrapper">
-        {/* Status banners */}
         {parsed.type === "success" && (
           <div className="output-status-banner success">
             <CheckCircle size={14} /> Executed successfully
@@ -220,6 +238,15 @@ function OutputPanel({
         {parsed.type === "cancelled" && (
           <div className="output-status-banner cancelled">
             <Ban size={14} /> Execution cancelled
+          </div>
+        )}
+
+        {parsed.type === "idle" && (
+          <div className="output-idle-state">
+            <p className="output-idle-title">No output yet</p>
+            <p className="output-idle-hint">
+              Hit <kbd>Run</kbd> to execute your code.
+            </p>
           </div>
         )}
 
