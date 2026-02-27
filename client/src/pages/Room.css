@@ -70,6 +70,8 @@
   --editor-bg: #090b12;
   --stdin-bg: var(--bg-secondary);
   --stdin-input-bg: var(--bg-canvas);
+
+  --mob-nav: 56px;
 }
 
 .room-container[data-theme="light"] {
@@ -129,11 +131,12 @@
 }
 
 /* ═══════════════════════════════════════════════════════════════
-     BASE CONTAINER
+     BASE
      ═══════════════════════════════════════════════════════════════ */
 
 .room-container {
   height: 100vh;
+  height: 100dvh;
   display: flex;
   flex-direction: column;
   background: var(--bg-canvas);
@@ -161,7 +164,7 @@
   gap: 16px;
   flex-shrink: 0;
   position: relative;
-  z-index: 100;
+  z-index: 200;
   overflow: visible;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.05),
@@ -175,6 +178,7 @@
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
   opacity: 0.4;
   pointer-events: none;
+  z-index: 0;
 }
 
 .header-section-left {
@@ -182,6 +186,8 @@
   align-items: center;
   gap: 12px;
   flex: 0 0 auto;
+  position: relative;
+  z-index: 1;
 }
 
 .app-logo {
@@ -213,13 +219,11 @@
     transform 0.25s ease,
     filter 0.25s ease;
 }
-
 .app-logo:hover {
   transform: scale(1.05);
   filter: drop-shadow(0 0 16px rgba(167, 139, 250, 0.75));
   animation-play-state: paused;
 }
-
 @keyframes logo-shine {
   0% {
     background-position: 100% 0;
@@ -280,7 +284,6 @@
   border-radius: 50%;
   animation: pulse-dot 2s ease-in-out infinite;
 }
-
 @keyframes pulse-dot {
   0%,
   100% {
@@ -301,10 +304,12 @@
   justify-content: center;
   max-width: 700px;
   overflow: visible;
+  position: relative;
+  z-index: 1;
 }
 
 .language-dropdown {
-  padding: 0 12px;
+  padding: 0 30px 0 12px;
   height: 38px;
   background: var(--bg-overlay);
   border: 1px solid var(--border-strong);
@@ -321,7 +326,6 @@
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238892a4' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 10px center;
-  padding-right: 30px;
 }
 .language-dropdown option {
   background: var(--bg-tertiary);
@@ -339,7 +343,6 @@
   cursor: not-allowed;
 }
 
-/* ── ICON BUTTONS ── */
 .feature-btn {
   display: flex;
   align-items: center;
@@ -354,6 +357,7 @@
   transition: var(--transition);
   flex-shrink: 0;
   position: relative;
+  z-index: 1;
 }
 .feature-btn:hover:not(:disabled) {
   background: var(--surface-2);
@@ -377,7 +381,6 @@
   box-shadow: 0 0 12px var(--accent-glow);
 }
 
-/* ── RUN & TEST BUTTONS ── */
 .btn-primary,
 .btn-secondary {
   display: flex;
@@ -394,6 +397,7 @@
   transition: var(--transition);
   position: relative;
   flex-shrink: 0;
+  z-index: 1;
 }
 .btn-primary {
   background: linear-gradient(135deg, #6366f1, #7c3aed);
@@ -437,12 +441,13 @@
   display: none;
 }
 
-/* ── RIGHT ── */
 .header-section-right {
   display: flex;
   align-items: center;
   gap: 8px;
   flex: 0 0 auto;
+  position: relative;
+  z-index: 1;
 }
 .feature-buttons {
   display: flex;
@@ -453,6 +458,7 @@
 /* ── MORE DROPDOWN ── */
 .more-menu-container {
   position: relative;
+  z-index: 9999;
 }
 
 .dropdown-menu {
@@ -463,15 +469,14 @@
   border: 1px solid var(--border-default);
   border-radius: var(--radius-lg);
   padding: 6px;
-  min-width: 188px;
+  min-width: 200px;
   box-shadow:
     var(--shadow-lg),
     0 0 0 1px rgba(255, 255, 255, 0.03) inset;
-  z-index: 1000;
+  z-index: 9999;
   animation: menu-appear 0.15s cubic-bezier(0.16, 1, 0.3, 1);
   transform-origin: top right;
 }
-
 @keyframes menu-appear {
   from {
     opacity: 0;
@@ -482,13 +487,12 @@
     transform: scale(1) translateY(0);
   }
 }
-
 .dropdown-menu button {
   display: flex;
   align-items: center;
   gap: 9px;
   width: 100%;
-  padding: 8px 10px;
+  padding: 9px 10px;
   background: transparent;
   border: none;
   border-radius: var(--radius-sm);
@@ -499,6 +503,7 @@
   cursor: pointer;
   transition: var(--transition);
   text-align: left;
+  min-height: 36px;
 }
 .dropdown-menu button svg {
   opacity: 0.7;
@@ -540,8 +545,9 @@
   border-bottom: 1px solid var(--border-subtle);
   flex-shrink: 0;
   animation: slide-down 0.18s ease-out;
+  position: relative;
+  z-index: 10;
 }
-
 @keyframes slide-down {
   from {
     opacity: 0;
@@ -566,7 +572,6 @@
   text-transform: uppercase;
   letter-spacing: 0.1em;
 }
-
 .stdin-textarea {
   flex: 1;
   background: var(--bg-canvas);
@@ -590,7 +595,6 @@
 .stdin-textarea::placeholder {
   color: var(--text-tertiary);
 }
-
 .stdin-close {
   background: transparent;
   border: none;
@@ -711,6 +715,11 @@
   font-family: "Geist Mono", monospace;
 }
 
+/* Mobile nav hidden on desktop */
+.mobile-bottom-nav {
+  display: none;
+}
+
 /* ═══════════════════════════════════════════════════════════════
      MODALS
      ═══════════════════════════════════════════════════════════════ */
@@ -788,7 +797,6 @@
   );
   opacity: 0.75;
 }
-
 .modal-title {
   display: flex;
   align-items: center;
@@ -816,7 +824,6 @@
   -webkit-text-fill-color: var(--text-primary);
   color: var(--text-primary);
 }
-
 .modal-close-btn {
   display: flex;
   align-items: center;
@@ -1014,10 +1021,6 @@
   }
 }
 
-/* ═══════════════════════════════════════════════════════════════
-     OUTPUT PANEL
-     ═══════════════════════════════════════════════════════════════ */
-
 .output-running-dot,
 [class*="running"] .status-dot,
 .output-status-dot {
@@ -1044,11 +1047,9 @@
 }
 
 /* ═══════════════════════════════════════════════════════════════
-     TOOLTIP SYSTEM
-     Works on: feature-btn[title]  +  btn-primary/secondary[data-tooltip]
+     TOOLTIPS (desktop only — suppressed on mobile)
      ═══════════════════════════════════════════════════════════════ */
 
-/* feature-btn tooltips via [title] */
 .feature-btn[title]::after {
   content: attr(title);
   position: absolute;
@@ -1071,7 +1072,6 @@
     transform 0.15s ease;
   z-index: 9999;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
-  letter-spacing: 0.01em;
 }
 .feature-btn[title]::before {
   content: "";
@@ -1094,7 +1094,6 @@
   transform: translateX(-50%) translateY(0);
 }
 
-/* Light mode feature-btn tooltips */
 .room-container[data-theme="light"] .feature-btn[title]::after {
   background: #ffffff;
   border-color: rgba(0, 0, 0, 0.1);
@@ -1105,13 +1104,11 @@
   border-top-color: rgba(0, 0, 0, 0.08);
 }
 
-/* btn-primary / btn-secondary — title tooltip, same as feature-btn */
 .btn-primary[title],
 .btn-secondary[title] {
   position: relative;
   overflow: visible;
 }
-
 .btn-primary[title]::after,
 .btn-secondary[title]::after {
   content: attr(title);
@@ -1136,13 +1133,11 @@
   z-index: 9999;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
 }
-
 .btn-primary[title]:hover:not(:disabled)::after,
 .btn-secondary[title]:hover:not(:disabled)::after {
   opacity: 1;
   transform: translateX(-50%) translateY(0);
 }
-
 .room-container[data-theme="light"] .btn-primary[title]::after,
 .room-container[data-theme="light"] .btn-secondary[title]::after {
   background: #ffffff;
@@ -1152,7 +1147,7 @@
 }
 
 /* ═══════════════════════════════════════════════════════════════
-     RESPONSIVE
+     TABLET  ≤ 1200 / 1024
      ═══════════════════════════════════════════════════════════════ */
 
 @media (max-width: 1200px) {
@@ -1160,74 +1155,701 @@
     width: 340px;
   }
 }
-@media (max-width: 900px) {
-  .feature-buttons .feature-btn:nth-child(n + 4) {
+@media (max-width: 1024px) {
+  .side-panel {
+    width: 300px;
+  }
+  .feature-buttons .feature-btn:nth-child(3),
+  .feature-buttons .feature-btn:nth-child(4) {
     display: none;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════
+     MOBILE  ≤ 768px
+     ═══════════════════════════════════════════════════════════════ */
+
 @media (max-width: 768px) {
+  /* Suppress tooltip pseudo-elements on mobile (they cause glitches) */
+  .feature-btn[title]::after,
+  .feature-btn[title]::before,
+  .btn-primary[title]::after,
+  .btn-secondary[title]::after {
+    display: none;
+  }
+
+  /* ── HEADER ── */
   .room-header-clean {
-    flex-wrap: wrap;
-    height: auto;
-    padding: 10px 12px;
-    gap: 10px;
+    height: 50px;
+    min-height: 50px;
+    padding: 0 8px;
+    gap: 5px;
+    flex-wrap: nowrap;
+    /* Use fixed z-index so dropdown punches through everything */
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 700;
   }
+
+  /* Push body below fixed header */
+  .room-container {
+    padding-top: 50px;
+  }
+
   .header-section-left {
-    order: 1;
-    width: 100%;
+    gap: 5px;
   }
-  .header-section-center {
-    order: 3;
-    width: 100%;
-    flex-wrap: wrap;
-    max-width: none;
+  .app-logo {
+    font-size: 14px;
   }
-  .header-section-right {
-    order: 2;
-  }
-  .language-dropdown {
-    width: 100%;
-  }
-  .room-body {
-    flex-direction: column;
-  }
-  .file-explorer-sidebar {
-    width: 100%;
-    height: 48px;
-    flex-direction: row;
-    border-right: none;
-    border-bottom: 1px solid var(--border-subtle);
-  }
-  .side-panels {
-    width: 100%;
-    height: 38vh;
-    max-height: 320px;
-    flex-direction: column;
-    overflow-y: auto;
-    border-top: 1px solid var(--border-subtle);
-  }
-  .side-panel {
-    width: 100%;
-    height: auto;
-    min-height: 200px;
-    border-left: none;
-    border-top: 1px solid var(--border-subtle);
-  }
-}
-@media (max-width: 480px) {
   .room-info span {
     display: none;
   }
-  .app-logo {
-    font-size: 13px;
+  .room-info {
+    padding: 4px 7px;
   }
-  .feature-btn {
-    width: 30px;
-    height: 30px;
+  .user-count-badge {
+    display: none;
+  }
+
+  .header-section-center {
+    flex: 1;
+    min-width: 0;
+    max-width: none;
+    gap: 4px;
+    justify-content: flex-end;
+  }
+  /* Hide stdin btn from header — it's in the more drawer */
+  .header-section-center > .feature-btn {
+    display: none;
+  }
+
+  .language-dropdown {
+    min-width: 80px;
+    width: auto;
+    font-size: 11px;
+    height: 32px;
+    padding: 0 18px 0 7px;
   }
   .btn-primary,
   .btn-secondary {
-    width: 34px;
-    height: 30px;
+    width: 32px;
+    height: 32px;
+  }
+  .feature-btn {
+    width: 32px;
+    height: 32px;
+  }
+
+  /* All header feature buttons hidden on mobile */
+  .feature-buttons {
+    display: none;
+  }
+
+  /* ── 3-DOT DROPDOWN: fixed position so it's never clipped ── */
+  .more-menu-container {
+    position: static;
+  }
+  .dropdown-menu {
+    position: fixed !important;
+    top: 50px !important;
+    right: 8px !important;
+    bottom: auto !important;
+    left: auto !important;
+    max-height: calc(100dvh - 50px - var(--mob-nav) - 12px);
+    overflow-y: auto;
+    min-width: 224px;
+    transform-origin: top right;
+    z-index: 9999 !important;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* ── BODY ── */
+  .room-body {
+    flex-direction: column;
+    overflow: hidden;
+    /* body takes full height minus fixed header and fixed nav */
+    height: calc(100dvh - 50px - var(--mob-nav));
+    padding-bottom: 0;
+  }
+
+  /* ── FILE EXPLORER: slim horizontal tab strip ── */
+  .file-explorer-sidebar {
+    width: 100% !important;
+    height: 36px;
+    min-height: 36px;
+    flex-direction: row;
+    border-right: none;
+    border-bottom: 1px solid var(--border-subtle);
+    overflow-x: auto;
+    overflow-y: hidden;
+    flex-shrink: 0;
+  }
+
+  /* Make inner FileExplorer component horizontal */
+  .file-explorer-sidebar .file-explorer {
+    width: 100% !important;
+    min-width: unset !important;
+    height: 36px !important;
+    min-height: 36px !important;
+    flex-direction: row !important;
+    border: none !important;
+  }
+
+  .file-explorer-sidebar .explorer-header {
+    height: 36px !important;
+    min-height: 36px !important;
+    border-bottom: none !important;
+    border-right: 1px solid var(--border-subtle) !important;
+    width: auto !important;
+    flex-shrink: 0 !important;
+    padding: 0 8px !important;
+  }
+
+  .file-explorer-sidebar .file-list {
+    display: flex !important;
+    flex-direction: row !important;
+    height: 36px !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    padding: 0 4px !important;
+    align-items: center !important;
+    gap: 2px !important;
+    flex: 1 !important;
+  }
+
+  .file-explorer-sidebar .file-item {
+    height: 26px !important;
+    padding: 0 8px !important;
+    white-space: nowrap !important;
+    flex-shrink: 0 !important;
+    border-radius: var(--radius-sm) !important;
+    font-size: 11px !important;
+    min-width: auto !important;
+  }
+
+  /* Hide active left-border on horizontal strip */
+  .file-explorer-sidebar .file-item::before {
+    display: none !important;
+  }
+
+  /* Hide folders — too complex for horizontal strip */
+  .file-explorer-sidebar .folder-wrapper {
+    display: none !important;
+  }
+
+  /* Hide collapsed icon mode */
+  .file-explorer-sidebar .file-item-icon {
+    display: none !important;
+  }
+
+  /* Editor fills remaining body space */
+  .editor-area {
+    flex: 1;
+    min-height: 0;
+  }
+
+  /* ── SIDE PANELS → FIXED BOTTOM SHEET ── */
+  .side-panels {
+    position: fixed !important;
+    left: 0;
+    right: 0;
+    bottom: var(--mob-nav);
+    top: auto;
+    height: 55vh;
+    max-height: calc(100dvh - 50px - var(--mob-nav) - 8px);
+    min-height: 180px;
+    z-index: 500;
+    background: var(--bg-secondary) !important;
+    border-top: 2px solid var(--accent-border);
+    border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+    box-shadow: 0 -12px 50px rgba(0, 0, 0, 0.7);
+    overflow: hidden;
+    flex-direction: column;
+    width: 100%;
+    animation: sheet-up 0.26s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  @keyframes sheet-up {
+    from {
+      transform: translateY(100%);
+      opacity: 0.6;
+    }
+    to {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
+
+  /* Drag pill at top of sheet */
+  .side-panels::before {
+    content: "";
+    display: block;
+    width: 40px;
+    height: 4px;
+    background: var(--border-strong);
+    border-radius: 2px;
+    margin: 10px auto 4px;
+    flex-shrink: 0;
+  }
+
+  .side-panel {
+    width: 100% !important;
+    height: 100%;
+    border-left: none !important;
+    border-top: 1px solid var(--border-subtle);
+    box-shadow: none;
+    overflow-y: auto;
+  }
+
+  /* Output panel full width */
+  .output-panel-container {
+    width: 100% !important;
+    border-left: none !important;
+    box-shadow: none !important;
+    height: 100% !important;
+  }
+
+  .output-restore-tab {
+    display: none;
+  }
+
+  /* ── MOBILE BOTTOM NAV ── */
+  .mobile-bottom-nav {
+    display: flex;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: var(--mob-nav);
+    background: var(--bg-secondary);
+    border-top: 1px solid var(--border-default);
+    z-index: 800;
+    align-items: stretch;
+    padding: 0 2px;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.5);
+    gap: 1px;
+  }
+
+  .mobile-nav-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    flex: 1;
+    background: transparent;
+    border: none;
+    border-radius: var(--radius-sm);
+    color: var(--text-tertiary);
+    cursor: pointer;
+    transition:
+      background 0.15s,
+      color 0.15s,
+      transform 0.1s;
+    padding: 5px 2px 3px;
+    position: relative;
+    -webkit-tap-highlight-color: transparent;
+    min-width: 0;
+  }
+
+  .mobile-nav-btn svg {
+    flex-shrink: 0;
+  }
+
+  .mobile-nav-btn span {
+    font-size: 9px;
+    font-weight: 600;
+    font-family: "Instrument Sans", sans-serif;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    line-height: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+  }
+
+  .mobile-nav-btn.active {
+    color: var(--accent-bright);
+  }
+
+  /* Active top indicator */
+  .mobile-nav-btn.active::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 18%;
+    right: 18%;
+    height: 2px;
+    background: var(--accent-bright);
+    border-radius: 0 0 3px 3px;
+  }
+
+  .mobile-nav-btn:active {
+    transform: scale(0.9);
+  }
+
+  /* RUN button special */
+  .mobile-nav-btn.mob-run {
+    color: var(--accent-bright);
+    background: var(--accent-dim);
+    border: 1px solid var(--accent-border);
+    border-radius: var(--radius-md);
+    flex: 1.3;
+    margin: 4px 2px;
+  }
+  .mobile-nav-btn.mob-run.running {
+    color: var(--green-bright);
+    background: var(--green-dim);
+    border-color: var(--green-border);
+  }
+  .mobile-nav-btn.mob-run:disabled {
+    opacity: 0.45;
+  }
+
+  /* Modals */
+  .modal-overlay {
+    align-items: flex-end;
+  }
+  .modal-content {
+    width: 100%;
+    max-width: 100%;
+    max-height: 85vh;
+    border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+    border-bottom: none;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+     SMALL  ≤ 480px
+     ═══════════════════════════════════════════════════════════════ */
+
+@media (max-width: 480px) {
+  .room-header-clean {
+    padding: 0 6px;
+    height: 46px;
+    min-height: 46px;
+  }
+  .room-container {
+    padding-top: 46px;
+  }
+  .dropdown-menu {
+    top: 46px !important;
+  }
+  .room-body {
+    height: calc(100dvh - 46px - var(--mob-nav));
+  }
+  .app-logo {
+    font-size: 12px;
+  }
+  .language-dropdown {
+    min-width: 68px;
+    font-size: 10px;
+  }
+  .btn-primary,
+  .btn-secondary,
+  .feature-btn {
+    width: 28px;
+    height: 28px;
+  }
+  .file-explorer-sidebar {
+    height: 32px;
+    min-height: 32px;
+  }
+  .file-explorer-sidebar .file-explorer {
+    height: 32px !important;
+    min-height: 32px !important;
+  }
+  .file-explorer-sidebar .explorer-header {
+    height: 32px !important;
+    min-height: 32px !important;
+  }
+  .file-explorer-sidebar .file-list {
+    height: 32px !important;
+  }
+  .side-panels {
+    height: 60vh;
+  }
+  .mobile-nav-btn span {
+    font-size: 8px;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+     SAFE AREA
+     ═══════════════════════════════════════════════════════════════ */
+
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  @media (max-width: 768px) {
+    .room-container {
+      --mob-nav: calc(56px + env(safe-area-inset-bottom));
+    }
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   ROOM.CSS ADDITIONS — replace the entire additions block
+   at the bottom of your Room.css with this
+   ═══════════════════════════════════════════════════════════ */
+
+/* ── 1. GIST MODALS: always centered ── */
+.gist-modal-overlay { align-items: center !important; }
+.gist-modal-overlay .modal-content {
+  border-radius: var(--radius-xl) !important;
+  border-bottom: 1px solid var(--border-default) !important;
+  max-width: 480px !important;
+  width: 90% !important;
+}
+
+/* ── 2. Kill the ::before pill from base Room.css ── */
+.side-panels::before { display: none !important; }
+
+/* ── 3. SIDE PANELS base ── */
+.side-panels {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  flex-shrink: 0;
+  height: 100%;
+  min-width: 0;
+}
+.side-panels > .output-panel-container,
+.side-panels > .side-panel {
+  width: 100% !important;
+  height: 100% !important;
+  flex: 1;
+  min-height: 0;
+  border-top: none !important;
+}
+
+/* ── 4. MOBILE TOP DRAG HANDLE — pill only, no buttons ── */
+.panel-top-drag-handle {
+  display: none; /* hidden on desktop */
+  width: 100%;
+  height: 22px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  cursor: ns-resize;
+  background: var(--bg-elevated);
+  border-bottom: 1px solid var(--border-subtle);
+  touch-action: none;
+  position: relative;
+  z-index: 10;
+}
+.panel-drag-pill {
+  width: 36px;
+  height: 4px;
+  background: var(--border-strong);
+  border-radius: 2px;
+  cursor: grab;
+  transition: background 0.15s;
+  flex-shrink: 0;
+}
+.panel-top-drag-handle:hover .panel-drag-pill {
+  background: var(--accent-bright);
+}
+
+/* ── 5. PANEL WRAPPER — header bar for AI / Chat / Tests / History ── */
+.side-panel {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.panel-wrapper-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 14px;
+  height: 42px;
+  min-height: 42px;
+  flex-shrink: 0;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-subtle);
+  gap: 8px;
+  position: relative;
+}
+/* accent top line matching OutputPanel header */
+.panel-wrapper-header::before {
+  content: "";
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(to right, transparent, rgba(99,102,241,0.5) 40%, rgba(167,139,250,0.4) 60%, transparent);
+  pointer-events: none;
+}
+
+.panel-wrapper-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 650;
+  font-family: "Instrument Sans", sans-serif;
+  letter-spacing: -0.01em;
+}
+.panel-wrapper-title svg {
+  color: var(--accent-bright);
+}
+
+.panel-wrapper-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+}
+
+.panel-wrapper-body {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+/* Make sure children of panel-wrapper-body fill the space */
+.panel-wrapper-body > * {
+  flex: 1;
+  min-height: 0;
+}
+
+/* ── 6. control-btn (shared by OutputPanel & PanelWrapper) ── */
+.control-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  background: transparent;
+  border: none;
+  border-radius: 5px;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  transition: all 0.15s;
+  flex-shrink: 0;
+  padding: 0;
+}
+.control-btn:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+.control-btn-close:hover {
+  background: var(--danger-dim) !important;
+  color: var(--danger) !important;
+}
+
+/* ── 7. DESKTOP HORIZONTAL RESIZE HANDLE ── */
+.panel-resize-handle {
+  width: 8px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-secondary);
+  border-left: 1px solid var(--border-subtle);
+  border-right: 1px solid var(--border-subtle);
+  cursor: col-resize;
+  color: var(--text-tertiary);
+  opacity: 0.4;
+  transition: opacity 0.15s, background 0.15s;
+  z-index: 20;
+}
+.panel-resize-handle:hover { opacity: 1; background: var(--accent-dim); color: var(--accent-bright); border-color: var(--accent-border); }
+.panel-resize-handle svg { pointer-events: none; }
+
+/* ── 8. STDIN popover ── */
+.stdin-inline-wrap { position: relative; flex-shrink: 0; }
+.stdin-toggle-btn { display: flex !important; align-items: center; gap: 5px; width: auto !important; padding: 0 11px !important; min-width: 68px; height: 38px; }
+.stdin-btn-label { font-size: 11px; font-weight: 700; font-family: "Geist Mono", monospace; letter-spacing: 0.07em; text-transform: uppercase; }
+.stdin-inline-popover {
+  position: fixed; top: 68px; left: 50%; transform: translateX(-50%);
+  width: min(340px, calc(100vw - 24px));
+  background: var(--bg-elevated); border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg); box-shadow: var(--shadow-lg);
+  z-index: 6000; overflow: hidden;
+  animation: menu-appear 0.15s cubic-bezier(0.16, 1, 0.3, 1); transform-origin: top center;
+}
+.stdin-popover-header {
+  display: flex; align-items: center; gap: 7px; padding: 9px 12px;
+  background: var(--bg-secondary); border-bottom: 1px solid var(--border-subtle);
+  font-size: 10px; font-weight: 700; font-family: "Geist Mono", monospace;
+  letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-tertiary);
+}
+.stdin-popover-header svg { color: var(--accent-bright); opacity: 0.8; }
+.stdin-popover-close { margin-left: auto; background: transparent; border: none; color: var(--text-tertiary); cursor: pointer; padding: 2px; display: flex; align-items: center; border-radius: 4px; transition: color 0.15s; }
+.stdin-popover-close:hover { color: var(--danger); }
+.stdin-popover-textarea {
+  display: block; width: 100%; padding: 10px 12px;
+  background: var(--bg-canvas); border: none; color: var(--text-primary);
+  font-family: "Geist Mono", monospace; font-size: 12.5px; line-height: 1.55;
+  resize: vertical; min-height: 86px; max-height: 200px; outline: none; box-sizing: border-box;
+}
+.stdin-popover-textarea:focus { background: var(--bg-primary); }
+.stdin-popover-textarea::placeholder { color: var(--text-tertiary); }
+
+/* ── 9. RUN / TEST buttons with labels (desktop only) ── */
+.btn-run-label { font-size: 12px; font-weight: 600; font-family: "Instrument Sans", sans-serif; display: inline; }
+
+@media (min-width: 769px) {
+  .btn-primary { width: auto !important; padding: 0 12px !important; gap: 5px; min-width: 0; height: 34px !important; font-size: 12px !important; }
+  .btn-secondary { width: auto !important; padding: 0 10px !important; gap: 5px; min-width: 0; height: 34px !important; font-size: 12px !important; }
+}
+
+/* ── 10. Active feature buttons ── */
+.feature-btn.active {
+  background: var(--accent-dim) !important;
+  border-color: var(--accent-border) !important;
+  color: var(--accent-bright) !important;
+  box-shadow: 0 0 12px var(--accent-glow) !important;
+}
+
+/* ── 11. MOBILE ── */
+@media (max-width: 768px) {
+  .panel-top-drag-handle { display: flex !important; }
+
+  .stdin-toggle-btn { min-width: 32px !important; width: 32px !important; padding: 0 !important; height: 32px !important; }
+  .stdin-btn-label { display: none !important; }
+
+  .desktop-only-run { display: none !important; }
+  .panel-resize-handle { display: none !important; }
+
+  .side-panels {
+    height: 45vh;
+    border-left: none !important;
+    border-top: 2px solid var(--accent-border) !important;
+    border-radius: var(--radius-xl) var(--radius-xl) 0 0 !important;
+    box-shadow: 0 -8px 40px rgba(0, 0, 0, 0.6) !important;
+  }
+
+  /* Maximized: cover full page below header, sit above bottom nav */
+  .side-panels.panel-maximized {
+    border-radius: 0 !important;
+    z-index: 900 !important;
+  }
+
+  .modal-body .btn-primary, .btn-primary.full-width {
+    width: 100% !important; min-width: unset !important; padding: 0 16px !important;
+  }
+
+  .stdin-inline-popover { top: 58px; }
+
+  /* Hide run label on mobile, icon-only */
+  .btn-run-label { display: none !important; }
+  .btn-secondary { width: 32px !important; min-width: 32px !important; padding: 0 !important; }
+}
+
+/* ── 12. DESKTOP ── */
+@media (min-width: 769px) {
+  .panel-top-drag-handle { display: none !important; }
+  .stdin-bar { display: none !important; }
+  .side-panels {
+    border-radius: 0 !important;
+    border-top: none !important;
+    box-shadow: -2px 0 20px rgba(0, 0, 0, 0.35) !important;
   }
 }
