@@ -1,5 +1,5 @@
-// src/pages/Room.jsx - SCREEN RECORDING VERSION
-import React, { useState, useEffect, useRef } from "react";
+// src/pages/Room.jsx
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useLocation, useNavigate } from "react-router-dom";
 import { socket } from "../utils/socket";
 import toast from "react-hot-toast";
@@ -27,6 +27,8 @@ import {
   BarChart2,
   PenLine,
   Maximize2,
+  Minimize2,
+  GripVertical,
 } from "lucide-react";
 
 import { RoomProvider, useRoom } from "../contexts/RoomContext";
@@ -49,35 +51,67 @@ import ComplexityAnalyzer from "../components/complexity/ComplexityAnalyzer";
 import Whiteboard from "../components/whiteboard/Whiteboard";
 
 import { LANGUAGES } from "../utils/constants";
-
 import "./Room.css";
 
 const API_BASE = "http://localhost:5000";
+const DEFAULT_PANEL_WIDTH = 420;
+const MIN_PANEL_WIDTH = 260;
+const MAX_PANEL_WIDTH = 700;
 
-// Tooltip wrapper — uses fixed positioning to escape overflow:hidden header
-function BtnTooltip({ label, children, disabled }) {
-  const wrapRef = React.useRef(null);
-  const tipRef = React.useRef(null);
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth <= 768);
+  useEffect(() => {
+    const fn = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener("resize", fn);
+    return () => window.removeEventListener("resize", fn);
+  }, []);
+  return isMobile;
+}
 
-  const handleMouseEnter = () => {
-    if (disabled || !wrapRef.current || !tipRef.current) return;
-    const rect = wrapRef.current.getBoundingClientRect();
-    const tip = tipRef.current;
-    tip.style.left = rect.left + rect.width / 2 + "px";
-    tip.style.top = rect.top - 10 + "px";
-    tip.style.transform = "translateX(-50%) translateY(-100%)";
-  };
-
+/* ─────────────────────────────────────────────────────────
+   PanelWrapper — adds a title bar with minimize/maximize
+   and close X to AI, Chat, Tests, VersionHistory panels.
+───────────────────────────────────────────────────────── */
+function PanelWrapper({
+  title,
+  icon,
+  onClose,
+  isPanelMaximized,
+  onToggleMaximize,
+  isMobile,
+  children,
+}) {
   return (
-    <div
-      className="btn-tooltip-wrap"
-      ref={wrapRef}
-      onMouseEnter={handleMouseEnter}
-    >
-      {children}
-      <span className="btn-tip" ref={tipRef}>
-        {label}
-      </span>
+    <div className="side-panel">
+      <div className="panel-wrapper-header">
+        <div className="panel-wrapper-title">
+          {icon}
+          <span>{title}</span>
+        </div>
+        <div className="panel-wrapper-controls">
+          {isMobile && (
+            <button
+              className="control-btn"
+              onClick={onToggleMaximize}
+              title={isPanelMaximized ? "Restore" : "Maximize"}
+            >
+              {isPanelMaximized ? (
+                <Minimize2 size={15} />
+              ) : (
+                <Maximize2 size={15} />
+              )}
+            </button>
+          )}
+          <button
+            className="control-btn control-btn-close"
+            onClick={onClose}
+            title="Close"
+          >
+            <X size={15} />
+          </button>
+        </div>
+      </div>
+      <div className="panel-wrapper-body">{children}</div>
     </div>
   );
 }
@@ -85,6 +119,7 @@ function BtnTooltip({ label, children, disabled }) {
 function RoomContent() {
   const { roomId } = useParams();
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
 
   const {
     username,
@@ -123,11 +158,8 @@ function RoomContent() {
   const { files, activeFile, activeFileData, updateFileContent } = useFiles();
 
   injectActiveFile(activeFileData, updateFileContent);
-
   useEffect(() => {
-    if (activeFile) {
-      autoDetectLanguage(activeFile);
-    }
+    if (activeFile) autoDetectLanguage(activeFile);
   }, [activeFile]);
 
   const [showTemplateModal, setShowTemplateModal] = useState(false);
@@ -136,11 +168,25 @@ function RoomContent() {
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [showSaveGistModal, setShowSaveGistModal] = useState(false);
   const [showImportGistModal, setShowImportGistModal] = useState(false);
-  const [showStdinPanel, setShowStdinPanel] = useState(false);
   const [showComplexity, setShowComplexity] = useState(false);
   const [showWhiteboard, setShowWhiteboard] = useState(false);
+  const [showStdinPanel, setShowStdinPanel] = useState(false);
 
-  const [isOutputMinimized, setIsOutputMinimized] = useState(false);
+  // Mobile panel maximize state
+  const [isPanelMaximized, setIsPanelMaximized] = useState(false);
+
+  // Desktop horizontal resize
+  const [panelWidth, setPanelWidth] = useState(DEFAULT_PANEL_WIDTH);
+  const isDragging = useRef(false);
+  const dragStartX = useRef(0);
+  const dragStartWidth = useRef(0);
+
+  // Mobile vertical resize
+  const getDefaultHeight = () => Math.round(window.innerHeight * 0.45);
+  const [panelHeight, setPanelHeight] = useState(getDefaultHeight);
+  const isVDragging = useRef(false);
+  const vDragStartY = useRef(0);
+  const vDragStartHeight = useRef(0);
 
   const [gistDescription, setGistDescription] = useState("");
   const [gistUrl, setGistUrl] = useState("");
@@ -149,42 +195,196 @@ function RoomContent() {
   const [isImporting, setIsImporting] = useState(false);
 
   const moreMenuRef = useRef(null);
+  const stdinRef = useRef(null);
 
   useEffect(() => {
     const handler = (e) => {
       if (moreMenuRef.current && !moreMenuRef.current.contains(e.target))
         setShowMoreMenu(false);
+      if (
+        stdinRef.current &&
+        !stdinRef.current.contains(e.target) &&
+        showStdinPanel
+      )
+        setShowStdinPanel(false);
     };
     document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, []);
+    document.addEventListener("touchstart", handler);
+    return () => {
+      document.removeEventListener("mousedown", handler);
+      document.removeEventListener("touchstart", handler);
+    };
+  }, [showStdinPanel]);
 
   useEffect(() => {
-    if (isInterviewMode) {
-      setShowInterviewModal(false);
-    }
+    if (isInterviewMode) setShowInterviewModal(false);
   }, [isInterviewMode]);
 
-  const handleCodeChange = (newCode) => updateCode(newCode);
-  const handleLanguageChange = (newLang) => updateLanguage(newLang);
-  const handleToggleTheme = () => toggleTheme();
+  // Desktop horizontal drag
+  const startDrag = useCallback(
+    (e) => {
+      isDragging.current = true;
+      dragStartX.current = e.clientX;
+      dragStartWidth.current = panelWidth;
+      document.body.style.cursor = "col-resize";
+      document.body.style.userSelect = "none";
+    },
+    [panelWidth],
+  );
 
-  const handleToggleOutput = (v) => {
-    setShowOutput(v);
-    if (v) setIsOutputMinimized(false);
-  };
+  useEffect(() => {
+    const onMove = (e) => {
+      if (!isDragging.current) return;
+      const delta = dragStartX.current - e.clientX;
+      setPanelWidth(
+        Math.max(
+          MIN_PANEL_WIDTH,
+          Math.min(MAX_PANEL_WIDTH, dragStartWidth.current + delta),
+        ),
+      );
+    };
+    const onUp = () => {
+      if (!isDragging.current) return;
+      isDragging.current = false;
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+    };
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+    return () => {
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+    };
+  }, []);
 
-  const handleToggleChat = (v) => setShowChat(v);
-  const handleToggleTestCases = (v) => setShowTestCases(v);
-  const handleToggleAI = (v) => setShowAIPanel(v);
-  const handleToggleVH = (v) => setShowVersionHistory(v);
+  // Mobile vertical drag
+  const startVDrag = useCallback(
+    (e) => {
+      e.stopPropagation();
+      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+      isVDragging.current = true;
+      vDragStartY.current = clientY;
+      vDragStartHeight.current = isPanelMaximized
+        ? window.innerHeight * 0.92
+        : panelHeight;
+      document.body.style.userSelect = "none";
+      setIsPanelMaximized(false);
+    },
+    [panelHeight, isPanelMaximized],
+  );
+
+  useEffect(() => {
+    const onMove = (e) => {
+      if (!isVDragging.current) return;
+      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+      const delta = vDragStartY.current - clientY;
+      const maxH = Math.round(window.innerHeight * 0.92);
+      setPanelHeight(
+        Math.max(120, Math.min(maxH, vDragStartHeight.current + delta)),
+      );
+    };
+    const onUp = () => {
+      if (!isVDragging.current) return;
+      isVDragging.current = false;
+      document.body.style.userSelect = "";
+    };
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+    document.addEventListener("touchmove", onMove, { passive: true });
+    document.addEventListener("touchend", onUp);
+    return () => {
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+      document.removeEventListener("touchmove", onMove);
+      document.removeEventListener("touchend", onUp);
+    };
+  }, []);
+
+  // Toggle maximize/minimize
+  const handleToggleMaximize = useCallback(() => {
+    setIsPanelMaximized((v) => !v);
+  }, []);
+
+  // Close all panels
+  const closeAllPanels = useCallback(() => {
+    setShowOutput(false);
+    setShowTestCases(false);
+    setShowAIPanel(false);
+    setShowVersionHistory(false);
+    setShowChat(false);
+    setIsPanelMaximized(false);
+  }, [setShowOutput, setShowTestCases, setShowAIPanel, setShowChat]);
+
+  const openPanel = useCallback(
+    (panel) => {
+      setShowOutput(panel === "output");
+      setShowTestCases(panel === "tests");
+      setShowAIPanel(panel === "ai");
+      setShowVersionHistory(panel === "history");
+      setShowChat(panel === "chat");
+    },
+    [setShowOutput, setShowTestCases, setShowAIPanel, setShowChat],
+  );
+
+  const togglePanel = useCallback(
+    (panel) => {
+      const isOpen = {
+        output: showOutput,
+        tests: showTestCases,
+        ai: showAIPanel,
+        history: showVersionHistory,
+        chat: showChat,
+      }[panel];
+      if (isOpen) {
+        closeAllPanels();
+      } else {
+        openPanel(panel);
+        setIsPanelMaximized(false);
+      }
+    },
+    [
+      showOutput,
+      showTestCases,
+      showAIPanel,
+      showVersionHistory,
+      showChat,
+      openPanel,
+      closeAllPanels,
+    ],
+  );
+
+  const handleRun = useCallback(() => {
+    openPanel("output");
+    runCode();
+  }, [openPanel, runCode]);
+  const handleRunTests = useCallback(() => {
+    openPanel("tests");
+    runTests();
+  }, [openPanel, runTests]);
+
+  const handleToggleChat = (v) => (v ? openPanel("chat") : setShowChat(false));
+  const handleToggleAI = (v) => (v ? openPanel("ai") : setShowAIPanel(false));
+  const handleToggleVH = (v) =>
+    v ? openPanel("history") : setShowVersionHistory(false);
+  const handleToggleTestCases = (v) =>
+    v ? openPanel("tests") : setShowTestCases(false);
+
+  const anyPanelOpen =
+    showOutput ||
+    showTestCases ||
+    showAIPanel ||
+    showVersionHistory ||
+    showChat;
+
+  // Mobile panel height
+  const headerH = isMobile ? (window.innerWidth <= 480 ? 46 : 50) : 0;
+  const mobilePanelHeight = isPanelMaximized
+    ? window.innerHeight - headerH
+    : panelHeight;
 
   const handleSelectTemplate = (templateCode) => {
-    if (activeFile) {
-      updateFileContent(activeFile, templateCode);
-    } else {
-      updateCode(templateCode);
-    }
+    if (activeFile) updateFileContent(activeFile, templateCode);
+    else updateCode(templateCode);
     toast.success("Template loaded!", {
       duration: 2000,
       id: "template-loaded",
@@ -196,12 +396,10 @@ function RoomContent() {
     navigator.clipboard.writeText(roomId);
     toast.success("Room ID copied!", { duration: 1500, id: "copy-room-id" });
   };
-
   const handleLeaveRoom = () => {
     socket.disconnect();
     navigate("/");
   };
-
   const handleVersionRestore = (restoredCode) => {
     setCode(restoredCode);
     updateCode(restoredCode);
@@ -252,9 +450,7 @@ function RoomContent() {
           duration: 2000,
           id: "gist-save-ok",
         });
-      } else {
-        throw new Error(data.error || "Failed to save Gist");
-      }
+      } else throw new Error(data.error || "Failed to save Gist");
     } catch (error) {
       toast.error(error.message || "Failed to save", {
         duration: 2000,
@@ -318,12 +514,10 @@ function RoomContent() {
             100,
           );
         });
-        toast.success(`Imported! 🎉`, { duration: 2000, id: "gist-import-ok" });
+        toast.success("Imported! 🎉", { duration: 2000, id: "gist-import-ok" });
         setShowImportGistModal(false);
         setGistUrl("");
-      } else {
-        throw new Error(data.error || "Failed to import Gist");
-      }
+      } else throw new Error(data.error || "Failed to import Gist");
     } catch (error) {
       toast.error(error.message || "Import failed", {
         duration: 2000,
@@ -338,27 +532,43 @@ function RoomContent() {
     navigator.clipboard.writeText(savedGistUrl);
     toast.success("Copied!", { duration: 1500, id: "gist-url-copied" });
   };
-
   const handleCloseSaveModal = () => {
     setShowSaveGistModal(false);
     setSavedGistUrl("");
     setGistDescription("");
   };
+  const menuAction = (fn) => {
+    fn();
+    setShowMoreMenu(false);
+  };
+
+  const activePanelName = showOutput
+    ? "output"
+    : showAIPanel
+      ? "ai"
+      : showTestCases
+        ? "tests"
+        : showChat
+          ? "chat"
+          : showVersionHistory
+            ? "history"
+            : null;
 
   return (
     <div
       className="room-container"
       data-theme={theme === "light" ? "light" : "dark"}
     >
+      {/* ════════ HEADER ════════ */}
       <header className="room-header-clean">
         <div className="header-section-left">
           <h1 className="app-logo">CodeTogether</h1>
-          <div className="room-info" onClick={copyRoomId}>
+          <div className="room-info" onClick={copyRoomId} title="Copy Room ID">
             <Copy size={14} />
             <span>{roomId.substring(0, 8)}</span>
           </div>
           <div className="user-count-badge">
-            <Users size={16} />
+            <Users size={14} />
             <span>{users.length}</span>
           </div>
         </div>
@@ -367,7 +577,7 @@ function RoomContent() {
           <RecordingControls />
           <select
             value={language}
-            onChange={(e) => handleLanguageChange(e.target.value)}
+            onChange={(e) => updateLanguage(e.target.value)}
             className="language-dropdown"
             disabled={isInterviewMode}
           >
@@ -378,17 +588,42 @@ function RoomContent() {
             ))}
           </select>
 
-          <button
-            className={`feature-btn ${showStdinPanel ? "active" : ""}`}
-            onClick={() => setShowStdinPanel((v) => !v)}
-            title={showStdinPanel ? "Close stdin" : "Standard Input"}
-          >
-            <Terminal size={16} />
-          </button>
+          <div className="stdin-inline-wrap" ref={stdinRef}>
+            <button
+              className={`feature-btn stdin-toggle-btn ${showStdinPanel ? "active" : ""}`}
+              onClick={() => setShowStdinPanel((v) => !v)}
+              title="Standard Input"
+            >
+              <Terminal size={15} />
+              <span className="stdin-btn-label">stdin</span>
+            </button>
+            {showStdinPanel && (
+              <div className="stdin-inline-popover">
+                <div className="stdin-popover-header">
+                  <Terminal size={12} />
+                  <span>Standard Input</span>
+                  <button
+                    className="stdin-popover-close"
+                    onClick={() => setShowStdinPanel(false)}
+                  >
+                    <X size={12} />
+                  </button>
+                </div>
+                <textarea
+                  className="stdin-popover-textarea"
+                  rows={4}
+                  placeholder="Enter input for your program (one value per line)..."
+                  value={stdin}
+                  onChange={(e) => setStdin(e.target.value)}
+                  autoFocus
+                />
+              </div>
+            )}
+          </div>
 
           <button
-            className="btn-primary"
-            onClick={runCode}
+            className="btn-primary desktop-only-run"
+            onClick={handleRun}
             disabled={isRunning || isInterviewMode}
             title={isRunning ? "Running..." : "Run Code"}
           >
@@ -397,19 +632,25 @@ function RoomContent() {
             ) : (
               <Play size={16} />
             )}
+            <span className="btn-run-label">
+              {isRunning ? "Running" : "Run"}
+            </span>
           </button>
 
           <button
             className="btn-secondary"
-            onClick={runTests}
+            onClick={handleRunTests}
             disabled={isRunningTests}
-            title={isRunningTests ? "Running Tests..." : "Run Test Cases"}
+            title="Run Tests"
           >
             {isRunningTests ? (
               <Loader size={16} className="spin" />
             ) : (
               <CheckCircle2 size={16} />
             )}
+            <span className="btn-run-label">
+              {isRunningTests ? "Testing" : "Test"}
+            </span>
           </button>
         </div>
 
@@ -423,21 +664,21 @@ function RoomContent() {
               <Trophy size={18} />
             </button>
             <button
-              className="feature-btn"
+              className={`feature-btn ${showAIPanel ? "active" : ""}`}
               title="AI Assistant"
               onClick={() => handleToggleAI(!showAIPanel)}
             >
               <Sparkles size={18} />
             </button>
             <button
-              className="feature-btn"
+              className={`feature-btn ${showVersionHistory ? "active" : ""}`}
               title="Version History"
               onClick={() => handleToggleVH(!showVersionHistory)}
             >
               <History size={18} />
             </button>
             <button
-              className="feature-btn"
+              className={`feature-btn ${showTestCases ? "active" : ""}`}
               title="Test Cases"
               onClick={() => handleToggleTestCases(!showTestCases)}
             >
@@ -446,7 +687,7 @@ function RoomContent() {
             <button
               className="feature-btn"
               title={theme === "vs-dark" ? "Light Mode" : "Dark Mode"}
-              onClick={handleToggleTheme}
+              onClick={toggleTheme}
             >
               {theme === "vs-dark" ? <Sun size={18} /> : <Moon size={18} />}
             </button>
@@ -462,55 +703,63 @@ function RoomContent() {
             </button>
             {showMoreMenu && (
               <div className="dropdown-menu">
+                {isMobile && (
+                  <>
+                    <button
+                      onClick={() => menuAction(() => togglePanel("history"))}
+                    >
+                      <History size={16} /> Version History
+                    </button>
+                    <button
+                      onClick={() =>
+                        menuAction(() => setShowInterviewModal(true))
+                      }
+                    >
+                      <Trophy size={16} /> Interview Mode
+                    </button>
+                    <button onClick={() => menuAction(toggleTheme)}>
+                      {theme === "vs-dark" ? (
+                        <Sun size={16} />
+                      ) : (
+                        <Moon size={16} />
+                      )}
+                      {theme === "vs-dark" ? " Light Mode" : " Dark Mode"}
+                    </button>
+                    <div className="menu-divider" />
+                  </>
+                )}
                 <button
-                  onClick={() => {
-                    setShowSaveGistModal(true);
-                    setShowMoreMenu(false);
-                  }}
+                  onClick={() => menuAction(() => setShowSaveGistModal(true))}
                 >
                   <Upload size={16} /> Save to Gist
                 </button>
                 <button
-                  onClick={() => {
-                    setShowImportGistModal(true);
-                    setShowMoreMenu(false);
-                  }}
+                  onClick={() => menuAction(() => setShowImportGistModal(true))}
                 >
                   <Download size={16} /> Import from Gist
                 </button>
-                <div className="menu-divider"></div>
+                <div className="menu-divider" />
                 <button
-                  onClick={() => {
-                    setShowComplexity(true);
-                    setShowMoreMenu(false);
-                  }}
+                  onClick={() => menuAction(() => setShowComplexity(true))}
                 >
                   <BarChart2 size={16} /> Complexity Analyzer
                 </button>
                 <button
-                  onClick={() => {
-                    setShowWhiteboard(true);
-                    setShowMoreMenu(false);
-                  }}
+                  onClick={() => menuAction(() => setShowWhiteboard(true))}
                 >
                   <PenLine size={16} /> Whiteboard
                 </button>
                 <button
-                  onClick={() => {
-                    setShowTemplateModal(true);
-                    setShowMoreMenu(false);
-                  }}
+                  onClick={() => menuAction(() => setShowTemplateModal(true))}
                 >
                   <BookTemplate size={16} /> Templates
                 </button>
                 <button
-                  onClick={() => {
-                    handleToggleChat(!showChat);
-                    setShowMoreMenu(false);
-                  }}
+                  onClick={() => menuAction(() => handleToggleChat(!showChat))}
                 >
                   <MessageSquare size={16} /> Chat
                 </button>
+                <div className="menu-divider" />
                 <button onClick={handleLeaveRoom} className="danger">
                   <LogOut size={16} /> Leave Room
                 </button>
@@ -520,109 +769,189 @@ function RoomContent() {
         </div>
       </header>
 
-      {showStdinPanel && (
-        <div className="stdin-bar">
-          <label className="stdin-label">
-            <Terminal size={14} /> stdin
-          </label>
-          <textarea
-            className="stdin-textarea"
-            rows={3}
-            placeholder="Enter input for your program (one value per line)..."
-            value={stdin}
-            onChange={(e) => setStdin(e.target.value)}
-          />
-          <button
-            className="stdin-close"
-            onClick={() => setShowStdinPanel(false)}
-          >
-            <X size={14} />
-          </button>
-        </div>
-      )}
-
+      {/* ════════ BODY ════════ */}
       <div className="room-body">
         <div className="file-explorer-sidebar">
           <FileExplorer />
         </div>
+
         <div className="editor-area">
           <CodeEditor
             language={language}
-            onChange={handleCodeChange}
+            onChange={updateCode}
             roomId={roomId}
             username={username}
             theme={theme}
           />
         </div>
 
-        {(showOutput ||
-          showTestCases ||
-          showAIPanel ||
-          showVersionHistory ||
-          showChat) && (
-          <div className="side-panels">
-            {showOutput && !isOutputMinimized && (
+        {anyPanelOpen && !isMobile && (
+          <div
+            className="panel-resize-handle"
+            onMouseDown={startDrag}
+            title="Drag to resize"
+          >
+            <GripVertical size={14} />
+          </div>
+        )}
+
+        {anyPanelOpen && (
+          <div
+            className={`side-panels ${isPanelMaximized ? "panel-maximized" : ""}`}
+            style={{
+              width: isMobile ? undefined : panelWidth,
+              ...(isMobile ? { height: mobilePanelHeight } : {}),
+            }}
+          >
+            {/* Mobile drag handle — PILL ONLY, no buttons here */}
+            <div
+              className="panel-top-drag-handle"
+              onMouseDown={startVDrag}
+              onTouchStart={startVDrag}
+            >
+              <div className="panel-drag-pill" />
+            </div>
+
+            {/* Output */}
+            {showOutput && (
               <OutputPanel
                 output={output}
-                onClose={() => handleToggleOutput(false)}
-                isMinimized={isOutputMinimized}
-                onMinimize={() => setIsOutputMinimized(true)}
+                onClose={closeAllPanels}
+                isMinimized={false}
+                onMinimize={() => {}}
                 executionTime={executionTime}
                 memoryUsed={memoryUsed}
+                isPanelMaximized={isPanelMaximized}
+                onToggleMaximize={handleToggleMaximize}
+                isMobile={isMobile}
               />
             )}
+
+            {/* Test Cases */}
             {showTestCases && (
-              <div className="side-panel">
+              <PanelWrapper
+                title="Test Cases"
+                icon={<ListChecks size={15} />}
+                onClose={closeAllPanels}
+                isPanelMaximized={isPanelMaximized}
+                onToggleMaximize={handleToggleMaximize}
+                isMobile={isMobile}
+              >
                 <TestCases
                   testCases={testCases}
                   onUpdate={updateTestCases}
-                  onClose={() => handleToggleTestCases(false)}
+                  onClose={closeAllPanels}
                   testResults={testResults}
                   isRunning={isRunningTests}
                 />
-              </div>
+              </PanelWrapper>
             )}
+
+            {/* AI Assistant */}
             {showAIPanel && (
-              <div className="side-panel">
-                <AIAssistant onClose={() => handleToggleAI(false)} />
-              </div>
+              <PanelWrapper
+                title="AI Assistant"
+                icon={<Sparkles size={15} />}
+                onClose={closeAllPanels}
+                isPanelMaximized={isPanelMaximized}
+                onToggleMaximize={handleToggleMaximize}
+                isMobile={isMobile}
+              >
+                <AIAssistant onClose={closeAllPanels} />
+              </PanelWrapper>
             )}
+
+            {/* Version History */}
             {showVersionHistory && (
-              <div className="side-panel">
+              <PanelWrapper
+                title="Version History"
+                icon={<History size={15} />}
+                onClose={closeAllPanels}
+                isPanelMaximized={isPanelMaximized}
+                onToggleMaximize={handleToggleMaximize}
+                isMobile={isMobile}
+              >
                 <VersionHistory
                   roomId={roomId}
                   currentCode={code}
                   onRestore={handleVersionRestore}
-                  onClose={() => handleToggleVH(false)}
+                  onClose={closeAllPanels}
                 />
-              </div>
+              </PanelWrapper>
             )}
+
+            {/* Chat */}
             {showChat && (
-              <div className="side-panel">
+              <PanelWrapper
+                title="Chat"
+                icon={<MessageSquare size={15} />}
+                onClose={closeAllPanels}
+                isPanelMaximized={isPanelMaximized}
+                onToggleMaximize={handleToggleMaximize}
+                isMobile={isMobile}
+              >
                 <Chat
                   roomId={roomId}
                   username={username}
                   users={users}
-                  onClose={() => handleToggleChat(false)}
+                  onClose={closeAllPanels}
                 />
-              </div>
+              </PanelWrapper>
             )}
           </div>
         )}
-
-        {showOutput && isOutputMinimized && (
-          <button
-            className="output-restore-tab"
-            onClick={() => setIsOutputMinimized(false)}
-            title="Restore Output Panel"
-          >
-            <Terminal size={14} />
-            <span>Output</span>
-            <Maximize2 size={12} />
-          </button>
-        )}
       </div>
 
+      {/* ════════ MOBILE BOTTOM NAV ════════ */}
+      <nav className="mobile-bottom-nav" aria-label="Mobile navigation">
+        <button
+          className={`mobile-nav-btn ${activePanelName === "output" ? "active" : ""}`}
+          onClick={() => togglePanel("output")}
+          aria-label="Output"
+        >
+          <Terminal size={19} />
+          <span>Output</span>
+        </button>
+        <button
+          className={`mobile-nav-btn ${activePanelName === "ai" ? "active" : ""}`}
+          onClick={() => togglePanel("ai")}
+          aria-label="AI"
+        >
+          <Sparkles size={19} />
+          <span>AI</span>
+        </button>
+        <button
+          className={`mobile-nav-btn mob-run ${isRunning ? "running" : ""}`}
+          onClick={handleRun}
+          disabled={isRunning || isInterviewMode}
+          aria-label="Run"
+        >
+          {isRunning ? (
+            <Loader size={20} className="spin" />
+          ) : (
+            <Play size={20} />
+          )}
+          <span>{isRunning ? "Running" : "Run"}</span>
+        </button>
+        <button
+          className={`mobile-nav-btn ${activePanelName === "tests" ? "active" : ""}`}
+          onClick={() => togglePanel("tests")}
+          aria-label="Tests"
+        >
+          <ListChecks size={19} />
+          <span>Tests</span>
+        </button>
+        <button
+          className={`mobile-nav-btn ${activePanelName === "chat" ? "active" : ""}`}
+          onClick={() => togglePanel("chat")}
+          aria-label="Chat"
+        >
+          <MessageSquare size={19} />
+          <span>Chat</span>
+        </button>
+      </nav>
+
+      {/* ════════ MODALS ════════ */}
       {showTemplateModal && (
         <TemplateModal
           language={language}
@@ -648,15 +977,14 @@ function RoomContent() {
         />
       )}
 
-      {/* ── SAVE GIST MODAL ── */}
       {showSaveGistModal && (
         <div
-          className="modal-overlay"
+          className="modal-overlay gist-modal-overlay"
           onClick={(e) =>
             e.target === e.currentTarget && handleCloseSaveModal()
           }
         >
-          <div className="modal-content gist-modal">
+          <div className="modal-content">
             <div className="modal-header">
               <div className="modal-title">
                 <Github size={20} />
@@ -716,15 +1044,14 @@ function RoomContent() {
         </div>
       )}
 
-      {/* ── IMPORT GIST MODAL ── */}
       {showImportGistModal && (
         <div
-          className="modal-overlay"
+          className="modal-overlay gist-modal-overlay"
           onClick={(e) =>
             e.target === e.currentTarget && setShowImportGistModal(false)
           }
         >
-          <div className="modal-content gist-modal">
+          <div className="modal-content">
             <div className="modal-header">
               <div className="modal-title">
                 <Github size={20} />
@@ -784,12 +1111,10 @@ function Room() {
   const location = useLocation();
   const navigate = useNavigate();
   const username = location.state?.username || "Guest";
-
   if (!location.state?.username) {
     navigate("/");
     return null;
   }
-
   return (
     <RoomProvider roomId={roomId} username={username}>
       <InterviewProvider roomId={roomId}>
