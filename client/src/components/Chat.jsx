@@ -1,6 +1,7 @@
+// src/components/Chat.jsx
 import React, { useState, useEffect, useRef } from "react";
 import { socket } from "../utils/socket";
-import { Send, X, Users } from "lucide-react";
+import { Send } from "lucide-react";
 import "./Chat.css";
 
 function Chat({ roomId, username, users, onClose }) {
@@ -36,17 +37,6 @@ function Chat({ roomId, username, users, onClose }) {
 
   return (
     <div className="chat-sidebar">
-      {/* Header */}
-      <div className="chat-header">
-        <div className="chat-header-title">
-          <Users size={18} />
-          <h3>Chat & Users</h3>
-        </div>
-        <button className="btn-close-chat" onClick={onClose}>
-          <X size={16} />
-        </button>
-      </div>
-
       {/* Users — compact pill row */}
       <div className="users-list">
         <h4>Active Users ({users.length})</h4>
@@ -75,7 +65,6 @@ function Chat({ roomId, username, users, onClose }) {
           messages.map((msg, index) => {
             const own = isOwn(msg);
             const prevMsg = messages[index - 1];
-            // New sender = first message or different sender from previous
             const isNewSender = !prevMsg || prevMsg.username !== msg.username;
 
             return (
@@ -83,7 +72,6 @@ function Chat({ roomId, username, users, onClose }) {
                 key={index}
                 className={`message ${own ? "own-message" : ""} ${isNewSender ? "new-sender" : ""}`}
               >
-                {/* Only show name/time on first message of a group */}
                 {isNewSender && (
                   <div className="message-header">
                     <span

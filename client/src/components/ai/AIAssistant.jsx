@@ -1,11 +1,9 @@
 // src/components/ai/AIAssistant.jsx — Clean Single-Response Edition
-
 import React, { useState, useRef, useEffect } from "react";
 import { useAI } from "../../contexts/AIContext";
 import { useRoom } from "../../contexts/RoomContext";
 import {
   Sparkles,
-  X,
   Lightbulb,
   Bug,
   Zap,
@@ -217,7 +215,6 @@ export default function AIAssistant({ onClose }) {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  // Map action id → feature key for FEATURES lookup
   const featureKeyMap = {
     explain: "explain",
     debug: "debug",
@@ -225,31 +222,11 @@ export default function AIAssistant({ onClose }) {
     tests: "generate_tests",
   };
   const activeFeatureKey = activeFeature ? featureKeyMap[activeFeature] : null;
-
   const showEmpty = !isAILoading && !aiResponse;
 
   return (
     <div className="ai-assistant-panel">
-      {/* HEADER */}
-      <div className="ai-header">
-        <div className="ai-title">
-          <div className="ai-icon-wrapper">
-            <Sparkles size={15} className="ai-icon" />
-          </div>
-          <div className="ai-title-text">
-            <h3>AI Assistant</h3>
-            <span className="ai-title-badge">gemini · active</span>
-          </div>
-        </div>
-        <div className="ai-header-actions">
-          <div className="ai-status-dot" title="Connected" />
-          <button className="btn-close-ai" onClick={onClose} title="Close">
-            <X size={16} />
-          </button>
-        </div>
-      </div>
-
-      {/* ACTION BUTTONS */}
+      {/* ACTION BUTTONS — no header here, PanelWrapper provides it */}
       <div className="ai-quick-actions">
         {ACTION_BUTTONS.map(({ id, featureKey }) => {
           const meta = FEATURES[featureKey];
