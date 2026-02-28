@@ -844,16 +844,9 @@ function RoomContent() {
               />
             )}
 
-            {/* Test Cases */}
+            {/* Test Cases — uses its own internal header */}
             {showTestCases && (
-              <PanelWrapper
-                title="Test Cases"
-                icon={<ListChecks size={15} />}
-                onClose={closeAllPanels}
-                isPanelMaximized={isPanelMaximized}
-                onToggleMaximize={handleToggleMaximize}
-                isMobile={isMobile}
-              >
+              <div className="side-panel">
                 <TestCases
                   testCases={testCases}
                   onUpdate={updateTestCases}
@@ -861,7 +854,7 @@ function RoomContent() {
                   testResults={testResults}
                   isRunning={isRunningTests}
                 />
-              </PanelWrapper>
+              </div>
             )}
 
             {/* AI Assistant */}
@@ -878,23 +871,16 @@ function RoomContent() {
               </PanelWrapper>
             )}
 
-            {/* Version History */}
+            {/* Version History — uses its own internal header */}
             {showVersionHistory && (
-              <PanelWrapper
-                title="Version History"
-                icon={<History size={15} />}
-                onClose={closeAllPanels}
-                isPanelMaximized={isPanelMaximized}
-                onToggleMaximize={handleToggleMaximize}
-                isMobile={isMobile}
-              >
+              <div className="side-panel">
                 <VersionHistory
                   roomId={roomId}
                   currentCode={code}
                   onRestore={handleVersionRestore}
                   onClose={closeAllPanels}
                 />
-              </PanelWrapper>
+              </div>
             )}
 
             {/* Chat */}

@@ -8,7 +8,7 @@
   flex-direction: column;
   height: 100%;
   width: 100%;
-  background: var(--bg-primary, #0d0f17);
+  background: var(--bg-secondary, #0f1120);
   overflow: hidden;
   font-family: "Instrument Sans", system-ui, sans-serif;
   position: relative;
