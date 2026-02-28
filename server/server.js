@@ -5,10 +5,12 @@ const http = require("http");
 const { Server } = require("socket.io");
 const cors = require("cors");
 const mongoose = require("mongoose");
-const session = require("express-session");
 const { setupAIRoutes, setupAISocket } = require("./aiHandler");
 const { setupGistRoutes } = require("./gistHandler");
 const { executeMultiFile } = require("./executors/multiFileExecutor");
+const { verifySocketToken } = require("./middleware/auth");
+const { checkInterviewLimit, checkVersionLimit } = require("./middleware/rbac");
+const authRoutes = require("./routes/auth");
 require("dotenv").config();
 
 console.log(
@@ -29,23 +31,12 @@ app.use(
 );
 
 app.use(express.json());
-app.use(
-  session({
-    secret:
-      process.env.SESSION_SECRET || "codetogether-secret-change-in-production",
-    resave: false,
-    saveUninitialized: false,
-    cookie: {
-      secure: false,
-      httpOnly: true,
-      sameSite: "lax",
-      maxAge: 24 * 60 * 60 * 1000,
-    },
-  }),
-);
+
+// ─── Auth Routes ──────────────────────────────────────────
+app.use("/api/auth", authRoutes);
 
 setupGistRoutes(app);
-setupAIRoutes(app);
+setupAIRoutes(app); // AI routes handle their own limit check via checkAILimit middleware
 
 mongoose
   .connect(process.env.MONGODB_URI)
@@ -53,6 +44,7 @@ mongoose
   .catch((err) => console.error("❌ MongoDB connection error:", err));
 
 const Version = require("./models/Version");
+const User = require("./models/User");
 
 const io = new Server(server, {
   cors: {
@@ -62,14 +54,18 @@ const io = new Server(server, {
   },
 });
 
+// ─── Socket.io Auth Middleware ────────────────────────────
+// Runs before every socket connection
+// Guests are allowed but marked with userId = null
+io.use(verifySocketToken);
+
 const rooms = new Map();
 const whiteboardStates = new Map();
 const runningExecutions = new Map();
 
-// ✅ Smart auto-save config
-const AUTO_SAVE_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes (not 1 min)
-const AUTO_SAVE_MAX_COUNT = 15; // cap at 15 auto-saves per room
-const AUTO_SAVE_MIN_LENGTH = 10; // ignore trivial code (< 10 chars)
+const AUTO_SAVE_INTERVAL_MS = 5 * 60 * 1000;
+const AUTO_SAVE_MAX_COUNT = 15;
+const AUTO_SAVE_MIN_LENGTH = 10;
 
 function getRandomColor() {
   const colors = [
@@ -96,29 +92,20 @@ function getDefaultFiles() {
   };
 }
 
-// ✅ Smart auto-save — only triggers if:
-//    1. Code actually changed since last auto-save
-//    2. Code is long enough to be meaningful
-//    3. Room has active users
-//    4. Auto-save count is under the cap
+// ─── Auto-save (unchanged) ────────────────────────────────
 setInterval(async () => {
   for (const [roomId, room] of rooms) {
     try {
-      // Skip rooms with no users or trivial code
       if (room.users.size === 0) continue;
       if (!room.code || room.code.trim().length < AUTO_SAVE_MIN_LENGTH)
         continue;
 
-      // Check last auto-save — skip if code hasn't changed
       const lastAutoSave = await Version.findOne({ roomId, auto: true })
         .sort({ timestamp: -1 })
         .select("code");
 
-      if (lastAutoSave && lastAutoSave.code === room.code) {
-        continue; // No change — don't save
-      }
+      if (lastAutoSave && lastAutoSave.code === room.code) continue;
 
-      // ✅ Enforce cap — delete oldest auto-saves if over limit
       const autoSaveCount = await Version.countDocuments({
         roomId,
         auto: true,
@@ -138,15 +125,18 @@ setInterval(async () => {
         timestamp: new Date(),
       });
 
-      console.log(`💾 Auto-saved room ${roomId} (changed code)`);
+      console.log(`💾 Auto-saved room ${roomId}`);
     } catch (err) {
       console.error(`❌ Auto-save error for room ${roomId}:`, err);
     }
   }
 }, AUTO_SAVE_INTERVAL_MS);
 
+// ─── Socket Events ────────────────────────────────────────
 io.on("connection", (socket) => {
-  console.log(`✅ User connected: ${socket.id}`);
+  console.log(
+    `✅ User connected: ${socket.id} | userId: ${socket.userId || "guest"}`,
+  );
   setupAISocket(socket);
 
   socket.on("join-room", ({ roomId, username }) => {
@@ -168,6 +158,7 @@ io.on("connection", (socket) => {
       username: username || `Guest${socket.id.slice(0, 4)}`,
       socketId: socket.id,
       color: getRandomColor(),
+      userId: socket.userId || null, // attach userId if logged in
     });
     socket.emit("room-state", {
       code: room.code,
@@ -208,7 +199,6 @@ io.on("connection", (socket) => {
     const room = rooms.get(roomId);
     if (room) {
       room.files[file.name] = file;
-      // ✅ No auto-save triggered here — file creation is not a version event
       socket.to(roomId).emit("file-created", { file });
     }
   });
@@ -315,7 +305,6 @@ io.on("connection", (socket) => {
     async ({ roomId, code, language, stdin, activeFile: clientActiveFile }) => {
       try {
         let room = rooms.get(roomId);
-
         if (!room) {
           const entryName = clientActiveFile || "main.js";
           rooms.set(roomId, {
@@ -335,26 +324,22 @@ io.on("connection", (socket) => {
             activeFile: entryName,
           });
           room = rooms.get(roomId);
-          console.log(`⚡ Auto-created room ${roomId} for execution`);
         }
 
         const token = { cancelled: false };
         runningExecutions.set(socket.id, token);
 
         const entryFile = clientActiveFile || room.activeFile;
-
         if (entryFile) {
           room.files[entryFile] = {
+            ...(room.files[entryFile] || {}),
             name: entryFile,
             content: code || "",
             language: language || "javascript",
-            ...(room.files[entryFile] || {}),
-            content: code || "",
           };
           room.code = code;
           room.activeFile = entryFile;
         }
-
         if (language) room.language = language;
 
         const { output, error, executionTime, memoryUsed } =
@@ -364,7 +349,6 @@ io.on("connection", (socket) => {
           runningExecutions.delete(socket.id);
           return;
         }
-
         runningExecutions.delete(socket.id);
 
         socket.emit("code-output", {
@@ -389,28 +373,40 @@ io.on("connection", (socket) => {
     const token = runningExecutions.get(socket.id);
     if (token) {
       token.cancelled = true;
-      console.log(`🛑 Execution cancelled for socket: ${socket.id}`);
     }
     socket.emit("execution-cancelled");
   });
 
-  socket.on("start-interview", ({ roomId, problem, difficulty, duration }) => {
-    const room = rooms.get(roomId);
-    if (room) {
-      room.previousCode = room.code;
-      room.interviewMode = {
-        problem,
-        difficulty,
-        duration,
-        startTime: Date.now(),
-      };
-      io.to(roomId).emit("interview-started", {
-        problem,
-        difficulty,
-        duration,
-      });
-    }
-  });
+  // ─── Interview Mode (with RBAC) ───────────────────────────
+  socket.on(
+    "start-interview",
+    async ({ roomId, problem, difficulty, duration }) => {
+      // Check limits
+      const check = await checkInterviewLimit(socket.userId, difficulty);
+      if (!check.allowed) {
+        return socket.emit("interview-error", {
+          error: check.error,
+          message: check.message,
+        });
+      }
+
+      const room = rooms.get(roomId);
+      if (room) {
+        room.previousCode = room.code;
+        room.interviewMode = {
+          problem,
+          difficulty,
+          duration,
+          startTime: Date.now(),
+        };
+        io.to(roomId).emit("interview-started", {
+          problem,
+          difficulty,
+          duration,
+        });
+      }
+    },
+  );
 
   socket.on("end-interview", ({ roomId }) => {
     const room = rooms.get(roomId);
@@ -446,7 +442,17 @@ io.on("connection", (socket) => {
     },
   );
 
+  // ─── Version History (with RBAC) ─────────────────────────
   socket.on("save-version", async ({ roomId, code, message }) => {
+    // Check version limit
+    const check = await checkVersionLimit(socket.userId);
+    if (!check.allowed) {
+      return socket.emit("version-saved", {
+        error: check.error,
+        message: check.message,
+      });
+    }
+
     try {
       const version = await Version.create({
         roomId,
@@ -512,6 +518,7 @@ io.on("connection", (socket) => {
     }
   });
 
+  // ─── Whiteboard ───────────────────────────────────────────
   socket.on("whiteboard-join", ({ roomId }) => {
     const state = whiteboardStates.get(roomId);
     if (state) socket.emit("whiteboard-state", { imageData: state });
@@ -530,6 +537,7 @@ io.on("connection", (socket) => {
     socket.to(roomId).emit("whiteboard-clear");
   });
 
+  // ─── Chat ─────────────────────────────────────────────────
   socket.on("chat-message", ({ roomId, message }) => {
     const room = rooms.get(roomId);
     if (room && room.users.has(socket.id)) {
@@ -581,9 +589,10 @@ io.on("connection", (socket) => {
   });
 });
 
+// ─── HTTP Routes ──────────────────────────────────────────
 app.get("/", (req, res) => {
   res.json({
-    message: "🚀 Code Collab Server Running",
+    message: "🚀 CodeTogether Server Running",
     activeRooms: rooms.size,
     timestamp: new Date().toISOString(),
   });
