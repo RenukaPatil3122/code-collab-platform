@@ -1,10 +1,11 @@
 /* src/components/AuthModal.css */
+@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap");
 
 .auth-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(6px);
+  background: rgba(5, 8, 24, 0.75);
+  backdrop-filter: blur(12px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -12,7 +13,6 @@
   padding: 20px;
   animation: authFadeIn 0.2s ease;
 }
-
 @keyframes authFadeIn {
   from {
     opacity: 0;
@@ -23,22 +23,24 @@
 }
 
 .auth-modal {
-  background: #0d0f17;
-  border: 1px solid rgba(99, 102, 241, 0.3);
-  border-radius: 20px;
+  background: rgba(13, 17, 40, 0.97);
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  border-radius: 28px;
   width: 100%;
-  max-width: 420px;
+  max-width: 460px; /* was 420px — wider */
   box-shadow:
-    0 25px 80px rgba(0, 0, 0, 0.5),
-    0 0 0 1px rgba(99, 102, 241, 0.1);
-  animation: authSlideUp 0.25s ease;
+    0 30px 80px rgba(0, 0, 0, 0.65),
+    0 0 80px rgba(99, 102, 241, 0.12),
+    0 0 0 1px rgba(255, 255, 255, 0.04) inset;
+  animation: authSlideUp 0.28s ease;
   overflow: hidden;
+  font-family: "Plus Jakarta Sans", sans-serif;
+  backdrop-filter: blur(24px);
 }
-
 @keyframes authSlideUp {
   from {
     opacity: 0;
-    transform: translateY(20px) scale(0.97);
+    transform: translateY(24px) scale(0.96);
   }
   to {
     opacity: 1;
@@ -46,29 +48,30 @@
   }
 }
 
-/* Header */
+/* ── Header ── */
 .auth-modal-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 20px 24px 16px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  padding: 26px 28px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
 }
 
 .auth-modal-title {
   display: flex;
   align-items: center;
-  gap: 10px;
-  font-size: 1rem;
-  font-weight: 600;
-  color: #e2e8f0;
+  gap: 12px;
+  font-family: "Plus Jakarta Sans", sans-serif;
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: white;
 }
 
 .auth-modal-icon {
-  width: 32px;
-  height: 32px;
-  background: linear-gradient(135deg, #6366f1, #8b5cf6);
-  border-radius: 8px;
+  width: 36px;
+  height: 36px;
+  background: linear-gradient(135deg, #6366f1, #34d399);
+  border-radius: 11px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -76,46 +79,45 @@
 }
 
 .auth-close-btn {
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
-  color: #94a3b8;
-  width: 32px;
-  height: 32px;
+  border-radius: 10px;
+  color: rgba(255, 255, 255, 0.4);
+  width: 36px;
+  height: 36px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   transition: all 0.2s;
 }
-
 .auth-close-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
-  color: #e2e8f0;
+  background: rgba(255, 255, 255, 0.12);
+  color: white;
 }
 
-/* Premium banner */
+/* ── Banner ── */
 .auth-premium-banner {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 10px 24px;
+  padding: 12px 28px;
   background: linear-gradient(
     135deg,
-    rgba(99, 102, 241, 0.15),
-    rgba(139, 92, 246, 0.1)
+    rgba(99, 102, 241, 0.12),
+    rgba(52, 211, 153, 0.08)
   );
-  border-bottom: 1px solid rgba(99, 102, 241, 0.2);
-  font-size: 0.78rem;
+  border-bottom: 1px solid rgba(99, 102, 241, 0.15);
+  font-size: 0.82rem;
   color: #a5b4fc;
   font-weight: 500;
 }
 
-/* Tabs */
+/* ── Tabs ── */
 .auth-tabs {
   display: flex;
-  gap: 4px;
-  padding: 16px 24px 0;
+  gap: 8px;
+  padding: 20px 28px 0;
 }
 
 .auth-tab {
@@ -123,50 +125,50 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  padding: 10px;
-  border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.07);
-  background: transparent;
-  color: #64748b;
-  font-size: 0.875rem;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+  color: rgba(255, 255, 255, 0.4);
+  font-family: "Plus Jakarta Sans", sans-serif;
+  font-size: 0.9rem;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s;
 }
-
 .auth-tab:hover {
-  color: #94a3b8;
-  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.7);
+  background: rgba(255, 255, 255, 0.06);
 }
-
 .auth-tab.active {
   background: linear-gradient(
     135deg,
-    rgba(99, 102, 241, 0.2),
-    rgba(139, 92, 246, 0.15)
+    rgba(99, 102, 241, 0.22),
+    rgba(167, 139, 250, 0.16)
   );
-  border-color: rgba(99, 102, 241, 0.4);
+  border-color: rgba(99, 102, 241, 0.45);
   color: #a5b4fc;
+  font-weight: 600;
 }
 
-/* Error */
+/* ── Error ── */
 .auth-error {
-  margin: 12px 24px 0;
-  padding: 10px 14px;
+  margin: 14px 28px 0;
+  padding: 12px 16px;
   background: rgba(239, 68, 68, 0.1);
-  border: 1px solid rgba(239, 68, 68, 0.3);
-  border-radius: 10px;
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  border-radius: 11px;
   color: #fca5a5;
-  font-size: 0.83rem;
+  font-size: 0.85rem;
 }
 
-/* Form */
+/* ── Form ── */
 .auth-form {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  padding: 16px 24px 20px;
+  padding: 20px 28px 24px;
 }
 
 .auth-field {
@@ -177,99 +179,113 @@
 
 .auth-field-icon {
   position: absolute;
-  left: 14px;
-  color: #475569;
+  left: 16px;
+  color: rgba(255, 255, 255, 0.3);
   pointer-events: none;
   z-index: 1;
 }
 
 .auth-field input {
   width: 100%;
-  padding: 12px 14px 12px 40px;
-  background: rgba(255, 255, 255, 0.04);
+  padding: 15px 44px 15px 44px;
+  background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 10px;
-  color: #e2e8f0;
-  font-size: 0.9rem;
+  border-radius: 13px;
+  color: white;
+  font-family: "Plus Jakarta Sans", sans-serif;
+  font-size: 0.95rem;
   transition: all 0.2s;
   outline: none;
 }
-
 .auth-field input::placeholder {
-  color: #475569;
+  color: rgba(255, 255, 255, 0.3);
 }
-
 .auth-field input:focus {
   border-color: rgba(99, 102, 241, 0.5);
-  background: rgba(99, 102, 241, 0.05);
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+  background: rgba(99, 102, 241, 0.08);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
 }
 
-/* Submit button */
-.auth-submit-btn {
-  padding: 13px;
-  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+/* ── Eye toggle ── */
+.auth-eye-btn {
+  position: absolute;
+  right: 14px;
+  background: none;
   border: none;
-  border-radius: 10px;
+  color: rgba(255, 255, 255, 0.3);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  padding: 4px;
+  border-radius: 6px;
+  transition: color 0.2s;
+  z-index: 2;
+}
+.auth-eye-btn:hover {
+  color: rgba(255, 255, 255, 0.75);
+}
+
+/* ── Submit button ── */
+.auth-submit-btn {
+  padding: 16px; /* taller — was 14px */
+  background: linear-gradient(135deg, #6366f1, #a78bfa);
+  border: none;
+  border-radius: 14px;
   color: white;
-  font-size: 0.95rem;
+  font-family: "Plus Jakarta Sans", sans-serif;
+  font-size: 1rem;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
-  margin-top: 4px;
+  margin-top: 6px;
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 44px;
-  box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);
+  min-height: 52px; /* was 46px */
+  box-shadow: 0 4px 24px rgba(99, 102, 241, 0.38);
 }
-
 .auth-submit-btn:hover:not(:disabled) {
   transform: translateY(-1px);
-  box-shadow: 0 6px 20px rgba(99, 102, 241, 0.4);
+  box-shadow: 0 8px 32px rgba(99, 102, 241, 0.5);
 }
-
 .auth-submit-btn:disabled {
-  opacity: 0.7;
+  opacity: 0.5;
   cursor: not-allowed;
 }
 
-/* Spinner */
 .auth-spinner {
-  width: 18px;
-  height: 18px;
-  border: 2px solid rgba(255, 255, 255, 0.3);
+  width: 20px;
+  height: 20px;
+  border: 2px solid rgba(255, 255, 255, 0.25);
   border-top-color: white;
   border-radius: 50%;
   animation: spin 0.7s linear infinite;
 }
-
 @keyframes spin {
   to {
     transform: rotate(360deg);
   }
 }
 
-/* Switch link */
+/* ── Switch link ── */
 .auth-switch {
   text-align: center;
-  padding: 0 24px 20px;
-  font-size: 0.83rem;
-  color: #475569;
+  padding: 0 28px 26px;
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.35);
   margin: 0;
 }
-
 .auth-switch button {
   background: none;
   border: none;
   color: #818cf8;
   cursor: pointer;
-  font-size: 0.83rem;
+  font-family: "Plus Jakarta Sans", sans-serif;
+  font-size: 0.85rem;
   font-weight: 600;
   padding: 0;
   margin-left: 4px;
 }
-
 .auth-switch button:hover {
   color: #a5b4fc;
   text-decoration: underline;

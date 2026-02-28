@@ -1,24 +1,35 @@
 // src/components/AuthModal.jsx
 
 import React, { useState } from "react";
-import { X, Mail, Lock, User, Sparkles, LogIn } from "lucide-react";
+import {
+  X,
+  Mail,
+  Lock,
+  User,
+  Sparkles,
+  LogIn,
+  Eye,
+  EyeOff,
+} from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { reconnectSocketWithToken } from "../utils/socket";
 import "./AuthModal.css";
 
 function AuthModal({ onClose, defaultTab = "login" }) {
-  const [tab, setTab] = useState(defaultTab); // "login" | "register"
+  const [tab, setTab] = useState(defaultTab);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   // Login fields
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
+  const [showLoginPassword, setShowLoginPassword] = useState(false);
 
   // Register fields
   const [regUsername, setRegUsername] = useState("");
   const [regEmail, setRegEmail] = useState("");
   const [regPassword, setRegPassword] = useState("");
+  const [showRegPassword, setShowRegPassword] = useState(false);
 
   const { login, register } = useAuth();
 
@@ -78,7 +89,7 @@ function AuthModal({ onClose, defaultTab = "login" }) {
         {/* Premium badge */}
         <div className="auth-premium-banner">
           <Sparkles size={14} />
-          <span>Sign up free — unlock AI Assistant, Interview Mode & more</span>
+          <span>Join free. Code smarter.</span>
         </div>
 
         {/* Tabs */}
@@ -125,12 +136,20 @@ function AuthModal({ onClose, defaultTab = "login" }) {
             <div className="auth-field">
               <Lock size={16} className="auth-field-icon" />
               <input
-                type="password"
+                type={showLoginPassword ? "text" : "password"}
                 placeholder="Password"
                 value={loginPassword}
                 onChange={(e) => setLoginPassword(e.target.value)}
                 required
               />
+              <button
+                type="button"
+                className="auth-eye-btn"
+                onClick={() => setShowLoginPassword((v) => !v)}
+                tabIndex={-1}
+              >
+                {showLoginPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
             </div>
             <button
               type="submit"
@@ -171,13 +190,21 @@ function AuthModal({ onClose, defaultTab = "login" }) {
             <div className="auth-field">
               <Lock size={16} className="auth-field-icon" />
               <input
-                type="password"
+                type={showRegPassword ? "text" : "password"}
                 placeholder="Password (min 6 chars)"
                 value={regPassword}
                 onChange={(e) => setRegPassword(e.target.value)}
                 required
                 minLength={6}
               />
+              <button
+                type="button"
+                className="auth-eye-btn"
+                onClick={() => setShowRegPassword((v) => !v)}
+                tabIndex={-1}
+              >
+                {showRegPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
             </div>
             <button
               type="submit"
