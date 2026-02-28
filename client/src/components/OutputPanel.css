@@ -405,3 +405,20 @@
   color: var(--accent-bright, #818cf8);
   opacity: 1;
 }
+
+/* ── IDLE PLAY ICON — mirrors the header Run button ── */
+.output-idle-play-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #6366f1, #7c3aed);
+  color: #fff;
+  box-shadow:
+    0 0 18px rgba(124, 92, 255, 0.35),
+    0 0 0 1px rgba(255, 255, 255, 0.08) inset;
+  margin-bottom: 4px;
+  opacity: 0.7;
+}

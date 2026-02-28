@@ -689,7 +689,7 @@
   align-items: center;
   justify-content: center;
   gap: 10px;
-  width: 26px;
+  width: 40px;
   height: 100%;
   padding: 16px 0;
   background: var(--bg-primary);
@@ -1597,7 +1597,9 @@
    ═══════════════════════════════════════════════════════════ */
 
 /* ── 1. GIST MODALS: always centered ── */
-.gist-modal-overlay { align-items: center !important; }
+.gist-modal-overlay {
+  align-items: center !important;
+}
 .gist-modal-overlay .modal-content {
   border-radius: var(--radius-xl) !important;
   border-bottom: 1px solid var(--border-default) !important;
@@ -1606,7 +1608,9 @@
 }
 
 /* ── 2. Kill the ::before pill from base Room.css ── */
-.side-panels::before { display: none !important; }
+.side-panels::before {
+  display: none !important;
+}
 
 /* ── 3. SIDE PANELS base ── */
 .side-panels {
@@ -1678,9 +1682,17 @@
 .panel-wrapper-header::before {
   content: "";
   position: absolute;
-  top: 0; left: 0; right: 0;
+  top: 0;
+  left: 0;
+  right: 0;
   height: 1px;
-  background: linear-gradient(to right, transparent, rgba(99,102,241,0.5) 40%, rgba(167,139,250,0.4) 60%, transparent);
+  background: linear-gradient(
+    to right,
+    transparent,
+    rgba(99, 102, 241, 0.5) 40%,
+    rgba(167, 139, 250, 0.4) 60%,
+    transparent
+  );
   pointer-events: none;
 }
 
@@ -1756,48 +1768,138 @@
   cursor: col-resize;
   color: var(--text-tertiary);
   opacity: 0.4;
-  transition: opacity 0.15s, background 0.15s;
+  transition:
+    opacity 0.15s,
+    background 0.15s;
   z-index: 20;
 }
-.panel-resize-handle:hover { opacity: 1; background: var(--accent-dim); color: var(--accent-bright); border-color: var(--accent-border); }
-.panel-resize-handle svg { pointer-events: none; }
+.panel-resize-handle:hover {
+  opacity: 1;
+  background: var(--accent-dim);
+  color: var(--accent-bright);
+  border-color: var(--accent-border);
+}
+.panel-resize-handle svg {
+  pointer-events: none;
+}
 
 /* ── 8. STDIN popover ── */
-.stdin-inline-wrap { position: relative; flex-shrink: 0; }
-.stdin-toggle-btn { display: flex !important; align-items: center; gap: 5px; width: auto !important; padding: 0 11px !important; min-width: 68px; height: 38px; }
-.stdin-btn-label { font-size: 11px; font-weight: 700; font-family: "Geist Mono", monospace; letter-spacing: 0.07em; text-transform: uppercase; }
+.stdin-inline-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+.stdin-toggle-btn {
+  display: flex !important;
+  align-items: center;
+  gap: 5px;
+  width: auto !important;
+  padding: 0 11px !important;
+  min-width: 68px;
+  height: 38px;
+}
+.stdin-btn-label {
+  font-size: 11px;
+  font-weight: 700;
+  font-family: "Geist Mono", monospace;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
 .stdin-inline-popover {
-  position: fixed; top: 68px; left: 50%; transform: translateX(-50%);
+  position: fixed;
+  top: 68px;
+  left: 50%;
+  transform: translateX(-50%);
   width: min(340px, calc(100vw - 24px));
-  background: var(--bg-elevated); border: 1px solid var(--border-default);
-  border-radius: var(--radius-lg); box-shadow: var(--shadow-lg);
-  z-index: 6000; overflow: hidden;
-  animation: menu-appear 0.15s cubic-bezier(0.16, 1, 0.3, 1); transform-origin: top center;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  z-index: 6000;
+  overflow: hidden;
+  animation: menu-appear 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+  transform-origin: top center;
 }
 .stdin-popover-header {
-  display: flex; align-items: center; gap: 7px; padding: 9px 12px;
-  background: var(--bg-secondary); border-bottom: 1px solid var(--border-subtle);
-  font-size: 10px; font-weight: 700; font-family: "Geist Mono", monospace;
-  letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-tertiary);
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 12px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: 10px;
+  font-weight: 700;
+  font-family: "Geist Mono", monospace;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
 }
-.stdin-popover-header svg { color: var(--accent-bright); opacity: 0.8; }
-.stdin-popover-close { margin-left: auto; background: transparent; border: none; color: var(--text-tertiary); cursor: pointer; padding: 2px; display: flex; align-items: center; border-radius: 4px; transition: color 0.15s; }
-.stdin-popover-close:hover { color: var(--danger); }
+.stdin-popover-header svg {
+  color: var(--accent-bright);
+  opacity: 0.8;
+}
+.stdin-popover-close {
+  margin-left: auto;
+  background: transparent;
+  border: none;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  padding: 2px;
+  display: flex;
+  align-items: center;
+  border-radius: 4px;
+  transition: color 0.15s;
+}
+.stdin-popover-close:hover {
+  color: var(--danger);
+}
 .stdin-popover-textarea {
-  display: block; width: 100%; padding: 10px 12px;
-  background: var(--bg-canvas); border: none; color: var(--text-primary);
-  font-family: "Geist Mono", monospace; font-size: 12.5px; line-height: 1.55;
-  resize: vertical; min-height: 86px; max-height: 200px; outline: none; box-sizing: border-box;
+  display: block;
+  width: 100%;
+  padding: 10px 12px;
+  background: var(--bg-canvas);
+  border: none;
+  color: var(--text-primary);
+  font-family: "Geist Mono", monospace;
+  font-size: 12.5px;
+  line-height: 1.55;
+  resize: vertical;
+  min-height: 86px;
+  max-height: 200px;
+  outline: none;
+  box-sizing: border-box;
 }
-.stdin-popover-textarea:focus { background: var(--bg-primary); }
-.stdin-popover-textarea::placeholder { color: var(--text-tertiary); }
+.stdin-popover-textarea:focus {
+  background: var(--bg-primary);
+}
+.stdin-popover-textarea::placeholder {
+  color: var(--text-tertiary);
+}
 
 /* ── 9. RUN / TEST buttons with labels (desktop only) ── */
-.btn-run-label { font-size: 12px; font-weight: 600; font-family: "Instrument Sans", sans-serif; display: inline; }
+.btn-run-label {
+  font-size: 12px;
+  font-weight: 600;
+  font-family: "Instrument Sans", sans-serif;
+  display: inline;
+}
 
 @media (min-width: 769px) {
-  .btn-primary { width: auto !important; padding: 0 12px !important; gap: 5px; min-width: 0; height: 34px !important; font-size: 12px !important; }
-  .btn-secondary { width: auto !important; padding: 0 10px !important; gap: 5px; min-width: 0; height: 34px !important; font-size: 12px !important; }
+  .btn-primary {
+    width: auto !important;
+    padding: 0 12px !important;
+    gap: 5px;
+    min-width: 0;
+    height: 34px !important;
+    font-size: 12px !important;
+  }
+  .btn-secondary {
+    width: auto !important;
+    padding: 0 10px !important;
+    gap: 5px;
+    min-width: 0;
+    height: 34px !important;
+    font-size: 12px !important;
+  }
 }
 
 /* ── 10. Active feature buttons ── */
@@ -1810,13 +1912,26 @@
 
 /* ── 11. MOBILE ── */
 @media (max-width: 768px) {
-  .panel-top-drag-handle { display: flex !important; }
+  .panel-top-drag-handle {
+    display: flex !important;
+  }
 
-  .stdin-toggle-btn { min-width: 32px !important; width: 32px !important; padding: 0 !important; height: 32px !important; }
-  .stdin-btn-label { display: none !important; }
+  .stdin-toggle-btn {
+    min-width: 32px !important;
+    width: 32px !important;
+    padding: 0 !important;
+    height: 32px !important;
+  }
+  .stdin-btn-label {
+    display: none !important;
+  }
 
-  .desktop-only-run { display: none !important; }
-  .panel-resize-handle { display: none !important; }
+  .desktop-only-run {
+    display: none !important;
+  }
+  .panel-resize-handle {
+    display: none !important;
+  }
 
   .side-panels {
     height: 45vh;
@@ -1832,21 +1947,36 @@
     z-index: 900 !important;
   }
 
-  .modal-body .btn-primary, .btn-primary.full-width {
-    width: 100% !important; min-width: unset !important; padding: 0 16px !important;
+  .modal-body .btn-primary,
+  .btn-primary.full-width {
+    width: 100% !important;
+    min-width: unset !important;
+    padding: 0 16px !important;
   }
 
-  .stdin-inline-popover { top: 58px; }
+  .stdin-inline-popover {
+    top: 58px;
+  }
 
   /* Hide run label on mobile, icon-only */
-  .btn-run-label { display: none !important; }
-  .btn-secondary { width: 32px !important; min-width: 32px !important; padding: 0 !important; }
+  .btn-run-label {
+    display: none !important;
+  }
+  .btn-secondary {
+    width: 32px !important;
+    min-width: 32px !important;
+    padding: 0 !important;
+  }
 }
 
 /* ── 12. DESKTOP ── */
 @media (min-width: 769px) {
-  .panel-top-drag-handle { display: none !important; }
-  .stdin-bar { display: none !important; }
+  .panel-top-drag-handle {
+    display: none !important;
+  }
+  .stdin-bar {
+    display: none !important;
+  }
   .side-panels {
     border-radius: 0 !important;
     border-top: none !important;

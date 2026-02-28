@@ -175,6 +175,9 @@ function RoomContent() {
   // Mobile panel maximize state
   const [isPanelMaximized, setIsPanelMaximized] = useState(false);
 
+  // Output minimize (collapses to blue tab on right edge, desktop only)
+  const [isOutputMinimized, setIsOutputMinimized] = useState(false);
+
   // Desktop horizontal resize
   const [panelWidth, setPanelWidth] = useState(DEFAULT_PANEL_WIDTH);
   const isDragging = useRef(false);
@@ -313,6 +316,7 @@ function RoomContent() {
     setShowVersionHistory(false);
     setShowChat(false);
     setIsPanelMaximized(false);
+    setIsOutputMinimized(false);
   }, [setShowOutput, setShowTestCases, setShowAIPanel, setShowChat]);
 
   const openPanel = useCallback(
@@ -355,6 +359,7 @@ function RoomContent() {
 
   const handleRun = useCallback(() => {
     openPanel("output");
+    setIsOutputMinimized(false);
     runCode();
   }, [openPanel, runCode]);
   const handleRunTests = useCallback(() => {
@@ -785,7 +790,19 @@ function RoomContent() {
           />
         </div>
 
-        {anyPanelOpen && !isMobile && (
+        {/* Output minimized — blue tab in flex row, editor expands to fill */}
+        {showOutput && isOutputMinimized && !isMobile && (
+          <button
+            className="output-restore-tab"
+            onClick={() => setIsOutputMinimized(false)}
+            title="Restore Output"
+          >
+            <Terminal size={13} />
+            <span>Output</span>
+          </button>
+        )}
+
+        {anyPanelOpen && !isMobile && !(showOutput && isOutputMinimized) && (
           <div
             className="panel-resize-handle"
             onMouseDown={startDrag}
@@ -795,7 +812,7 @@ function RoomContent() {
           </div>
         )}
 
-        {anyPanelOpen && (
+        {anyPanelOpen && !(showOutput && isOutputMinimized && !isMobile) && (
           <div
             className={`side-panels ${isPanelMaximized ? "panel-maximized" : ""}`}
             style={{
@@ -818,7 +835,7 @@ function RoomContent() {
                 output={output}
                 onClose={closeAllPanels}
                 isMinimized={false}
-                onMinimize={() => {}}
+                onMinimize={() => setIsOutputMinimized(true)}
                 executionTime={executionTime}
                 memoryUsed={memoryUsed}
                 isPanelMaximized={isPanelMaximized}

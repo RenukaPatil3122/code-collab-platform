@@ -8,6 +8,7 @@ import {
   Keyboard,
   Maximize2,
   Minimize2,
+  Play,
   CheckCircle,
   AlertCircle,
   AlertTriangle,
@@ -159,20 +160,28 @@ function OutputPanel({
             </button>
           )}
 
-          {/* Maximize / Minimize — shown on mobile only */}
-          {isMobile && (
-            <button
-              className="control-btn"
-              onClick={onToggleMaximize}
-              title={isPanelMaximized ? "Restore" : "Maximize"}
-            >
-              {isPanelMaximized ? (
+          {/* Minimize (desktop) / Maximize (mobile) */}
+          <button
+            className="control-btn"
+            onClick={isMobile ? onToggleMaximize : onMinimize}
+            title={
+              isMobile
+                ? isPanelMaximized
+                  ? "Restore"
+                  : "Maximize"
+                : "Minimize"
+            }
+          >
+            {isMobile ? (
+              isPanelMaximized ? (
                 <Minimize2 size={15} />
               ) : (
                 <Maximize2 size={15} />
-              )}
-            </button>
-          )}
+              )
+            ) : (
+              <Minimize2 size={15} />
+            )}
+          </button>
 
           {/* Close X */}
           <button
@@ -243,6 +252,9 @@ function OutputPanel({
 
         {parsed.type === "idle" && (
           <div className="output-idle-state">
+            <div className="output-idle-play-icon">
+              <Play size={20} />
+            </div>
             <p className="output-idle-title">No output yet</p>
             <p className="output-idle-hint">
               Hit <kbd>Run</kbd> to execute your code.
