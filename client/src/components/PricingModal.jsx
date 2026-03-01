@@ -16,7 +16,7 @@ import "./PricingModal.css";
 
 const FEATURES_FREE = [
   "Real-time collaboration",
-  "15+ programming languages",
+  "10+ programming languages",
   "Code execution",
   "AI Assistant — 5 uses/day",
   "Interview Mode — Easy only, 2/day",

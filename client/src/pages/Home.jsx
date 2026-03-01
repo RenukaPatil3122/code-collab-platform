@@ -16,11 +16,11 @@ import {
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import AuthModal from "../components/AuthModal";
+import PricingModal from "../components/PricingModal";
 import "./Home.css";
 
 const TYPING_WORDS = ["Together.", "Faster.", "Smarter.", "Live."];
 
-// Animated orb using JS for real smooth movement
 function AnimatedOrb({ color, size, startX, startY, rangeX, rangeY, speed }) {
   const ref = useRef(null);
   const t = useRef(Math.random() * 100);
@@ -44,7 +44,7 @@ function AnimatedOrb({ color, size, startX, startY, rangeX, rangeY, speed }) {
     };
     raf = requestAnimationFrame(animate);
     return () => cancelAnimationFrame(raf);
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div
@@ -74,6 +74,7 @@ function Home() {
   const [typingIndex, setTypingIndex] = useState(0);
   const [displayed, setDisplayed] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
+  const [showPricing, setShowPricing] = useState(false);
   const navigate = useNavigate();
   const { user, isLoggedIn, isPremium, logout } = useAuth();
 
@@ -109,46 +110,44 @@ function Home() {
 
   return (
     <div className="home-root">
-      {/* Background mesh */}
       <div className="home-mesh" />
       <div className="home-grid" />
 
-      {/* JS-animated orbs — big sweeping movement */}
       <AnimatedOrb
         color="radial-gradient(circle, rgba(99,102,241,0.55) 0%, transparent 70%)"
         size="520px"
-        startX={-80}
-        startY={-60}
-        rangeX={380}
-        rangeY={320}
-        speed={0.018}
+        startX={-100}
+        startY={-80}
+        rangeX={120}
+        rangeY={100}
+        speed={0.008}
       />
       <AnimatedOrb
         color="radial-gradient(circle, rgba(52,211,153,0.45) 0%, transparent 70%)"
         size="460px"
-        startX={window.innerWidth - 420}
-        startY={window.innerHeight - 380}
-        rangeX={340}
-        rangeY={280}
-        speed={0.014}
+        startX={window.innerWidth - 400}
+        startY={window.innerHeight - 350}
+        rangeX={110}
+        rangeY={90}
+        speed={0.006}
       />
       <AnimatedOrb
         color="radial-gradient(circle, rgba(167,139,250,0.4) 0%, transparent 70%)"
         size="400px"
-        startX={window.innerWidth * 0.45}
-        startY={window.innerHeight * 0.1}
-        rangeX={360}
-        rangeY={300}
-        speed={0.016}
+        startX={window.innerWidth * 0.6}
+        startY={window.innerHeight * 0.15}
+        rangeX={130}
+        rangeY={110}
+        speed={0.007}
       />
       <AnimatedOrb
         color="radial-gradient(circle, rgba(99,102,241,0.25) 0%, transparent 70%)"
         size="600px"
-        startX={window.innerWidth * 0.15}
-        startY={window.innerHeight * 0.25}
-        rangeX={300}
-        rangeY={360}
-        speed={0.011}
+        startX={window.innerWidth * 0.2}
+        startY={window.innerHeight * 0.3}
+        rangeX={80}
+        rangeY={140}
+        speed={0.004}
       />
 
       {/* Nav */}
@@ -164,10 +163,17 @@ function Home() {
             <div className="nav-user">
               <div className="nav-avatar">{user.username[0].toUpperCase()}</div>
               <span className="nav-username">{user.username}</span>
-              {isPremium && (
+              {isPremium ? (
                 <span className="nav-pro-badge">
                   <Crown size={10} /> Pro
                 </span>
+              ) : (
+                <button
+                  className="nav-upgrade-btn"
+                  onClick={() => setShowPricing(true)}
+                >
+                  <Crown size={12} /> Upgrade
+                </button>
               )}
               <button className="nav-logout" onClick={logout}>
                 <LogOut size={14} />
@@ -274,13 +280,16 @@ function Home() {
               <button
                 className="join-upgrade-nudge"
                 onClick={() => {
-                  setAuthTab("register");
-                  setShowAuthModal(true);
+                  if (isLoggedIn) setShowPricing(true);
+                  else {
+                    setAuthTab("register");
+                    setShowAuthModal(true);
+                  }
                 }}
               >
                 <Sparkles size={12} />
                 {isLoggedIn
-                  ? "Upgrade to Pro "
+                  ? "Upgrade to Pro — unlock unlimited AI & more"
                   : "Sign up free — unlock AI, interviews & more"}
                 <ArrowRight size={12} />
               </button>
@@ -294,7 +303,7 @@ function Home() {
             { icon: <Cpu size={14} />, text: "AI Assistant" },
             { icon: <Shield size={14} />, text: "Interview Mode" },
             { icon: <GitBranch size={14} />, text: "Version History" },
-            { icon: <Zap size={14} />, text: "10+ Languages" },
+            { icon: <Zap size={14} />, text: "15+ Languages" },
           ].map((f, i) => (
             <div className="pill" key={i}>
               {f.icon}
@@ -305,7 +314,7 @@ function Home() {
 
         <div className="home-stats">
           {[
-            { value: "10+", label: "Languages" },
+            { value: "15+", label: "Languages" },
             { value: "∞", label: "Collaborators", infinity: true },
             { value: "<100ms", label: "Sync latency" },
           ].map((s, i) => (
@@ -327,6 +336,8 @@ function Home() {
           onClose={() => setShowAuthModal(false)}
         />
       )}
+
+      {showPricing && <PricingModal onClose={() => setShowPricing(false)} />}
     </div>
   );
 }
