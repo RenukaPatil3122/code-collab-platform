@@ -20,47 +20,53 @@ export const AIProvider = ({ children, roomId }) => {
   const [aiResponse, setAiResponse] = useState(null);
   const [aiHistory, setAiHistory] = useState([]);
   const [showAIPanel, setShowAIPanel] = useState(false);
+  const [aiLimitError, setAiLimitError] = useState(null); // "LIMIT_REACHED" | "LOGIN_REQUIRED" | null
 
   // Listen for AI responses
   React.useEffect(() => {
-    socket.on(SOCKET_EVENTS.AI_RESPONSE, ({ response, feature, error }) => {
-      setIsAILoading(false);
+    socket.on(
+      SOCKET_EVENTS.AI_RESPONSE,
+      ({ response, feature, error, message }) => {
+        setIsAILoading(false);
 
-      if (error) {
-        toast.error("AI request failed");
-        setAiResponse({ error, feature });
-        return;
-      }
+        if (error) {
+          // Limit/auth errors — surface to UI for UpgradePrompt
+          if (error === "LIMIT_REACHED" || error === "LOGIN_REQUIRED") {
+            setAiLimitError(error);
+          } else {
+            toast.error("AI request failed");
+            setAiResponse({ error, feature });
+          }
+          return;
+        }
 
-      setAiResponse({ response, feature });
-      setAiHistory((prev) => [
-        ...prev,
-        {
-          feature,
-          response,
-          timestamp: new Date().toISOString(),
-        },
-      ]);
+        setAiResponse({ response, feature });
+        setAiHistory((prev) => [
+          ...prev,
+          {
+            feature,
+            response,
+            timestamp: new Date().toISOString(),
+          },
+        ]);
 
-      toast.success("AI response received!");
-    });
+        toast.success("AI response received!");
+      },
+    );
 
     return () => {
       socket.off(SOCKET_EVENTS.AI_RESPONSE);
     };
   }, []);
 
-  // Explain code
   const explainCode = useCallback(
     (code, language) => {
       if (!code.trim()) {
         toast.error("Please select some code first!");
         return;
       }
-
       setIsAILoading(true);
       setShowAIPanel(true);
-
       socket.emit(SOCKET_EVENTS.AI_REQUEST, {
         roomId,
         feature: AI_FEATURES.EXPLAIN,
@@ -72,21 +78,17 @@ export const AIProvider = ({ children, roomId }) => {
     [roomId],
   );
 
-  // Debug code
   const debugCode = useCallback(
     (code, language, error = null) => {
       if (!code.trim()) {
         toast.error("Please write some code first!");
         return;
       }
-
       setIsAILoading(true);
       setShowAIPanel(true);
-
       const debugPrompt = error
         ? `Debug this ${language} code. Error: ${error}`
         : `Review this ${language} code for potential bugs and issues:`;
-
       socket.emit(SOCKET_EVENTS.AI_REQUEST, {
         roomId,
         feature: AI_FEATURES.DEBUG,
@@ -99,17 +101,14 @@ export const AIProvider = ({ children, roomId }) => {
     [roomId],
   );
 
-  // Optimize code
   const optimizeCode = useCallback(
     (code, language) => {
       if (!code.trim()) {
         toast.error("Please write some code first!");
         return;
       }
-
       setIsAILoading(true);
       setShowAIPanel(true);
-
       socket.emit(SOCKET_EVENTS.AI_REQUEST, {
         roomId,
         feature: AI_FEATURES.OPTIMIZE,
@@ -121,17 +120,14 @@ export const AIProvider = ({ children, roomId }) => {
     [roomId],
   );
 
-  // Generate test cases
   const generateTests = useCallback(
     (code, language) => {
       if (!code.trim()) {
         toast.error("Please write some code first!");
         return;
       }
-
       setIsAILoading(true);
       setShowAIPanel(true);
-
       socket.emit(SOCKET_EVENTS.AI_REQUEST, {
         roomId,
         feature: AI_FEATURES.GENERATE_TESTS,
@@ -143,11 +139,9 @@ export const AIProvider = ({ children, roomId }) => {
     [roomId],
   );
 
-  // Get code suggestions
   const getSuggestions = useCallback(
     (code, language, context = "") => {
       setIsAILoading(true);
-
       socket.emit(SOCKET_EVENTS.AI_REQUEST, {
         roomId,
         feature: AI_FEATURES.SUGGEST,
@@ -160,10 +154,13 @@ export const AIProvider = ({ children, roomId }) => {
     [roomId],
   );
 
-  // Clear AI history
   const clearHistory = useCallback(() => {
     setAiHistory([]);
     setAiResponse(null);
+  }, []);
+
+  const clearAiLimitError = useCallback(() => {
+    setAiLimitError(null);
   }, []);
 
   const value = {
@@ -172,6 +169,8 @@ export const AIProvider = ({ children, roomId }) => {
     aiHistory,
     showAIPanel,
     setShowAIPanel,
+    aiLimitError,
+    clearAiLimitError,
     explainCode,
     debugCode,
     optimizeCode,

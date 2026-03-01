@@ -1,11 +1,8 @@
 // aiHandler.js - Gemini AI Integration for CodeTogether
+// ✅ FIXED: Socket AI requests now enforce RBAC limits (free = 5/day, premium = unlimited)
+
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 
-// ─────────────────────────────────────────────
-// Helper: Call Gemini with a prompt
-// NOTE: Initialized INSIDE the function (lazy) so that
-// dotenv has already loaded GEMINI_API_KEY before use.
-// ─────────────────────────────────────────────
 async function askGemini(prompt) {
   const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
   const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
@@ -14,9 +11,6 @@ async function askGemini(prompt) {
   return response.text();
 }
 
-// ─────────────────────────────────────────────
-// 1. EXPLAIN CODE
-// ─────────────────────────────────────────────
 async function explainCode(code, language = "JavaScript") {
   const prompt = `
 You are an expert ${language} developer and teacher.
@@ -36,9 +30,6 @@ Provide:
   return await askGemini(prompt);
 }
 
-// ─────────────────────────────────────────────
-// 2. DEBUG CODE
-// ─────────────────────────────────────────────
 async function debugCode(code, language = "JavaScript", errorMessage = "") {
   const prompt = `
 You are an expert ${language} debugger.
@@ -60,9 +51,6 @@ Provide:
   return await askGemini(prompt);
 }
 
-// ─────────────────────────────────────────────
-// 3. OPTIMIZE CODE
-// ─────────────────────────────────────────────
 async function optimizeCode(code, language = "JavaScript") {
   const prompt = `
 You are an expert ${language} performance engineer.
@@ -85,9 +73,6 @@ Provide:
   return await askGemini(prompt);
 }
 
-// ─────────────────────────────────────────────
-// 4. GENERATE TESTS
-// ─────────────────────────────────────────────
 async function generateTests(code, language = "JavaScript") {
   const prompt = `
 You are an expert ${language} test engineer.
@@ -108,9 +93,6 @@ Include comments explaining each test.
   return await askGemini(prompt);
 }
 
-// ─────────────────────────────────────────────
-// 5. CODE REVIEW
-// ─────────────────────────────────────────────
 async function reviewCode(code, language = "JavaScript") {
   const prompt = `
 You are a senior ${language} developer doing a thorough code review.
@@ -131,7 +113,7 @@ Provide a structured review covering:
 }
 
 // ─────────────────────────────────────────────
-// Socket Handler
+// Socket Handler — ✅ WITH RBAC LIMIT CHECK
 // ─────────────────────────────────────────────
 function setupAISocket(socket) {
   socket.on(
@@ -139,6 +121,48 @@ function setupAISocket(socket) {
     async ({ roomId, feature, code, language, error, context }) => {
       try {
         console.log(`🤖 AI request: ${feature} for ${language}`);
+
+        // ── RBAC: require login ──
+        if (!socket.userId) {
+          return socket.emit("ai-response", {
+            error: "LOGIN_REQUIRED",
+            message: "Please sign in to use the AI Assistant.",
+            feature,
+          });
+        }
+
+        // ── RBAC: check daily limit ──
+        const User = require("./models/User");
+        const user = await User.findById(socket.userId);
+
+        if (!user) {
+          return socket.emit("ai-response", {
+            error: "LOGIN_REQUIRED",
+            message: "User not found. Please sign in again.",
+            feature,
+          });
+        }
+
+        user.resetDailyUsageIfNeeded();
+        const limits = user.getLimits();
+
+        if (
+          limits.aiUsagePerDay !== Infinity &&
+          user.aiUsage.count >= limits.aiUsagePerDay
+        ) {
+          return socket.emit("ai-response", {
+            error: "LIMIT_REACHED",
+            message: `You've used all ${limits.aiUsagePerDay} free AI requests today. Upgrade to Pro for unlimited access.`,
+            feature,
+          });
+        }
+
+        // Increment usage for non-premium users
+        if (limits.aiUsagePerDay !== Infinity) {
+          user.aiUsage.count += 1;
+          await user.save();
+        }
+        // ── end RBAC ──
 
         if (!code || !code.trim()) {
           socket.emit("ai-response", { error: "No code provided", feature });
@@ -175,7 +199,7 @@ function setupAISocket(socket) {
 }
 
 // ─────────────────────────────────────────────
-// Express REST Routes (optional / for testing)
+// Express REST Routes
 // ─────────────────────────────────────────────
 function setupAIRoutes(app) {
   app.post("/api/ai/explain", async (req, res) => {

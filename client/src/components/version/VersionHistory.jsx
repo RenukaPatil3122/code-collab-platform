@@ -1,9 +1,11 @@
 // src/components/version/VersionHistory.jsx
+// ✅ FIXED: Shows UpgradePrompt when version save limit is hit (RBAC)
 
 import React, { useState, useEffect } from "react";
 import { socket } from "../../utils/socket";
 import { Clock, Save, RotateCcw, X, FileText, Loader } from "lucide-react";
 import toast from "react-hot-toast";
+import UpgradePrompt from "../UpgradePrompt";
 import "./VersionHistory.css";
 
 function VersionHistory({ roomId, currentCode, onRestore, onClose }) {
@@ -12,14 +14,13 @@ function VersionHistory({ roomId, currentCode, onRestore, onClose }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [selectedVersion, setSelectedVersion] = useState(null);
+  const [showUpgradePrompt, setShowUpgradePrompt] = useState(false); // ✅ NEW
 
   useEffect(() => {
     if (!socket || !roomId) return;
 
-    // Initial fetch
     socket.emit("get-versions", { roomId });
 
-    // ✅ Poll every 30s to pick up auto-saves without user needing to refresh
     const pollInterval = setInterval(() => {
       socket.emit("get-versions", { roomId });
     }, 30000);
@@ -32,11 +33,21 @@ function VersionHistory({ roomId, currentCode, onRestore, onClose }) {
       setLoading(false);
     };
 
-    const handleVersionSaved = ({ version, error }) => {
+    const handleVersionSaved = ({ version, error, message }) => {
       setSaving(false);
+
+      // ✅ Check for RBAC limit errors
+      if (error === "LIMIT_REACHED" || error === "LOGIN_REQUIRED") {
+        setShowUpgradePrompt(true);
+        return;
+      }
+
       if (error) {
-        toast.error(`Failed to save: ${error}`);
-      } else if (version) {
+        toast.error(`Failed to save: ${message || error}`);
+        return;
+      }
+
+      if (version) {
         setVersions((prev) => [version, ...prev]);
         setSaveMessage("");
         toast.success("Version saved!");
@@ -52,7 +63,7 @@ function VersionHistory({ roomId, currentCode, onRestore, onClose }) {
     socket.on("version-restored", handleVersionRestored);
 
     return () => {
-      clearInterval(pollInterval); // ✅ cleanup on unmount
+      clearInterval(pollInterval);
       socket.off("versions-list", handleVersionsList);
       socket.off("version-saved", handleVersionSaved);
       socket.off("version-restored", handleVersionRestored);
@@ -99,6 +110,16 @@ function VersionHistory({ roomId, currentCode, onRestore, onClose }) {
       return "Unknown";
     }
   };
+
+  // ✅ Show UpgradePrompt overlay when limit hit
+  if (showUpgradePrompt) {
+    return (
+      <UpgradePrompt
+        reason="version_limit"
+        onClose={() => setShowUpgradePrompt(false)}
+      />
+    );
+  }
 
   return (
     <div className="version-history-overlay">

@@ -1,5 +1,6 @@
 // src/components/interview/InterviewMode.jsx
 // ✅ SCREEN RECORDING VERSION - No event capture needed
+// ✅ FIXED: Shows UpgradePrompt on interview-error from server (RBAC)
 
 import React, { useState, useEffect, useRef } from "react";
 import { useInterview } from "../../contexts/InterviewContext";
@@ -13,6 +14,7 @@ import ProblemPanel from "./ProblemPanel";
 import TimerWidget from "./TimerWidget";
 import InterviewFeedback from "./InterviewFeedback";
 import InterviewEditor from "./InterviewEditor";
+import UpgradePrompt from "../UpgradePrompt";
 import {
   Trophy,
   Clock,
@@ -33,6 +35,8 @@ function InterviewMode({ onClose }) {
     difficulty,
     interviewResults,
     interviewLanguage,
+    interviewLimitError,
+    clearInterviewLimitError,
     startInterview,
     endInterview,
     submitInterview,
@@ -49,8 +53,10 @@ function InterviewMode({ onClose }) {
 
   const handleStart = () => {
     const problem = selectedProblem || getRandomProblem(selectedDifficulty);
+    // ✅ Don't call onClose() here — wait for server to respond:
+    // - interview-started → InterviewContext opens interview, Room.jsx hides modal
+    // - interview-error → UpgradePrompt shows instead
     startInterview(selectedDifficulty, problem, selectedLanguage);
-    onClose();
   };
 
   const handleSubmit = () => {
@@ -68,6 +74,23 @@ function InterviewMode({ onClose }) {
       endInterview();
     }
   };
+
+  // ✅ Show UpgradePrompt if server returned an RBAC error
+  if (interviewLimitError) {
+    const reason =
+      interviewLimitError.error === "UPGRADE_REQUIRED"
+        ? "difficulty_limit"
+        : "interview_limit";
+    return (
+      <UpgradePrompt
+        reason={reason}
+        onClose={() => {
+          clearInterviewLimitError();
+          onClose();
+        }}
+      />
+    );
+  }
 
   // ✅ Show fullscreen interview FIRST (highest priority)
   if (isInterviewMode && currentProblem) {
@@ -95,7 +118,6 @@ function InterviewMode({ onClose }) {
         </div>
 
         <div className="interview-content-split">
-          {/* ✅ problem side fills full height, ProblemPanel scrolls internally */}
           <div className="interview-problem-side" ref={problemPanelRef}>
             <ProblemPanel problem={currentProblem} />
           </div>

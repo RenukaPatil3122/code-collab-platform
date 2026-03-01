@@ -13,6 +13,7 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import MarkdownRenderer from "./MarkdownRenderer";
+import UpgradePrompt from "../UpgradePrompt";
 import "./AIAssistant.css";
 
 /* ─── Feature config ──────────────────────────────────── */
@@ -178,6 +179,8 @@ export default function AIAssistant({ onClose }) {
   const {
     isAILoading,
     aiResponse,
+    aiLimitError,
+    clearAiLimitError,
     explainCode,
     debugCode,
     optimizeCode,
@@ -193,6 +196,19 @@ export default function AIAssistant({ onClose }) {
       responseRef.current.scrollTo({ top: 0, behavior: "smooth" });
     }
   }, [aiResponse]);
+
+  // ✅ Show UpgradePrompt if limit hit
+  if (aiLimitError) {
+    return (
+      <UpgradePrompt
+        reason="ai_limit"
+        onClose={() => {
+          clearAiLimitError();
+          onClose();
+        }}
+      />
+    );
+  }
 
   const handleAction = (actionId) => {
     if (!code?.trim()) {
@@ -226,7 +242,7 @@ export default function AIAssistant({ onClose }) {
 
   return (
     <div className="ai-assistant-panel">
-      {/* ACTION BUTTONS — no header here, PanelWrapper provides it */}
+      {/* ACTION BUTTONS */}
       <div className="ai-quick-actions">
         {ACTION_BUTTONS.map(({ id, featureKey }) => {
           const meta = FEATURES[featureKey];

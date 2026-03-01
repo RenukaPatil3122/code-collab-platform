@@ -1,7 +1,8 @@
 // src/contexts/InterviewContext.jsx
-// ✅ Sets state BEFORE socket emit (interview shows immediately)
+// ✅ FIXED: Don't open interview until server confirms (prevents opening on limit error)
 // ✅ Handles replay - shows interview read-only without starting real timer
 // ✅ FIXED: "Interview ended" double toast — socket bounce-back guarded with ref
+// ✅ FIXED: interview-error handled for RBAC limit/upgrade errors
 
 import React, {
   createContext,
@@ -35,10 +36,12 @@ export const InterviewProvider = ({ children, roomId }) => {
   const [startTime, setStartTime] = useState(null);
   const [interviewCode, setInterviewCode] = useState("");
   const [interviewLanguage, setInterviewLanguage] = useState("javascript");
-  const timerRef = useRef(null);
+  const [interviewLimitError, setInterviewLimitError] = useState(null);
 
-  // ✅ Prevents socket bounce-back from firing handleEndInterview twice
-  // When WE emit END_INTERVIEW, the server echoes it back — this flag skips that
+  // ✅ Pending interview — stored locally until server confirms with interview-started
+  const pendingInterview = useRef(null);
+
+  const timerRef = useRef(null);
   const isEndingLocally = useRef(false);
 
   // Timer logic
@@ -99,17 +102,33 @@ export const InterviewProvider = ({ children, roomId }) => {
     return () => window.removeEventListener("replay-event", handleReplayEvent);
   }, []);
 
-  // ✅ Socket events from OTHER users only
+  // ✅ Socket events
   useEffect(() => {
+    // ✅ Server confirmed — NOW open the interview using pending data
     socket.on(
       SOCKET_EVENTS.INTERVIEW_STARTED,
       ({ problem, difficulty, duration }) => {
-        setCurrentProblem(problem);
+        const pending = pendingInterview.current;
+        pendingInterview.current = null;
+
+        const resolvedProblem = pending?.problem || problem;
+        const resolvedLanguage = pending?.language || "javascript";
+        const resolvedCode =
+          pending?.starterCode ||
+          resolvedProblem.starterCode?.[resolvedLanguage] ||
+          resolvedProblem.starterCode?.javascript ||
+          `// ${resolvedProblem.title}\n// Write your solution here\n\nfunction solve() {\n    // Your code here\n}\n`;
+
+        setInterviewCode(resolvedCode);
+        setInterviewLanguage(resolvedLanguage);
+        setCurrentProblem(resolvedProblem);
         setDifficulty(difficulty);
         setTimeRemaining(duration);
         setIsInterviewMode(true);
         setIsTimerRunning(true);
         setStartTime(Date.now());
+        setInterviewResults(null);
+
         toast.success(`Interview started! ${difficulty.toUpperCase()}`, {
           id: "interview-started",
           duration: 2000,
@@ -118,7 +137,6 @@ export const InterviewProvider = ({ children, roomId }) => {
     );
 
     socket.on(SOCKET_EVENTS.INTERVIEW_ENDED, () => {
-      // ✅ If WE triggered the end, skip — we already handled it locally
       if (isEndingLocally.current) {
         isEndingLocally.current = false;
         return;
@@ -132,10 +150,17 @@ export const InterviewProvider = ({ children, roomId }) => {
       setIsTimerRunning(false);
     });
 
+    // ✅ Server rejected — clear pending, show upgrade prompt, DON'T open interview
+    socket.on("interview-error", ({ error, message }) => {
+      pendingInterview.current = null;
+      setInterviewLimitError({ error, message });
+    });
+
     return () => {
       socket.off(SOCKET_EVENTS.INTERVIEW_STARTED);
       socket.off(SOCKET_EVENTS.INTERVIEW_ENDED);
       socket.off(SOCKET_EVENTS.INTERVIEW_RESULTS);
+      socket.off("interview-error");
     };
   }, []);
 
@@ -152,30 +177,27 @@ export const InterviewProvider = ({ children, roomId }) => {
         selectedProblem.starterCode?.javascript ||
         `// ${selectedProblem.title}\n// Write your solution here\n\nfunction solve() {\n    // Your code here\n}\n`;
 
-      setInterviewCode(starterCode);
-      setInterviewLanguage(selectedLanguage);
-      setCurrentProblem(selectedProblem);
-      setDifficulty(selectedDifficulty);
-      setTimeRemaining(duration);
-      setIsInterviewMode(true);
-      setIsTimerRunning(true);
-      setStartTime(Date.now());
-      setInterviewResults(null);
+      // ✅ Save locally but DON'T open yet — wait for server interview-started event
+      pendingInterview.current = {
+        problem: selectedProblem,
+        language: selectedLanguage,
+        starterCode,
+        difficulty: selectedDifficulty,
+        duration,
+      };
 
+      // Emit — server responds with interview-started (allowed) or interview-error (blocked)
       socket.emit(SOCKET_EVENTS.START_INTERVIEW, {
         roomId,
         problem: selectedProblem,
         difficulty: selectedDifficulty,
         duration,
       });
-
-      return { starterCode, problem: selectedProblem };
     },
     [roomId],
   );
 
   const endInterview = useCallback(() => {
-    // ✅ Set flag BEFORE emit so the echoed socket event is ignored
     isEndingLocally.current = true;
     socket.emit(SOCKET_EVENTS.END_INTERVIEW, { roomId });
     handleEndInterview();
@@ -186,7 +208,6 @@ export const InterviewProvider = ({ children, roomId }) => {
     setIsTimerRunning(false);
     setInterviewCode("");
     setCurrentProblem(null);
-    // ✅ id prevents double toast
     toast("Interview ended", {
       icon: "🏁",
       id: "interview-ended",
@@ -255,6 +276,10 @@ export const InterviewProvider = ({ children, roomId }) => {
     return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
   };
 
+  const clearInterviewLimitError = useCallback(() => {
+    setInterviewLimitError(null);
+  }, []);
+
   const value = {
     isInterviewMode,
     currentProblem,
@@ -264,6 +289,8 @@ export const InterviewProvider = ({ children, roomId }) => {
     interviewResults,
     interviewCode,
     interviewLanguage,
+    interviewLimitError,
+    clearInterviewLimitError,
     startInterview,
     endInterview,
     submitInterview,
