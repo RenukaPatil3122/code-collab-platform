@@ -43,7 +43,7 @@ router.post("/create-order", verifyToken, async (req, res) => {
     const order = await razorpay.orders.create({
       amount,
       currency,
-      receipt: `receipt_${req.userId}_${Date.now()}`,
+      receipt: `r_${Date.now().toString().slice(-10)}`,
       notes: {
         userId: req.userId,
         plan,
