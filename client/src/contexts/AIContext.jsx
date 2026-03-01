@@ -20,9 +20,10 @@ export const AIProvider = ({ children, roomId }) => {
   const [aiResponse, setAiResponse] = useState(null);
   const [aiHistory, setAiHistory] = useState([]);
   const [showAIPanel, setShowAIPanel] = useState(false);
-  const [aiLimitError, setAiLimitError] = useState(null); // "LIMIT_REACHED" | "LOGIN_REQUIRED" | null
+  const [aiLimitError, setAiLimitError] = useState(null);
+  // ✅ Track usage count locally so indicator updates without re-fetching user
+  const [localUsageCount, setLocalUsageCount] = useState(null);
 
-  // Listen for AI responses
   React.useEffect(() => {
     socket.on(
       SOCKET_EVENTS.AI_RESPONSE,
@@ -30,7 +31,6 @@ export const AIProvider = ({ children, roomId }) => {
         setIsAILoading(false);
 
         if (error) {
-          // Limit/auth errors — surface to UI for UpgradePrompt
           if (error === "LIMIT_REACHED" || error === "LOGIN_REQUIRED") {
             setAiLimitError(error);
           } else {
@@ -40,14 +40,13 @@ export const AIProvider = ({ children, roomId }) => {
           return;
         }
 
+        // ✅ Increment local usage count on each successful response
+        setLocalUsageCount((prev) => (prev !== null ? prev + 1 : null));
+
         setAiResponse({ response, feature });
         setAiHistory((prev) => [
           ...prev,
-          {
-            feature,
-            response,
-            timestamp: new Date().toISOString(),
-          },
+          { feature, response, timestamp: new Date().toISOString() },
         ]);
 
         toast.success("AI response received!");
@@ -171,6 +170,8 @@ export const AIProvider = ({ children, roomId }) => {
     setShowAIPanel,
     aiLimitError,
     clearAiLimitError,
+    localUsageCount,
+    setLocalUsageCount,
     explainCode,
     debugCode,
     optimizeCode,

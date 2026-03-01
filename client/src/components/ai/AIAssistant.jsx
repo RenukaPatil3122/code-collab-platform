@@ -2,6 +2,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useAI } from "../../contexts/AIContext";
 import { useRoom } from "../../contexts/RoomContext";
+import { useAuth } from "../../contexts/AuthContext";
 import {
   Sparkles,
   Lightbulb,
@@ -11,6 +12,7 @@ import {
   Copy,
   Check,
   AlertTriangle,
+  Crown,
 } from "lucide-react";
 import MarkdownRenderer from "./MarkdownRenderer";
 import UpgradePrompt from "../UpgradePrompt";
@@ -131,7 +133,6 @@ function ResponseCard({ item, onCopy, copied }) {
     iconBg: "rgba(139,92,246,0.12)",
   };
   const Icon = meta.icon;
-
   return (
     <div className="ai-response-card latest">
       <div className="response-header">
@@ -174,6 +175,84 @@ function ResponseCard({ item, onCopy, copied }) {
   );
 }
 
+/* ─── Footer bar sub-components ──────────────────────── */
+
+/** Pro user — gold shimmer bar */
+function FooterPro() {
+  return (
+    <div className="ai-tips ai-tips--pro">
+      <Crown size={13} className="ai-tips-crown" />
+      <p>
+        <span className="ai-tips-pro-badge">PRO</span>
+        &nbsp;<strong>Unlimited</strong> AI requests
+      </p>
+    </div>
+  );
+}
+
+/** Logged-in free user with ≥2 requests left — neutral */
+function FooterUsage({ remaining, dailyLimit }) {
+  return (
+    <div className="ai-tips">
+      <Lightbulb size={12} className="ai-tips-icon" />
+      <p>
+        <strong>
+          {remaining}/{dailyLimit}
+        </strong>{" "}
+        AI requests left today
+      </p>
+    </div>
+  );
+}
+
+/** 1 request left — amber warning */
+function FooterLow({ remaining, dailyLimit, onUpgrade }) {
+  return (
+    <div className="ai-tips ai-tips--low">
+      <Zap size={12} className="ai-tips-zap" style={{ color: "#f59e0b" }} />
+      <p>
+        <strong>
+          {remaining}/{dailyLimit}
+        </strong>{" "}
+        request left
+        <span className="ai-tips-divider">·</span>
+        <span className="ai-tips-upgrade" onClick={onUpgrade}>
+          Upgrade to Pro
+        </span>
+      </p>
+    </div>
+  );
+}
+
+/** 0 requests left — red urgent */
+function FooterOut({ onUpgrade }) {
+  return (
+    <div className="ai-tips ai-tips--out">
+      <Zap size={13} className="ai-tips-zap" />
+      <p>
+        <strong>0 requests left</strong>
+        <span className="ai-tips-divider">·</span>
+        <span className="ai-tips-upgrade" onClick={onUpgrade}>
+          Upgrade to Pro
+        </span>
+      </p>
+    </div>
+  );
+}
+
+/** Guest / not logged in */
+function FooterGuest() {
+  return (
+    <div className="ai-tips">
+      <Lightbulb size={12} className="ai-tips-icon" />
+      <p>
+        <strong>Pro tip:</strong> Select code in the editor for targeted
+        analysis.
+      </p>
+    </div>
+  );
+}
+
 /* ─── Main component ──────────────────────────────────── */
 export default function AIAssistant({ onClose }) {
   const {
@@ -181,15 +260,26 @@ export default function AIAssistant({ onClose }) {
     aiResponse,
     aiLimitError,
     clearAiLimitError,
+    localUsageCount,
+    setLocalUsageCount,
     explainCode,
     debugCode,
     optimizeCode,
     generateTests,
   } = useAI();
   const { code, language } = useRoom();
+  const { user, isPremium } = useAuth();
+
   const [copied, setCopied] = useState(false);
   const [activeFeature, setActive] = useState(null);
   const responseRef = useRef(null);
+
+  // Seed local count from user on first open
+  useEffect(() => {
+    if (user?.aiUsage?.count !== undefined && localUsageCount === null) {
+      setLocalUsageCount(user.aiUsage.count);
+    }
+  }, [user]);
 
   useEffect(() => {
     if (aiResponse && responseRef.current) {
@@ -197,7 +287,6 @@ export default function AIAssistant({ onClose }) {
     }
   }, [aiResponse]);
 
-  // ✅ Show UpgradePrompt if limit hit
   if (aiLimitError) {
     return (
       <UpgradePrompt
@@ -231,6 +320,11 @@ export default function AIAssistant({ onClose }) {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const handleUpgrade = () => {
+    // TODO: wire to your upgrade / billing flow
+    onClose?.();
+  };
+
   const featureKeyMap = {
     explain: "explain",
     debug: "debug",
@@ -239,6 +333,27 @@ export default function AIAssistant({ onClose }) {
   };
   const activeFeatureKey = activeFeature ? featureKeyMap[activeFeature] : null;
   const showEmpty = !isAILoading && !aiResponse;
+
+  // Usage for footer
+  const usedCount = localUsageCount ?? user?.aiUsage?.count ?? 0;
+  const dailyLimit = user?.limits?.aiUsagePerDay ?? 5;
+  const remaining = Math.max(dailyLimit - usedCount, 0);
+
+  /* pick which footer to render */
+  const renderFooter = () => {
+    if (isPremium) return <FooterPro />;
+    if (!user) return <FooterGuest />;
+    if (remaining === 0) return <FooterOut onUpgrade={handleUpgrade} />;
+    if (remaining === 1)
+      return (
+        <FooterLow
+          remaining={remaining}
+          dailyLimit={dailyLimit}
+          onUpgrade={handleUpgrade}
+        />
+      );
+    return <FooterUsage remaining={remaining} dailyLimit={dailyLimit} />;
+  };
 
   return (
     <div className="ai-assistant-panel">
@@ -282,13 +397,7 @@ export default function AIAssistant({ onClose }) {
       </div>
 
       {/* FOOTER */}
-      <div className="ai-tips">
-        <Lightbulb size={12} className="ai-tips-icon" />
-        <p>
-          <strong>Pro tip:</strong> Select code in the editor for targeted
-          analysis.
-        </p>
-      </div>
+      {renderFooter()}
     </div>
   );
 }
