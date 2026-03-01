@@ -1,5 +1,5 @@
 // server/server.js
-
+require("dotenv").config();
 const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
@@ -12,7 +12,6 @@ const { verifySocketToken } = require("./middleware/auth");
 const { checkInterviewLimit, checkVersionLimit } = require("./middleware/rbac");
 const authRoutes = require("./routes/auth");
 const paymentRoutes = require("./routes/payment");
-require("dotenv").config();
 
 console.log(
   "API KEY:",
