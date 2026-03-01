@@ -11,6 +11,7 @@ const { executeMultiFile } = require("./executors/multiFileExecutor");
 const { verifySocketToken } = require("./middleware/auth");
 const { checkInterviewLimit, checkVersionLimit } = require("./middleware/rbac");
 const authRoutes = require("./routes/auth");
+const paymentRoutes = require("./routes/payment");
 require("dotenv").config();
 
 console.log(
@@ -34,6 +35,7 @@ app.use(express.json());
 
 // ─── Auth Routes ──────────────────────────────────────────
 app.use("/api/auth", authRoutes);
+app.use("/api/payment", paymentRoutes);
 
 setupGistRoutes(app);
 setupAIRoutes(app); // AI routes handle their own limit check via checkAILimit middleware

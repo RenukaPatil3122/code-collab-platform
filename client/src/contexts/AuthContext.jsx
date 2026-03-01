@@ -75,6 +75,11 @@ export function AuthProvider({ children }) {
     setUser(null);
   }
 
+  // Call this after successful payment to update user role immediately
+  function updateUser(updatedUser) {
+    setUser(updatedUser);
+  }
+
   const isPremium = user?.role === "premium" || user?.role === "admin";
   const isLoggedIn = !!user;
 
@@ -89,6 +94,7 @@ export function AuthProvider({ children }) {
         register,
         login,
         logout,
+        updateUser,
       }}
     >
       {children}

@@ -53,16 +53,14 @@ const userSchema = new mongoose.Schema(
       default: 0,
     },
 
-    // ─── Razorpay (for later) ─────────────────────────────
-    razorpayCustomerId: {
-      type: String,
-      default: null,
+    // ─── Subscription ─────────────────────────────────────
+    subscription: {
+      plan: { type: String, enum: ["monthly", "yearly"], default: null },
+      startDate: { type: Date, default: null },
+      paymentId: { type: String, default: null },
+      orderId: { type: String, default: null },
     },
     premiumSince: {
-      type: Date,
-      default: null,
-    },
-    premiumExpiry: {
       type: Date,
       default: null,
     },
@@ -135,7 +133,7 @@ userSchema.methods.toSafeObject = function () {
     versionCount: this.versionCount,
     limits,
     premiumSince: this.premiumSince,
-    premiumExpiry: this.premiumExpiry,
+    premiumSince: this.premiumSince,
     createdAt: this.createdAt,
   };
 };
