@@ -20,6 +20,7 @@
     "express-session": "^1.19.0",
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.2.0",
+    "razorpay": "^2.9.6",
     "socket.io": "^4.8.3"
   },
   "devDependencies": {
