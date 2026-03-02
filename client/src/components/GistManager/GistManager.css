@@ -229,12 +229,10 @@
   justify-content: space-between;
   padding: 14px 16px 13px;
   background: var(--gist-header-bg);
-  /* Explicit border so it always shows regardless of bg similarity */
   border-bottom: 1px solid var(--gist-border-mid);
   position: relative;
 }
 
-/* Top accent stripe */
 .gist-modal-header::after {
   content: "";
   position: absolute;
@@ -257,17 +255,15 @@
   flex-shrink: 0;
 }
 
-/* ── Title: fight global h3 styles with high specificity ── */
 .gist-modal .gist-modal-title h3 {
   margin: 0 !important;
   padding: 0 !important;
   font-family: var(--gist-font-ui) !important;
-  font-size: 14px !important;
-  font-weight: 500 !important;
-  letter-spacing: -0.015em !important;
+  font-size: 13px !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.01em !important;
   line-height: 1 !important;
   text-transform: none !important;
-  /* Dark: light gradient */
   background: linear-gradient(90deg, #d8dcf8 0%, #9aa5e8 100%) !important;
   -webkit-background-clip: text !important;
   -webkit-text-fill-color: transparent !important;
@@ -276,7 +272,6 @@
   box-shadow: none !important;
 }
 
-/* Light: plain dark colour, no gradient */
 .gist-modal-overlay[data-theme="light"] .gist-modal .gist-modal-title h3 {
   background: none !important;
   -webkit-text-fill-color: #18181f !important;
@@ -312,7 +307,6 @@
   gap: 0;
 }
 
-/* Fight global p styles */
 .gist-modal .gist-modal-description {
   color: var(--gist-text-secondary) !important;
   font-family: var(--gist-font-ui) !important;
@@ -331,21 +325,20 @@
   margin-bottom: 14px;
 }
 
-/* Fight global label styles */
+/* FIX: sentence-case labels — Geist UI, no uppercase */
 .gist-modal .gist-form-group label,
 .gist-modal .gist-files-preview label {
   display: block !important;
-  font-family: var(--gist-font-mono) !important;
-  font-size: 9.5px !important;
-  font-weight: 700 !important;
-  letter-spacing: 0.14em !important;
-  text-transform: uppercase !important;
+  font-family: var(--gist-font-ui) !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.01em !important;
+  text-transform: none !important;
   color: var(--gist-text-muted) !important;
   margin-bottom: 7px !important;
   padding-left: 2px !important;
 }
 
-/* Fight global input styles */
 .gist-modal .gist-input {
   width: 100% !important;
   padding: 9px 13px !important;
@@ -419,7 +412,6 @@
 
 /* ─────────────────────────────────────────────────────────
    PRIMARY BUTTON
-   Both themes: solid filled gradient. No more ghost/outline.
 ───────────────────────────────────────────────────────── */
 .gist-modal .gist-btn-primary {
   display: flex !important;
@@ -428,7 +420,6 @@
   gap: 7px !important;
   width: 100% !important;
   padding: 10px 18px !important;
-  /* Solid gradient — same vibe as the dark mode pill button in screenshots */
   background: linear-gradient(135deg, #6366f1 0%, #7c3aed 100%) !important;
   border: none !important;
   border-radius: var(--gist-radius-sm) !important;
@@ -454,7 +445,6 @@
 .gist-modal .gist-btn-primary:active:not(:disabled) {
   transform: translateY(0) scale(0.98) !important;
 }
-/* Disabled: clearly inactive but still recognisable as a button */
 .gist-modal .gist-btn-primary:disabled {
   background: rgba(99, 102, 241, 0.25) !important;
   box-shadow: none !important;

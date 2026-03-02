@@ -1964,3 +1964,18 @@
     box-shadow: -2px 0 20px rgba(0, 0, 0, 0.35) !important;
   }
 }
+
+/* ─────────────────────────────────────────────────────────
+   ROOM.CSS — FORM LABEL TYPOGRAPHY FIX
+   Paste at the BOTTOM of Room.css (overrides)
+───────────────────────────────────────────────────────── */
+
+/* Kill uppercase on all modal form labels */
+.modal-body .form-group label,
+.form-group label {
+  font-family: "Geist", sans-serif !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.01em !important;
+  text-transform: none !important;
+}
