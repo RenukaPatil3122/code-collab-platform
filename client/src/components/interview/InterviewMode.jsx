@@ -1,6 +1,4 @@
 // src/components/interview/InterviewMode.jsx
-// ✅ SCREEN RECORDING VERSION - No event capture needed
-// ✅ FIXED: Shows UpgradePrompt on interview-error from server (RBAC)
 
 import React, { useState, useEffect, useRef } from "react";
 import { useInterview } from "../../contexts/InterviewContext";
@@ -53,9 +51,6 @@ function InterviewMode({ onClose }) {
 
   const handleStart = () => {
     const problem = selectedProblem || getRandomProblem(selectedDifficulty);
-    // ✅ Don't call onClose() here — wait for server to respond:
-    // - interview-started → InterviewContext opens interview, Room.jsx hides modal
-    // - interview-error → UpgradePrompt shows instead
     startInterview(selectedDifficulty, problem, selectedLanguage);
   };
 
@@ -75,7 +70,6 @@ function InterviewMode({ onClose }) {
     }
   };
 
-  // ✅ Show UpgradePrompt if server returned an RBAC error
   if (interviewLimitError) {
     const reason =
       interviewLimitError.error === "UPGRADE_REQUIRED"
@@ -92,27 +86,28 @@ function InterviewMode({ onClose }) {
     );
   }
 
-  // ✅ Show fullscreen interview FIRST (highest priority)
+  // ── Fullscreen interview ──
   if (isInterviewMode && currentProblem) {
     return (
       <div className="interview-mode-fullscreen">
+        {/* ✅ FIXED: title + badge in ONE flat flex row, no nested div */}
         <div className="interview-header">
           <div className="interview-header-left">
-            <Trophy className="interview-icon" />
-            <div>
-              <h3>Interview Mode - {currentProblem.title}</h3>
-              <span className={`difficulty-badge ${difficulty}`}>
-                {difficulty.toUpperCase()}
-              </span>
-            </div>
+            <Trophy size={18} className="interview-icon" />
+            <h3>Interview Mode — {currentProblem.title}</h3>
+            <span className={`difficulty-badge ${difficulty}`}>
+              {difficulty}
+            </span>
           </div>
           <div className="interview-header-right">
             <TimerWidget />
             <button className="btn-submit-interview" onClick={handleSubmit}>
-              <CheckCircle size={18} /> Submit
+              <CheckCircle size={16} />
+              Submit
             </button>
             <button className="btn-end-interview" onClick={handleEnd}>
-              <Square size={18} /> End
+              <Square size={16} />
+              End
             </button>
           </div>
         </div>
@@ -123,7 +118,7 @@ function InterviewMode({ onClose }) {
           </div>
           <div className="interview-editor-side">
             <div className="interview-editor-header">
-              <Code size={16} />
+              <Code size={14} />
               <span>Code Editor ({interviewLanguage})</span>
             </div>
             <div className="interview-editor-container">
@@ -135,26 +130,27 @@ function InterviewMode({ onClose }) {
     );
   }
 
-  // Results screen
+  // ── Results screen ──
   if (interviewResults) {
     return <InterviewFeedback results={interviewResults} onClose={onClose} />;
   }
 
-  // Setup/start screen
+  // ── Setup modal ──
   return (
     <div className="interview-mode-overlay">
       <div className="interview-mode-modal">
         <div className="interview-modal-header">
           <div className="interview-modal-title">
-            <Trophy size={24} />
+            <Trophy size={22} />
             <h2>Interview Mode</h2>
           </div>
           <button className="btn-close-interview" onClick={onClose}>
-            <X size={20} />
+            <X size={16} />
           </button>
         </div>
 
         <div className="interview-modal-content">
+          {/* Info card */}
           <div className="interview-info-card">
             <Clock size={20} />
             <div>
@@ -166,9 +162,10 @@ function InterviewMode({ onClose }) {
             </div>
           </div>
 
+          {/* Language */}
           <div className="language-selection">
             <h3>
-              <Languages size={20} /> Select Programming Language
+              <Languages size={14} /> Select Programming Language
             </h3>
             <select
               value={selectedLanguage}
@@ -183,6 +180,7 @@ function InterviewMode({ onClose }) {
             </select>
           </div>
 
+          {/* Difficulty */}
           <div className="difficulty-selection">
             <h3>Select Difficulty</h3>
             <div className="difficulty-options">
@@ -190,19 +188,19 @@ function InterviewMode({ onClose }) {
                 {
                   key: INTERVIEW_DIFFICULTIES.EASY,
                   label: "Easy",
-                  time: "15 minutes",
+                  time: "15 Minutes",
                   desc: "Basic problems, good for beginners",
                 },
                 {
                   key: INTERVIEW_DIFFICULTIES.MEDIUM,
                   label: "Medium",
-                  time: "30 minutes",
+                  time: "30 Minutes",
                   desc: "Intermediate algorithmic challenges",
                 },
                 {
                   key: INTERVIEW_DIFFICULTIES.HARD,
                   label: "Hard",
-                  time: "45 minutes",
+                  time: "45 Minutes",
                   desc: "Advanced problems for experts",
                 },
               ].map(({ key, label, time, desc }) => (
@@ -219,6 +217,7 @@ function InterviewMode({ onClose }) {
             </div>
           </div>
 
+          {/* Problem picker */}
           <div className="problem-selection">
             <div className="problem-selection-header">
               <h3>Choose Problem</h3>
@@ -237,13 +236,13 @@ function InterviewMode({ onClose }) {
                     className={`problem-item ${selectedProblem?.id === problem.id ? "selected" : ""}`}
                     onClick={() => setSelectedProblem(problem)}
                   >
-                    <Code size={16} />
+                    <Code size={15} />
                     <div className="problem-info">
                       <h4>{problem.title}</h4>
                       <p>{problem.description.substring(0, 100)}...</p>
                     </div>
                     {selectedProblem?.id === problem.id && (
-                      <CheckCircle size={16} className="selected-icon" />
+                      <CheckCircle size={15} className="selected-icon" />
                     )}
                   </div>
                 ))}
@@ -251,12 +250,13 @@ function InterviewMode({ onClose }) {
             )}
             {!selectedProblem && (
               <div className="random-problem-notice">
-                <AlertCircle size={16} />
+                <AlertCircle size={15} />
                 <span>A random problem will be selected</span>
               </div>
             )}
           </div>
 
+          {/* ✅ Start button */}
           <button className="btn-start-interview" onClick={handleStart}>
             <Play size={20} />
             Start Interview in{" "}
@@ -264,6 +264,7 @@ function InterviewMode({ onClose }) {
               selectedLanguage.slice(1)}
           </button>
 
+          {/* Tips */}
           <div className="interview-tips">
             <h4>💡 Tips</h4>
             <ul>
