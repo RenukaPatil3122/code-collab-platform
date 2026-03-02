@@ -740,3 +740,54 @@
 [data-theme="light"] .tm-preview-code code.hljs {
   color: #1e1e3a !important;
 }
+
+/* ─────────────────────────────────────────────────────────
+   TEMPLATE MODAL — TYPOGRAPHY FIX
+   Matches Geist style used in AI / TestCases / VersionHistory
+   Paste at the BOTTOM of TemplateModal.css (overrides)
+───────────────────────────────────────────────────────── */
+
+/* Title — "Code Templates" not "CODE TEMPLATES" */
+.tm-header-left h2 {
+  font-family: var(--tm-font-ui);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  text-transform: none;
+}
+
+/* Language badge — "JavaScript" not "JAVASCRIPT" — keep mono, kill uppercase */
+.tm-lang-badge {
+  font-family: var(--tm-font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: none;
+}
+
+/* Category chips — "Basics" not "BASICS" */
+.tm-chip {
+  font-family: var(--tm-font-ui);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  text-transform: none;
+}
+
+/* List item category label — "Basics" not "BASICS" */
+.tm-item-cat {
+  font-family: var(--tm-font-mono);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: none;
+}
+
+/* Preview category badge — "Basics" not "BASICS" */
+.tm-preview-cat {
+  font-family: var(--tm-font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: none;
+}
