@@ -3,6 +3,8 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useLocation, useNavigate } from "react-router-dom";
 import { socket } from "../utils/socket";
 import toast from "react-hot-toast";
+import { useAuth } from "../contexts/AuthContext";
+import PricingModal from "../components/PricingModal";
 import {
   Users,
   Copy,
@@ -58,6 +60,7 @@ const API_BASE = "http://localhost:5000";
 const DEFAULT_PANEL_WIDTH = 420;
 const MIN_PANEL_WIDTH = 260;
 const MAX_PANEL_WIDTH = 700;
+const FREE_GIST_LIMIT = 3;
 
 function useIsMobile() {
   const [isMobile, setIsMobile] = useState(() => window.innerWidth <= 768);
@@ -69,10 +72,6 @@ function useIsMobile() {
   return isMobile;
 }
 
-/* ─────────────────────────────────────────────────────────
-   PanelWrapper — adds a title bar with minimize/maximize
-   and close X to AI, Chat, Tests, VersionHistory panels.
-───────────────────────────────────────────────────────── */
 function PanelWrapper({
   title,
   icon,
@@ -121,6 +120,7 @@ function RoomContent() {
   const { roomId } = useParams();
   const navigate = useNavigate();
   const isMobile = useIsMobile();
+  const { isPremium } = useAuth();
 
   const {
     username,
@@ -172,20 +172,15 @@ function RoomContent() {
   const [showComplexity, setShowComplexity] = useState(false);
   const [showWhiteboard, setShowWhiteboard] = useState(false);
   const [showStdinPanel, setShowStdinPanel] = useState(false);
+  const [showPricing, setShowPricing] = useState(false);
 
-  // Mobile panel maximize state
   const [isPanelMaximized, setIsPanelMaximized] = useState(false);
-
-  // Output minimize (collapses to blue tab on right edge, desktop only)
   const [isOutputMinimized, setIsOutputMinimized] = useState(false);
-
-  // Desktop horizontal resize
   const [panelWidth, setPanelWidth] = useState(DEFAULT_PANEL_WIDTH);
   const isDragging = useRef(false);
   const dragStartX = useRef(0);
   const dragStartWidth = useRef(0);
 
-  // Mobile vertical resize
   const getDefaultHeight = () => Math.round(window.innerHeight * 0.45);
   const [panelHeight, setPanelHeight] = useState(getDefaultHeight);
   const isVDragging = useRef(false);
@@ -197,6 +192,17 @@ function RoomContent() {
   const [savedGistUrl, setSavedGistUrl] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
+
+  // Gist save count — persisted in sessionStorage
+  const [gistSaveCount, setGistSaveCount] = useState(() => {
+    try {
+      return parseInt(sessionStorage.getItem("ct_gist_saves") || "0", 10);
+    } catch {
+      return 0;
+    }
+  });
+  const gistLimitReached = !isPremium && gistSaveCount >= FREE_GIST_LIMIT;
+  const gistRemaining = Math.max(FREE_GIST_LIMIT - gistSaveCount, 0);
 
   const moreMenuRef = useRef(null);
   const stdinRef = useRef(null);
@@ -224,7 +230,6 @@ function RoomContent() {
     if (isInterviewMode) setShowInterviewModal(false);
   }, [isInterviewMode]);
 
-  // Desktop horizontal drag
   const startDrag = useCallback(
     (e) => {
       isDragging.current = true;
@@ -261,7 +266,6 @@ function RoomContent() {
     };
   }, []);
 
-  // Mobile vertical drag
   const startVDrag = useCallback(
     (e) => {
       e.stopPropagation();
@@ -304,12 +308,11 @@ function RoomContent() {
     };
   }, []);
 
-  // Toggle maximize/minimize
-  const handleToggleMaximize = useCallback(() => {
-    setIsPanelMaximized((v) => !v);
-  }, []);
+  const handleToggleMaximize = useCallback(
+    () => setIsPanelMaximized((v) => !v),
+    [],
+  );
 
-  // Close all panels
   const closeAllPanels = useCallback(() => {
     setShowOutput(false);
     setShowTestCases(false);
@@ -381,8 +384,6 @@ function RoomContent() {
     showAIPanel ||
     showVersionHistory ||
     showChat;
-
-  // Mobile panel height
   const headerH = isMobile ? (window.innerWidth <= 480 ? 46 : 50) : 0;
   const mobilePanelHeight = isPanelMaximized
     ? window.innerHeight - headerH
@@ -452,6 +453,14 @@ function RoomContent() {
       const data = await response.json();
       if (data.success) {
         setSavedGistUrl(data.gistUrl);
+        // Increment gist save count
+        if (!isPremium) {
+          const next = gistSaveCount + 1;
+          setGistSaveCount(next);
+          try {
+            sessionStorage.setItem("ct_gist_saves", String(next));
+          } catch {}
+        }
         toast.success("Saved to Gist! 🎉", {
           duration: 2000,
           id: "gist-save-ok",
@@ -734,10 +743,46 @@ function RoomContent() {
                     <div className="menu-divider" />
                   </>
                 )}
+                {/* ── Save to Gist with limit ── */}
                 <button
-                  onClick={() => menuAction(() => setShowSaveGistModal(true))}
+                  onClick={() =>
+                    menuAction(() => {
+                      if (gistLimitReached) {
+                        setShowPricing(true);
+                        return;
+                      }
+                      setShowSaveGistModal(true);
+                    })
+                  }
                 >
                   <Upload size={16} /> Save to Gist
+                  {!isPremium && !gistLimitReached && (
+                    <span
+                      style={{
+                        marginLeft: 6,
+                        fontSize: "0.7rem",
+                        color:
+                          gistRemaining === 1
+                            ? "#f59e0b"
+                            : "rgba(255,255,255,0.4)",
+                        fontWeight: 600,
+                      }}
+                    >
+                      {gistRemaining}/3
+                    </span>
+                  )}
+                  {gistLimitReached && (
+                    <span
+                      style={{
+                        marginLeft: 6,
+                        fontSize: "0.7rem",
+                        color: "#f59e0b",
+                        fontWeight: 600,
+                      }}
+                    >
+                      Pro
+                    </span>
+                  )}
                 </button>
                 <button
                   onClick={() => menuAction(() => setShowImportGistModal(true))}
@@ -780,7 +825,6 @@ function RoomContent() {
         <div className="file-explorer-sidebar">
           <FileExplorer />
         </div>
-
         <div className="editor-area">
           <CodeEditor
             language={language}
@@ -791,7 +835,6 @@ function RoomContent() {
           />
         </div>
 
-        {/* Output minimized — blue tab in flex row, editor expands to fill */}
         {showOutput && isOutputMinimized && !isMobile && (
           <button
             className="output-restore-tab"
@@ -821,7 +864,6 @@ function RoomContent() {
               ...(isMobile ? { height: mobilePanelHeight } : {}),
             }}
           >
-            {/* Mobile drag handle — PILL ONLY, no buttons here */}
             <div
               className="panel-top-drag-handle"
               onMouseDown={startVDrag}
@@ -830,7 +872,6 @@ function RoomContent() {
               <div className="panel-drag-pill" />
             </div>
 
-            {/* Output */}
             {showOutput && (
               <OutputPanel
                 output={output}
@@ -844,8 +885,6 @@ function RoomContent() {
                 isMobile={isMobile}
               />
             )}
-
-            {/* Test Cases */}
             {showTestCases && (
               <PanelWrapper
                 title="Test Cases"
@@ -864,8 +903,6 @@ function RoomContent() {
                 />
               </PanelWrapper>
             )}
-
-            {/* AI Assistant */}
             {showAIPanel && (
               <PanelWrapper
                 title="AI Assistant"
@@ -878,7 +915,6 @@ function RoomContent() {
                 <AIAssistant onClose={closeAllPanels} />
               </PanelWrapper>
             )}
-
             {showVersionHistory && (
               <PanelWrapper
                 title="Version History"
@@ -896,8 +932,6 @@ function RoomContent() {
                 />
               </PanelWrapper>
             )}
-
-            {/* Chat */}
             {showChat && (
               <PanelWrapper
                 title="Chat"
@@ -984,6 +1018,10 @@ function RoomContent() {
           code={code}
           language={language}
           onClose={() => setShowComplexity(false)}
+          onUpgrade={() => {
+            setShowComplexity(false);
+            setShowPricing(true);
+          }}
         />
       )}
       {showWhiteboard && (
@@ -993,7 +1031,9 @@ function RoomContent() {
           onClose={() => setShowWhiteboard(false)}
         />
       )}
+      {showPricing && <PricingModal onClose={() => setShowPricing(false)} />}
 
+      {/* Save Gist Modal */}
       {showSaveGistModal && (
         <div
           className="modal-overlay gist-modal-overlay"
@@ -1061,6 +1101,7 @@ function RoomContent() {
         </div>
       )}
 
+      {/* Import Gist Modal */}
       {showImportGistModal && (
         <div
           className="modal-overlay gist-modal-overlay"

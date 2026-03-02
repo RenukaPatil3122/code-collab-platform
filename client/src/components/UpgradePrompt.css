@@ -158,3 +158,38 @@
 .upgrade-skip:hover {
   color: rgba(255, 255, 255, 0.5);
 }
+
+.premium-pill-btn {
+  width: auto; /* shrinks to content */
+  min-width: 240px; /* not too narrow */
+  padding: 10px 24px; /* smaller padding = smaller button */
+  margin: 20px auto 16px; /* centered with space */
+  background: #a855f7; /* solid purple from your screenshot */
+  color: white;
+  font-size: 0.95rem; /* slightly smaller text */
+  font-weight: 500; /* normal/not bold */
+  border: none;
+  border-radius: 999px; /* full pill shape */
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px; /* space between crown and text */
+  box-shadow: 0 4px 12px rgba(168, 85, 247, 0.3);
+  transition: all 0.2s ease;
+}
+
+.premium-pill-btn:hover {
+  background: #b47ef9; /* lighter purple on hover */
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(168, 85, 247, 0.45);
+}
+
+.premium-pill-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(168, 85, 247, 0.3);
+}
+
+.cta-crown {
+  flex-shrink: 0;
+}

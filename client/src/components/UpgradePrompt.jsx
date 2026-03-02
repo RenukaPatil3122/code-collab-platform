@@ -1,7 +1,7 @@
 // src/components/UpgradePrompt.jsx
 
 import React, { useState } from "react";
-import { X, Crown, Zap, Lock } from "lucide-react";
+import { X, Crown, Zap, Lock, Activity } from "lucide-react";
 import PricingModal from "./PricingModal";
 import "./UpgradePrompt.css";
 
@@ -33,6 +33,12 @@ function UpgradePrompt({ reason, onClose }) {
       title: "Version History limit reached",
       desc: "You've used all 3 version saves. Upgrade to Pro for unlimited version history.",
       cta: "Unlock Unlimited Versions",
+    },
+    complexity_limit: {
+      icon: <Lock size={22} />,
+      title: "Complexity Analyzer limit reached",
+      desc: "You've used all 3 free complexity analyses today...",
+      cta: "Unlock Unlimited Complexity",
     },
   };
 
@@ -73,13 +79,20 @@ function UpgradePrompt({ reason, onClose }) {
           <div className="upgrade-perk">
             <Crown size={13} /> Unlimited version history
           </div>
+          <div className="upgrade-perk">
+            <Activity size={13} /> Unlimited Complexity Analyzer
+          </div>
         </div>
 
-        <button className="upgrade-cta" onClick={() => setShowPricing(true)}>
-          <Crown size={15} />
-          {msg.cta} — from ₹99/mo
+        <button
+          className="upgrade-cta premium-pill-btn"
+          onClick={() => setShowPricing(true)}
+        >
+          <Crown size={14} className="cta-crown" />
+          <span>Unlock Unlimited Complexity</span>
         </button>
 
+        {/* Keep "Maybe later" as is */}
         <button className="upgrade-skip" onClick={onClose}>
           Maybe later
         </button>

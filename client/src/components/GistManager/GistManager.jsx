@@ -1,13 +1,24 @@
 // src/components/GistManager/GistManager.jsx
 
 import React, { useState } from "react";
-import { Github, Upload, Download, X, ExternalLink } from "lucide-react";
+import {
+  Github,
+  Upload,
+  Download,
+  X,
+  ExternalLink,
+  Crown,
+  Lock,
+} from "lucide-react";
 import { useFiles } from "../../contexts/FileContext";
 import { useRoom } from "../../contexts/RoomContext";
+import { useAuth } from "../../contexts/AuthContext";
+import PricingModal from "../PricingModal";
 import toast from "react-hot-toast";
 import "./GistManager.css";
 
 const API_BASE = "http://localhost:5000";
+const FREE_GIST_LIMIT = 3;
 
 function getTheme() {
   return document.documentElement.dataset.theme === "light" ||
@@ -19,15 +30,32 @@ function getTheme() {
 function GistManager() {
   const { files } = useFiles();
   const { roomId, username } = useRoom();
+  const { user, isPremium } = useAuth();
+
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
+  const [showPricing, setShowPricing] = useState(false);
   const [gistUrl, setGistUrl] = useState("");
   const [gistDescription, setGistDescription] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [savedGistUrl, setSavedGistUrl] = useState("");
+  const [localSaveCount, setLocalSaveCount] = useState(0);
 
   const theme = getTheme();
+
+  // How many saves used (local session tracking)
+  const saveCount = localSaveCount;
+  const remaining = Math.max(FREE_GIST_LIMIT - saveCount, 0);
+  const isLimitReached = !isPremium && saveCount >= FREE_GIST_LIMIT;
+
+  const handleOpenSaveModal = () => {
+    if (isLimitReached) {
+      setShowPricing(true);
+      return;
+    }
+    setShowSaveModal(true);
+  };
 
   const handleSaveToGist = async () => {
     try {
@@ -70,6 +98,7 @@ function GistManager() {
       const data = await response.json();
       if (data.success) {
         setSavedGistUrl(data.gistUrl);
+        if (!isPremium) setLocalSaveCount((c) => c + 1);
         toast.success(`Saved ${data.filesCount} files to GitHub Gist! 🎉`);
       } else {
         throw new Error(data.error || "Failed to save Gist");
@@ -133,15 +162,48 @@ function GistManager() {
   return (
     <div className="gist-manager">
       <div className="gist-actions">
+        {/* Save button — shows limit badge for free users */}
         <button
-          className="gist-btn gist-btn-save"
-          onClick={() => setShowSaveModal(true)}
-          title="Save to GitHub Gist"
+          className={`gist-btn gist-btn-save ${isLimitReached ? "gist-btn-locked" : ""}`}
+          onClick={handleOpenSaveModal}
+          title={
+            isLimitReached
+              ? "Upgrade to Pro for unlimited Gist saves"
+              : "Save to GitHub Gist"
+          }
         >
-          <Upload size={16} />
+          {isLimitReached ? <Lock size={16} /> : <Upload size={16} />}
           <span>Save to Gist</span>
+          {!isPremium && !isLimitReached && (
+            <span
+              style={{
+                marginLeft: 4,
+                fontSize: "0.7rem",
+                color: remaining === 1 ? "#f59e0b" : "rgba(255,255,255,0.4)",
+                fontWeight: 600,
+              }}
+            >
+              {remaining}/{FREE_GIST_LIMIT}
+            </span>
+          )}
+          {isPremium && (
+            <Crown size={12} style={{ marginLeft: 4, color: "#fbbf24" }} />
+          )}
+          {isLimitReached && (
+            <span
+              style={{
+                marginLeft: 4,
+                fontSize: "0.7rem",
+                color: "#f59e0b",
+                fontWeight: 600,
+              }}
+            >
+              Pro
+            </span>
+          )}
         </button>
 
+        {/* Import — always free */}
         <button
           className="gist-btn gist-btn-import"
           onClick={() => setShowImportModal(true)}
@@ -152,6 +214,10 @@ function GistManager() {
         </button>
       </div>
 
+      {/* Pricing modal */}
+      {showPricing && <PricingModal onClose={() => setShowPricing(false)} />}
+
+      {/* Save modal */}
       {showSaveModal && (
         <div
           className="gist-modal-overlay"
@@ -164,12 +230,40 @@ function GistManager() {
                 <Github size={20} />
                 <h3>Save to GitHub Gist</h3>
               </div>
-              <button
-                className="gist-modal-close"
-                onClick={handleCloseSaveModal}
-              >
-                <X size={20} />
-              </button>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                {!isPremium && (
+                  <span
+                    style={{
+                      fontSize: "0.75rem",
+                      color:
+                        remaining <= 1 ? "#f59e0b" : "rgba(255,255,255,0.4)",
+                      fontWeight: 500,
+                    }}
+                  >
+                    {remaining}/{FREE_GIST_LIMIT} free saves left
+                  </span>
+                )}
+                {isPremium && (
+                  <span
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 4,
+                      fontSize: "0.72rem",
+                      color: "#fbbf24",
+                      fontWeight: 600,
+                    }}
+                  >
+                    <Crown size={11} /> Unlimited
+                  </span>
+                )}
+                <button
+                  className="gist-modal-close"
+                  onClick={handleCloseSaveModal}
+                >
+                  <X size={20} />
+                </button>
+              </div>
             </div>
 
             <div className="gist-modal-body">
@@ -236,7 +330,6 @@ function GistManager() {
                     <h4>Gist Created Successfully!</h4>
                     <p>Your files have been saved to GitHub Gist</p>
                   </div>
-
                   <div className="gist-url-container">
                     <input
                       type="text"
@@ -248,7 +341,6 @@ function GistManager() {
                       Copy
                     </button>
                   </div>
-
                   <a
                     href={savedGistUrl}
                     target="_blank"
@@ -265,6 +357,7 @@ function GistManager() {
         </div>
       )}
 
+      {/* Import modal */}
       {showImportModal && (
         <div
           className="gist-modal-overlay"
@@ -284,12 +377,10 @@ function GistManager() {
                 <X size={20} />
               </button>
             </div>
-
             <div className="gist-modal-body">
               <p className="gist-modal-description">
                 Paste a GitHub Gist URL to import files into this room.
               </p>
-
               <div className="gist-form-group">
                 <label>Gist URL</label>
                 <input
@@ -299,13 +390,11 @@ function GistManager() {
                   value={gistUrl}
                   onChange={(e) => setGistUrl(e.target.value)}
                   onKeyPress={(e) => {
-                    if (e.key === "Enter" && gistUrl.trim()) {
+                    if (e.key === "Enter" && gistUrl.trim())
                       handleImportFromGist();
-                    }
                   }}
                 />
               </div>
-
               <button
                 className="gist-btn-primary"
                 onClick={handleImportFromGist}
