@@ -166,9 +166,10 @@
 .ai-title h3 {
   margin: 0;
   font-family: var(--ai-font-ui);
-  font-size: 13.5px;
+  font-size: 13px;
   font-weight: 700;
-  letter-spacing: -0.02em;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
   line-height: 1;
   color: var(--ai-text-primary);
 }

@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect } from "react";
 import { socket } from "../../utils/socket";
-import { Clock, Save, RotateCcw, X, FileText, Loader } from "lucide-react";
+import { Save, RotateCcw, FileText, Loader, X } from "lucide-react";
 import toast from "react-hot-toast";
 import UpgradePrompt from "../UpgradePrompt";
 import "./VersionHistory.css";
@@ -14,7 +14,7 @@ function VersionHistory({ roomId, currentCode, onRestore, onClose }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [selectedVersion, setSelectedVersion] = useState(null);
-  const [showUpgradePrompt, setShowUpgradePrompt] = useState(false); // ✅ NEW
+  const [showUpgradePrompt, setShowUpgradePrompt] = useState(false);
 
   useEffect(() => {
     if (!socket || !roomId) return;
@@ -36,7 +36,6 @@ function VersionHistory({ roomId, currentCode, onRestore, onClose }) {
     const handleVersionSaved = ({ version, error, message }) => {
       setSaving(false);
 
-      // ✅ Check for RBAC limit errors
       if (error === "LIMIT_REACHED" || error === "LOGIN_REQUIRED") {
         setShowUpgradePrompt(true);
         return;
@@ -111,7 +110,6 @@ function VersionHistory({ roomId, currentCode, onRestore, onClose }) {
     }
   };
 
-  // ✅ Show UpgradePrompt overlay when limit hit
   if (showUpgradePrompt) {
     return (
       <UpgradePrompt
@@ -124,16 +122,7 @@ function VersionHistory({ roomId, currentCode, onRestore, onClose }) {
   return (
     <div className="version-history-overlay">
       <div className="version-history-panel">
-        {/* Header */}
-        <div className="version-history-header">
-          <div className="version-header-title">
-            <Clock size={14} />
-            <h2>Version History</h2>
-          </div>
-          <button className="btn-close-version" onClick={onClose}>
-            <X size={16} />
-          </button>
-        </div>
+        {/* ── Header removed: now provided by PanelWrapper in Room.jsx ── */}
 
         <div className="version-history-content">
           {/* Save Section */}

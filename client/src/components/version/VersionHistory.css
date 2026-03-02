@@ -935,3 +935,49 @@
 [data-theme="light"] .code-preview-body code {
   color: #2d2d5a;
 }
+
+/* ─────────────────────────────────────────────────────────
+   PASTE THESE OVERRIDES at the bottom of VersionHistory.css
+───────────────────────────────────────────────────────── */
+
+/* Section labels — bigger and more readable */
+.save-version-section h3,
+.versions-list-section h3 {
+  font-size: 0.7rem; /* was 0.595rem */
+  letter-spacing: 0.12em; /* slightly tighter */
+}
+
+/* Input placeholder */
+.version-message-input {
+  font-size: 13px; /* was 12.5px */
+}
+.version-message-input::placeholder {
+  font-size: 12px; /* was 0.74rem (~11.8px) */
+}
+
+/* Save button */
+.btn-save-version {
+  font-size: 13px; /* was 12px */
+}
+
+/* Version card — name */
+.version-message {
+  font-size: 13px; /* was 12.5px */
+}
+
+/* Timestamp */
+.version-timestamp {
+  font-size: 11px; /* was 10.5px */
+}
+
+/* Action buttons */
+.btn-view-version,
+.btn-restore-version {
+  font-size: 12px; /* was 11.5px */
+}
+
+/* Badges */
+.version-badge-latest,
+.version-badge-auto {
+  font-size: 10px; /* was 9.5px */
+}
