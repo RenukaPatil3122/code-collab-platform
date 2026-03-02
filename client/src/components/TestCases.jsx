@@ -1,18 +1,16 @@
 // src/components/TestCases.jsx
-
 import React, { useState, useCallback } from "react";
 import {
   Plus,
   Trash2,
-  X,
   CheckCircle,
   XCircle,
   Clock,
-  AlertCircle,
   FlaskConical,
   ChevronDown,
   ChevronUp,
   Loader,
+  Lock,
 } from "lucide-react";
 import "./TestCases.css";
 
@@ -20,7 +18,6 @@ function TestCases({ testCases, onUpdate, onClose, testResults, isRunning }) {
   const [activeTab, setActiveTab] = useState("cases");
   const [expandedResults, setExpandedResults] = useState(new Set());
 
-  // ── Stable callbacks — no unnecessary re-renders ──
   const addTestCase = useCallback(() => {
     onUpdate([...testCases, { id: Date.now(), input: "", expectedOutput: "" }]);
   }, [testCases, onUpdate]);
@@ -49,7 +46,6 @@ function TestCases({ testCases, onUpdate, onClose, testResults, isRunning }) {
     });
   };
 
-  // Auto-switch to results tab when results arrive
   React.useEffect(() => {
     if (testResults && !isRunning) setActiveTab("results");
   }, [testResults, isRunning]);
@@ -58,43 +54,47 @@ function TestCases({ testCases, onUpdate, onClose, testResults, isRunning }) {
     ? Math.round((testResults.summary.passed / testResults.summary.total) * 100)
     : 0;
 
+  const resultsAvailable = !!(testResults || isRunning);
+
   return (
     <div className="tc-panel">
-      {/* ── Header ── */}
-      <div className="tc-header">
-        <div className="tc-header-left">
-          <FlaskConical size={14} className="tc-header-icon" />
-          <span className="tc-header-title">Test Cases</span>
-        </div>
+      {/* ── Tab bar ── */}
+      <div className="tc-tabs-bar">
+        <button
+          className={`tc-tab ${activeTab === "cases" ? "active" : ""}`}
+          onClick={() => setActiveTab("cases")}
+        >
+          Cases
+          <span className="tc-tab-count">{testCases.length}</span>
+        </button>
 
-        <div className="tc-tabs">
-          <button
-            className={`tc-tab ${activeTab === "cases" ? "active" : ""}`}
-            onClick={() => setActiveTab("cases")}
-          >
-            Cases
-            <span className="tc-tab-count">{testCases.length}</span>
-          </button>
-          <button
-            className={`tc-tab ${activeTab === "results" ? "active" : ""} ${!testResults && !isRunning ? "disabled" : ""}`}
-            onClick={() =>
-              (testResults || isRunning) && setActiveTab("results")
-            }
-          >
-            Results
-            {testResults && (
-              <span
-                className={`tc-tab-badge ${passRate === 100 ? "all-pass" : passRate === 0 ? "all-fail" : "partial"}`}
-              >
-                {testResults.summary.passed}/{testResults.summary.total}
-              </span>
-            )}
-            {isRunning && <Loader size={11} className="tc-tab-spin" />}
-          </button>
-        </div>
-
-        <button className="tc-close" onClick={onClose} title="Close">
-          <X size={15} />
+        <button
+          className={`tc-tab ${activeTab === "results" ? "active" : ""} ${!resultsAvailable ? "disabled" : ""}`}
+          onClick={() => resultsAvailable && setActiveTab("results")}
+          title={!resultsAvailable ? "Run tests to see results" : undefined}
+        >
+          Results
+          {/* Lock icon when no results yet */}
+          {!resultsAvailable && (
+            <span className="tc-tab-lock">
+              <Lock size={11} />
+            </span>
+          )}
+          {/* Pass/fail badge once results exist */}
+          {testResults && (
+            <span
+              className={`tc-tab-badge ${
+                passRate === 100
+                  ? "all-pass"
+                  : passRate === 0
+                    ? "all-fail"
+                    : "partial"
+              }`}
+            >
+              {testResults.summary.passed}/{testResults.summary.total}
+            </span>
+          )}
+          {isRunning && <Loader size={11} className="tc-tab-spin" />}
         </button>
       </div>
 
@@ -136,7 +136,6 @@ function TestCases({ testCases, onUpdate, onClose, testResults, isRunning }) {
                           <Trash2 size={12} />
                         </button>
                       </div>
-
                       <div className="tc-card-fields">
                         <div className="tc-field">
                           <label className="tc-field-label">Input</label>
@@ -174,7 +173,6 @@ function TestCases({ testCases, onUpdate, onClose, testResults, isRunning }) {
                     </div>
                   ))}
                 </div>
-
                 <button className="tc-btn-add" onClick={addTestCase}>
                   <Plus size={13} /> Add Test Case
                 </button>
@@ -203,7 +201,6 @@ function TestCases({ testCases, onUpdate, onClose, testResults, isRunning }) {
               </div>
             ) : testResults?.results ? (
               <>
-                {/* Summary bar */}
                 <div className="tc-summary">
                   <div className="tc-summary-bar">
                     <div
@@ -223,8 +220,6 @@ function TestCases({ testCases, onUpdate, onClose, testResults, isRunning }) {
                     <span className="tc-stat rate">{passRate}%</span>
                   </div>
                 </div>
-
-                {/* Result cards */}
                 <div className="tc-result-list">
                   {testResults.results.map((result, idx) => {
                     const expanded = expandedResults.has(idx);
@@ -265,7 +260,6 @@ function TestCases({ testCases, onUpdate, onClose, testResults, isRunning }) {
                             )}
                           </div>
                         </button>
-
                         {expanded && (
                           <div className="tc-result-body">
                             {result.input && (
