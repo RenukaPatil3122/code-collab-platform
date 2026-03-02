@@ -649,3 +649,112 @@
     inset 0 1px 0 rgba(255, 255, 255, 0.8),
     0 1px 8px rgba(0, 0, 0, 0.06);
 }
+
+/* ─────────────────────────────────────────────────────────
+   COMPLEXITY ANALYZER — TYPOGRAPHY FIX
+   Matches Geist style used in AI / TestCases / VersionHistory
+   Paste at the BOTTOM of ComplexityAnalyzer.css (overrides)
+───────────────────────────────────────────────────────── */
+
+/* Title — "Complexity Analyzer", not "COMPLEXITY ANALYZER" */
+.ca-title span {
+  font-family: var(--ca-font-ui);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: -0.01em; /* tight, like other panel headers */
+  text-transform: none; /* kill uppercase */
+}
+
+/* Card labels — "Time Complexity" not "TIME COMPLEXITY" */
+.ca-card-label {
+  font-family: var(--ca-font-ui); /* Geist, not mono */
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--ca-text-muted);
+  text-transform: none; /* kill uppercase */
+  letter-spacing: -0.01em;
+  margin-bottom: 10px;
+}
+
+/* Card value — keep mono since it's O(1), O(n) etc */
+.ca-card-value {
+  font-family: var(--ca-font-mono);
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+/* Card rating — "Excellent" not "EXCELLENT" */
+.ca-card-rating {
+  font-family: var(--ca-font-ui); /* Geist, not mono */
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  text-transform: none; /* kill uppercase */
+  opacity: 0.9;
+}
+
+/* Section titles — "Why?" not "WHY?" */
+.ca-section-title {
+  font-family: var(--ca-font-ui); /* Geist, not mono */
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ca-text-muted);
+  text-transform: none; /* kill uppercase */
+  letter-spacing: -0.01em;
+}
+
+/* Ref labels — "Constant" "Logarithmic" — keep mono but no uppercase */
+.ca-ref-o {
+  font-family: var(--ca-font-mono);
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.ca-ref-label {
+  font-family: var(--ca-font-ui); /* Geist, not mono */
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--ca-text-muted);
+  letter-spacing: -0.01em;
+  text-align: right;
+}
+
+/* Idle text */
+.ca-idle-text {
+  font-family: var(--ca-font-ui);
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+
+.ca-idle-sub {
+  font-family: var(--ca-font-mono);
+  font-size: 11.5px;
+  letter-spacing: 0;
+}
+
+/* Reason rows */
+.ca-reason {
+  font-family: var(--ca-font-ui);
+  font-size: 12.5px;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+}
+
+/* Warning rows */
+.ca-warning {
+  font-family: var(--ca-font-ui);
+  font-size: 12.5px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+
+/* Analyze / Re-analyze button */
+.ca-analyze-btn {
+  font-family: var(--ca-font-ui);
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
