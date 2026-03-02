@@ -131,8 +131,8 @@
 }
 
 /* ═══════════════════════════════════════════════════════════════
-     BASE
-     ═══════════════════════════════════════════════════════════════ */
+       BASE
+       ═══════════════════════════════════════════════════════════════ */
 
 .room-container {
   height: 100vh;
@@ -142,15 +142,15 @@
   background: var(--bg-canvas);
   color: var(--text-primary);
   overflow: hidden;
-  font-family: "Instrument Sans", system-ui, sans-serif;
+  font-family: "Geist", system-ui, sans-serif;
   transition:
     background 0.25s ease,
     color 0.25s ease;
 }
 
 /* ═══════════════════════════════════════════════════════════════
-     HEADER
-     ═══════════════════════════════════════════════════════════════ */
+       HEADER
+       ═══════════════════════════════════════════════════════════════ */
 
 .room-header-clean {
   display: flex;
@@ -191,7 +191,7 @@
 }
 
 .app-logo {
-  font-family: "Instrument Sans", sans-serif;
+  font-family: "Geist", sans-serif;
   font-size: 20px;
   font-weight: 800;
   letter-spacing: -0.03em;
@@ -315,7 +315,7 @@
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-md);
   color: var(--text-primary);
-  font-family: "Instrument Sans", sans-serif;
+  font-family: "Geist", sans-serif;
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
@@ -497,7 +497,7 @@
   border: none;
   border-radius: var(--radius-sm);
   color: var(--text-secondary);
-  font-family: "Instrument Sans", sans-serif;
+  font-family: "Geist", sans-serif;
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
@@ -533,8 +533,8 @@
 }
 
 /* ═══════════════════════════════════════════════════════════════
-     STDIN BAR
-     ═══════════════════════════════════════════════════════════════ */
+       STDIN BAR
+       ═══════════════════════════════════════════════════════════════ */
 
 .stdin-bar {
   display: flex;
@@ -612,8 +612,8 @@
 }
 
 /* ═══════════════════════════════════════════════════════════════
-     BODY LAYOUT
-     ═══════════════════════════════════════════════════════════════ */
+       BODY LAYOUT
+       ═══════════════════════════════════════════════════════════════ */
 
 .room-body {
   display: flex;
@@ -721,8 +721,8 @@
 }
 
 /* ═══════════════════════════════════════════════════════════════
-     MODALS
-     ═══════════════════════════════════════════════════════════════ */
+       MODALS
+       ═══════════════════════════════════════════════════════════════ */
 
 .modal-overlay {
   position: fixed;
@@ -809,7 +809,7 @@
 }
 .modal-title h3 {
   margin: 0;
-  font-family: "Instrument Sans", system-ui, sans-serif;
+  font-family: "Geist", system-ui, sans-serif;
   font-size: 14px;
   font-weight: 500;
   letter-spacing: -0.015em;
@@ -880,7 +880,7 @@
   border: 1px solid var(--border-default);
   border-radius: var(--radius-md);
   color: var(--text-primary);
-  font-family: "Instrument Sans", sans-serif;
+  font-family: "Geist", sans-serif;
   font-size: 13px;
   outline: none;
   transition: var(--transition);
@@ -981,7 +981,7 @@
   border-radius: var(--radius-md);
   font-size: 13px;
   font-weight: 600;
-  font-family: "Instrument Sans", sans-serif;
+  font-family: "Geist", sans-serif;
   cursor: pointer;
   border: none;
   background: linear-gradient(135deg, #6366f1 0%, #7c3aed 100%);
@@ -1006,8 +1006,8 @@
 }
 
 /* ═══════════════════════════════════════════════════════════════
-     UTILITY
-     ═══════════════════════════════════════════════════════════════ */
+       UTILITY
+       ═══════════════════════════════════════════════════════════════ */
 
 .spin {
   animation: spin 0.9s linear infinite;
@@ -1047,8 +1047,8 @@
 }
 
 /* ═══════════════════════════════════════════════════════════════
-     TOOLTIPS (desktop only — suppressed on mobile)
-     ═══════════════════════════════════════════════════════════════ */
+       TOOLTIPS (desktop only — suppressed on mobile)
+       ═══════════════════════════════════════════════════════════════ */
 
 .feature-btn[title]::after {
   content: attr(title);
@@ -1062,7 +1062,7 @@
   border-radius: 6px;
   font-size: 11px;
   font-weight: 500;
-  font-family: "Instrument Sans", sans-serif;
+  font-family: "Geist", sans-serif;
   white-space: nowrap;
   color: #e2e6ff;
   pointer-events: none;
@@ -1122,7 +1122,7 @@
   border-radius: 6px;
   font-size: 11px;
   font-weight: 500;
-  font-family: "Instrument Sans", sans-serif;
+  font-family: "Geist", sans-serif;
   white-space: nowrap;
   color: #e2e6ff;
   pointer-events: none;
@@ -1147,8 +1147,8 @@
 }
 
 /* ═══════════════════════════════════════════════════════════════
-     TABLET  ≤ 1200 / 1024
-     ═══════════════════════════════════════════════════════════════ */
+       TABLET  ≤ 1200 / 1024
+       ═══════════════════════════════════════════════════════════════ */
 
 @media (max-width: 1200px) {
   .side-panel {
@@ -1166,8 +1166,8 @@
 }
 
 /* ═══════════════════════════════════════════════════════════════
-     MOBILE  ≤ 768px
-     ═══════════════════════════════════════════════════════════════ */
+       MOBILE  ≤ 768px
+       ═══════════════════════════════════════════════════════════════ */
 
 @media (max-width: 768px) {
   /* Suppress tooltip pseudo-elements on mobile (they cause glitches) */
@@ -1185,7 +1185,6 @@
     padding: 0 8px;
     gap: 5px;
     flex-wrap: nowrap;
-    /* Use fixed z-index so dropdown punches through everything */
     position: fixed;
     top: 0;
     left: 0;
@@ -1193,7 +1192,6 @@
     z-index: 700;
   }
 
-  /* Push body below fixed header */
   .room-container {
     padding-top: 50px;
   }
@@ -1221,7 +1219,6 @@
     gap: 4px;
     justify-content: flex-end;
   }
-  /* Hide stdin btn from header — it's in the more drawer */
   .header-section-center > .feature-btn {
     display: none;
   }
@@ -1243,12 +1240,11 @@
     height: 32px;
   }
 
-  /* All header feature buttons hidden on mobile */
   .feature-buttons {
     display: none;
   }
 
-  /* ── 3-DOT DROPDOWN: fixed position so it's never clipped ── */
+  /* ── 3-DOT DROPDOWN ── */
   .more-menu-container {
     position: static;
   }
@@ -1270,12 +1266,11 @@
   .room-body {
     flex-direction: column;
     overflow: hidden;
-    /* body takes full height minus fixed header and fixed nav */
     height: calc(100dvh - 50px - var(--mob-nav));
     padding-bottom: 0;
   }
 
-  /* ── FILE EXPLORER: slim horizontal tab strip ── */
+  /* ── FILE EXPLORER ── */
   .file-explorer-sidebar {
     width: 100% !important;
     height: 36px;
@@ -1288,7 +1283,6 @@
     flex-shrink: 0;
   }
 
-  /* Make inner FileExplorer component horizontal */
   .file-explorer-sidebar .file-explorer {
     width: 100% !important;
     min-width: unset !important;
@@ -1330,22 +1324,18 @@
     min-width: auto !important;
   }
 
-  /* Hide active left-border on horizontal strip */
   .file-explorer-sidebar .file-item::before {
     display: none !important;
   }
 
-  /* Hide folders — too complex for horizontal strip */
   .file-explorer-sidebar .folder-wrapper {
     display: none !important;
   }
 
-  /* Hide collapsed icon mode */
   .file-explorer-sidebar .file-item-icon {
     display: none !important;
   }
 
-  /* Editor fills remaining body space */
   .editor-area {
     flex: 1;
     min-height: 0;
@@ -1383,7 +1373,6 @@
     }
   }
 
-  /* Drag pill at top of sheet */
   .side-panels::before {
     content: "";
     display: block;
@@ -1404,7 +1393,6 @@
     overflow-y: auto;
   }
 
-  /* Output panel full width */
   .output-panel-container {
     width: 100% !important;
     border-left: none !important;
@@ -1463,7 +1451,7 @@
   .mobile-nav-btn span {
     font-size: 9px;
     font-weight: 600;
-    font-family: "Instrument Sans", sans-serif;
+    font-family: "Geist", sans-serif;
     letter-spacing: 0.02em;
     text-transform: uppercase;
     white-space: nowrap;
@@ -1477,7 +1465,6 @@
     color: var(--accent-bright);
   }
 
-  /* Active top indicator */
   .mobile-nav-btn.active::before {
     content: "";
     position: absolute;
@@ -1493,7 +1480,6 @@
     transform: scale(0.9);
   }
 
-  /* RUN button special */
   .mobile-nav-btn.mob-run {
     color: var(--accent-bright);
     background: var(--accent-dim);
@@ -1525,8 +1511,8 @@
 }
 
 /* ═══════════════════════════════════════════════════════════════
-     SMALL  ≤ 480px
-     ═══════════════════════════════════════════════════════════════ */
+       SMALL  ≤ 480px
+       ═══════════════════════════════════════════════════════════════ */
 
 @media (max-width: 480px) {
   .room-header-clean {
@@ -1580,8 +1566,8 @@
 }
 
 /* ═══════════════════════════════════════════════════════════════
-     SAFE AREA
-     ═══════════════════════════════════════════════════════════════ */
+       SAFE AREA
+       ═══════════════════════════════════════════════════════════════ */
 
 @supports (padding-bottom: env(safe-area-inset-bottom)) {
   @media (max-width: 768px) {
@@ -1591,10 +1577,9 @@
   }
 }
 
-/* ═══════════════════════════════════════════════════════════
-   ROOM.CSS ADDITIONS — replace the entire additions block
-   at the bottom of your Room.css with this
-   ═══════════════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════════════
+     ROOM.CSS ADDITIONS
+     ═══════════════════════════════════════════════════════════════ */
 
 /* ── 1. GIST MODALS: always centered ── */
 .gist-modal-overlay {
@@ -1630,9 +1615,9 @@
   border-top: none !important;
 }
 
-/* ── 4. MOBILE TOP DRAG HANDLE — pill only, no buttons ── */
+/* ── 4. MOBILE TOP DRAG HANDLE ── */
 .panel-top-drag-handle {
-  display: none; /* hidden on desktop */
+  display: none;
   width: 100%;
   height: 22px;
   flex-shrink: 0;
@@ -1658,7 +1643,7 @@
   background: var(--accent-bright);
 }
 
-/* ── 5. PANEL WRAPPER — header bar for AI / Chat / Tests / History ── */
+/* ── 5. PANEL WRAPPER ── */
 .side-panel {
   display: flex;
   flex-direction: column;
@@ -1678,7 +1663,6 @@
   gap: 8px;
   position: relative;
 }
-/* accent top line matching OutputPanel header */
 .panel-wrapper-header::before {
   content: "";
   position: absolute;
@@ -1703,7 +1687,7 @@
   color: var(--text-primary);
   font-size: 13px;
   font-weight: 650;
-  font-family: "Instrument Sans", sans-serif;
+  font-family: "Geist", sans-serif;
   letter-spacing: -0.01em;
 }
 .panel-wrapper-title svg {
@@ -1724,13 +1708,12 @@
   display: flex;
   flex-direction: column;
 }
-/* Make sure children of panel-wrapper-body fill the space */
 .panel-wrapper-body > * {
   flex: 1;
   min-height: 0;
 }
 
-/* ── 6. control-btn (shared by OutputPanel & PanelWrapper) ── */
+/* ── 6. control-btn ── */
 .control-btn {
   display: flex;
   align-items: center;
@@ -1879,7 +1862,7 @@
 .btn-run-label {
   font-size: 12px;
   font-weight: 600;
-  font-family: "Instrument Sans", sans-serif;
+  font-family: "Geist", sans-serif;
   display: inline;
 }
 
@@ -1941,7 +1924,6 @@
     box-shadow: 0 -8px 40px rgba(0, 0, 0, 0.6) !important;
   }
 
-  /* Maximized: cover full page below header, sit above bottom nav */
   .side-panels.panel-maximized {
     border-radius: 0 !important;
     z-index: 900 !important;
@@ -1958,7 +1940,6 @@
     top: 58px;
   }
 
-  /* Hide run label on mobile, icon-only */
   .btn-run-label {
     display: none !important;
   }

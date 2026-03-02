@@ -10,7 +10,7 @@
   width: 100%;
   background: var(--bg-secondary, #0f1120);
   overflow: hidden;
-  font-family: "Instrument Sans", system-ui, sans-serif;
+  font-family: "Geist", sans-serif;
   position: relative;
 }
 
@@ -254,7 +254,7 @@
   padding: 8px 14px;
   font-size: 11.5px;
   font-weight: 600;
-  font-family: "Instrument Sans", sans-serif;
+  font-family: "Geist", sans-serif;
   flex-shrink: 0;
   border-bottom: 1px solid transparent;
   animation: banner-in 0.2s ease-out both;
@@ -383,7 +383,7 @@
   font-size: 13px;
   font-weight: 600;
   color: var(--text-tertiary, #4e5769);
-  font-family: "Instrument Sans", sans-serif;
+  font-family: "Geist", sans-serif;
   letter-spacing: -0.01em;
 }
 .output-idle-hint {

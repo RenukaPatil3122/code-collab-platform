@@ -29,6 +29,7 @@ import {
   Maximize2,
   Minimize2,
   GripVertical,
+  FlaskConical,
 } from "lucide-react";
 
 import { RoomProvider, useRoom } from "../contexts/RoomContext";
@@ -844,9 +845,16 @@ function RoomContent() {
               />
             )}
 
-            {/* Test Cases — uses its own internal header */}
+            {/* Test Cases */}
             {showTestCases && (
-              <div className="side-panel">
+              <PanelWrapper
+                title="Test Cases"
+                icon={<FlaskConical size={15} />}
+                onClose={closeAllPanels}
+                isPanelMaximized={isPanelMaximized}
+                onToggleMaximize={handleToggleMaximize}
+                isMobile={isMobile}
+              >
                 <TestCases
                   testCases={testCases}
                   onUpdate={updateTestCases}
@@ -854,7 +862,7 @@ function RoomContent() {
                   testResults={testResults}
                   isRunning={isRunningTests}
                 />
-              </div>
+              </PanelWrapper>
             )}
 
             {/* AI Assistant */}
@@ -871,16 +879,22 @@ function RoomContent() {
               </PanelWrapper>
             )}
 
-            {/* Version History — uses its own internal header */}
             {showVersionHistory && (
-              <div className="side-panel">
+              <PanelWrapper
+                title="Version History"
+                icon={<History size={15} />}
+                onClose={closeAllPanels}
+                isPanelMaximized={isPanelMaximized}
+                onToggleMaximize={handleToggleMaximize}
+                isMobile={isMobile}
+              >
                 <VersionHistory
                   roomId={roomId}
                   currentCode={code}
                   onRestore={handleVersionRestore}
                   onClose={closeAllPanels}
                 />
-              </div>
+              </PanelWrapper>
             )}
 
             {/* Chat */}
