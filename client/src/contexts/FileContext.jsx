@@ -62,16 +62,18 @@ export const FileProvider = ({ children, roomId, onLanguageChange }) => {
       toast(`📄 New file: ${file.name}`, { duration: 2000 });
     });
 
+    // ✅ FIX 1: FILE_DELETED — derive `remaining` from the functional updater
+    // so we never read stale `files` from closure
     socket.on(SOCKET_EVENTS.FILE_DELETED, ({ fileName }) => {
       setFiles((prev) => {
         const next = { ...prev };
         delete next[fileName];
+        const remaining = Object.keys(next); // ✅ fresh — from updated state
+        setOpenTabs((t) => t.filter((tab) => tab !== fileName));
+        setActiveFileState((cur) =>
+          cur === fileName ? remaining[0] || null : cur,
+        );
         return next;
-      });
-      setOpenTabs((t) => t.filter((tab) => tab !== fileName));
-      setActiveFileState((cur) => {
-        const remaining = Object.keys(files).filter((f) => f !== fileName);
-        return cur === fileName ? remaining[0] || null : cur;
       });
     });
 
@@ -107,7 +109,10 @@ export const FileProvider = ({ children, roomId, onLanguageChange }) => {
       socket.off(SOCKET_EVENTS.FILE_CONTENT_UPDATE);
       socket.off(SOCKET_EVENTS.FILE_SELECTED);
     };
-  }, [roomId, files]);
+  }, [roomId]); // ✅ FIX 2: removed `files` from deps — all handlers now use
+  // functional updater pattern so they don't need files in scope.
+  // Previously `files` here caused socket listeners to re-register
+  // on every single file change (every keystroke).
 
   // ✅ FIX: Now accepts optional `content` parameter so Open Folder can load real file contents
   const createFile = useCallback(
