@@ -1,7 +1,4 @@
 // src/components/CodeEditor.jsx
-// SHAKE FIX: Use Monaco's model API directly (pushEditOperations) instead of
-// React state updates — eliminates layout recalculation and scroll jitter.
-
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import Editor from "@monaco-editor/react";
 import FileTabs from "./FileTabs/FileTabs";
@@ -12,21 +9,44 @@ export const setIsReplayingFlag = (val) => {
   IS_REPLAYING = val;
 };
 
-function CodeEditor({ language, onChange, theme }) {
+const CODETOGETHER_DARK = {
+  base: "vs-dark",
+  inherit: true,
+  rules: [],
+  colors: {
+    "editor.background": "#090b12",
+    "editor.lineHighlightBackground": "#0f1120",
+    "editorLineNumber.foreground": "#2e3450",
+    "editorLineNumber.activeForeground": "#4e5769",
+    "editorGutter.background": "#090b12",
+    "editorIndentGuide.background1": "#1a1d2e",
+    "editorIndentGuide.activeBackground1": "#2e3450",
+    "editor.selectionBackground": "#6366f130",
+    "editor.wordHighlightBackground": "#6366f118",
+    "editorCursor.foreground": "#818cf8",
+    "scrollbarSlider.background": "#ffffff10",
+    "scrollbarSlider.hoverBackground": "#ffffff18",
+    "scrollbarSlider.activeBackground": "#ffffff22",
+  },
+};
+
+// Register theme before Monaco mounts — avoids the timing error
+const handleBeforeMount = (monaco) => {
+  monaco.editor.defineTheme("codetogether-dark", CODETOGETHER_DARK);
+};
+
+function CodeEditor({ language, onChange }) {
   const editorRef = useRef(null);
   const { activeFileData, updateFileContent, activeFile } = useFiles();
-
   const [replayValue, setReplayValue] = useState(null);
   const isReplayingLocal = useRef(false);
 
   useEffect(() => {
     const handleReplayEvent = (e) => {
       const { type, data } = e.detail;
-
       if (type === "clear-editor") {
         isReplayingLocal.current = true;
         if (editorRef.current) {
-          // Direct model update = no React render = no layout recalc = no shake
           editorRef.current.getModel()?.setValue("");
         } else {
           setReplayValue("");
@@ -37,8 +57,6 @@ function CodeEditor({ language, onChange, theme }) {
         if (editorRef.current) {
           const model = editorRef.current.getModel();
           if (model && model.getValue() !== newCode) {
-            // pushEditOperations is the lowest-level way to update Monaco
-            // It doesn't trigger layout recalculation or scroll position reset
             model.pushEditOperations(
               [],
               [{ range: model.getFullModelRange(), text: newCode }],
@@ -50,7 +68,6 @@ function CodeEditor({ language, onChange, theme }) {
         }
       } else if (type === "replay-stopped") {
         isReplayingLocal.current = false;
-        // Sync Monaco back to FileContext value
         if (editorRef.current && activeFileData) {
           editorRef.current.getModel()?.setValue(activeFileData.content || "");
         }
@@ -62,7 +79,6 @@ function CodeEditor({ language, onChange, theme }) {
     return () => window.removeEventListener("replay-event", handleReplayEvent);
   }, [activeFileData]);
 
-  // Suppress ResizeObserver errors
   useEffect(() => {
     const handler = (e) => {
       if (e.message?.includes("ResizeObserver")) {
@@ -76,7 +92,6 @@ function CodeEditor({ language, onChange, theme }) {
 
   const handleEditorDidMount = (editor) => {
     editorRef.current = editor;
-    // Only call layout on real user edits — NOT during replay
     editor.onDidChangeModelContent(() => {
       if (!isReplayingLocal.current && !IS_REPLAYING) {
         requestAnimationFrame(() => editor.layout());
@@ -107,7 +122,8 @@ function CodeEditor({ language, onChange, theme }) {
             language={activeFileData?.language || language}
             value={editorValue}
             onChange={handleChange}
-            theme={theme}
+            theme="codetogether-dark"
+            beforeMount={handleBeforeMount}
             options={{
               minimap: { enabled: false },
               fontSize: 14,
