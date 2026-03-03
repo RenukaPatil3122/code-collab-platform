@@ -15,8 +15,8 @@ const DARK_THEME = {
   rules: [],
   colors: {
     "editor.background": "#0d0f1a",
-    "editor.lineHighlightBackground": "#13162a",
-    "editor.lineHighlightBorder": "#00000000",
+    "editor.lineHighlightBackground": "#1a1d35",
+    "editor.lineHighlightBorder": "#6366f140",
     "editorLineNumber.foreground": "#3d4663",
     "editorLineNumber.activeForeground": "#8892a4",
     "editorGutter.background": "#0d0f1a",
@@ -39,7 +39,7 @@ const LIGHT_THEME = {
   colors: {
     "editor.background": "#ffffff",
     "editor.lineHighlightBackground": "#dfe1f5",
-    "editor.lineHighlightBorder": "#00000000",
+    "editor.lineHighlightBorder": "#6366f1",
     "editorLineNumber.foreground": "#b0b8cc",
     "editorLineNumber.activeForeground": "#6366f1",
     "editorGutter.background": "#ffffff",
@@ -188,6 +188,7 @@ function CodeEditor({ language, onChange }) {
               wordWrap: "on",
               cursorSmoothCaretAnimation: "off",
               renderLineHighlight: "line",
+              cursorWidth: 3,
             }}
             onMount={handleEditorDidMount}
           />
