@@ -55,6 +55,11 @@ function VersionHistory({
   // Track whether the current pending save was manual (user-triggered)
   const pendingManualSave = useRef(false);
 
+  const saveCountRef = useRef(saveCount);
+  useEffect(() => {
+    saveCountRef.current = saveCount;
+  }, [saveCount]);
+
   useEffect(() => {
     if (!socket || !roomId) return;
 
@@ -95,7 +100,7 @@ function VersionHistory({
 
         // Only count manual saves toward limit, not auto-saves
         if (!isPremium && pendingManualSave.current) {
-          const next = saveCount + 1;
+          const next = saveCountRef.current + 1;
           setSaveCount(next);
           saveCount_(SESSION_KEY, next);
         }
@@ -118,7 +123,7 @@ function VersionHistory({
       socket.off("version-saved", handleVersionSaved);
       socket.off("version-restored", handleVersionRestored);
     };
-  }, [roomId, saveCount, isPremium]);
+  }, [roomId, isPremium]);
 
   const handleSaveVersion = () => {
     // Block at frontend BEFORE emitting — never reaches backend if limit hit
