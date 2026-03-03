@@ -37,7 +37,7 @@ function Chat({ roomId, username, users, onClose }) {
 
   return (
     <div className="chat-sidebar">
-      {/* Users — compact pill row */}
+      {/* ── Users ── */}
       <div className="users-list">
         <h4>Active Users ({users.length})</h4>
         <div className="users">
@@ -55,7 +55,7 @@ function Chat({ roomId, username, users, onClose }) {
         </div>
       </div>
 
-      {/* Messages */}
+      {/* ── Messages ── */}
       <div className="chat-messages">
         {messages.length === 0 ? (
           <div className="empty-chat">
@@ -95,7 +95,7 @@ function Chat({ roomId, username, users, onClose }) {
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input */}
+      {/* ── Input ── */}
       <form className="chat-input-form" onSubmit={handleSendMessage}>
         <input
           type="text"
@@ -104,7 +104,7 @@ function Chat({ roomId, username, users, onClose }) {
           onChange={(e) => setInputMessage(e.target.value)}
           className="chat-input"
         />
-        <button type="submit" className="btn-send">
+        <button type="submit" className="btn-send" title="Send">
           <Send size={15} />
         </button>
       </form>
