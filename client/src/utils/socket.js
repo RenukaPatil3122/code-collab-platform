@@ -14,15 +14,12 @@ export const socket = io(SOCKET_URL, {
   reconnection: true,
   reconnectionAttempts: 5,
   reconnectionDelay: 1000,
-  auth: {
-    token: getToken(),
-  },
+  // ✅ Fix — use auth as a function (socket.io supports this)
+  auth: (cb) => cb({ token: getToken() }),
 });
 
 // Call this after login so socket reconnects with fresh token
 export function reconnectSocketWithToken() {
-  const token = getToken();
-  socket.auth = { token };
   if (socket.connected) {
     socket.disconnect();
     socket.connect();
