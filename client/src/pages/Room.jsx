@@ -756,33 +756,6 @@ function RoomContent() {
                   }
                 >
                   <Upload size={16} /> Save to Gist
-                  {!isPremium && !gistLimitReached && (
-                    <span
-                      style={{
-                        marginLeft: 6,
-                        fontSize: "0.7rem",
-                        color:
-                          gistRemaining === 1
-                            ? "#f59e0b"
-                            : "rgba(255,255,255,0.4)",
-                        fontWeight: 600,
-                      }}
-                    >
-                      {gistRemaining}/3
-                    </span>
-                  )}
-                  {gistLimitReached && (
-                    <span
-                      style={{
-                        marginLeft: 6,
-                        fontSize: "0.7rem",
-                        color: "#f59e0b",
-                        fontWeight: 600,
-                      }}
-                    >
-                      Pro
-                    </span>
-                  )}
                 </button>
                 <button
                   onClick={() => menuAction(() => setShowImportGistModal(true))}
@@ -1047,12 +1020,42 @@ function RoomContent() {
                 <Github size={20} />
                 <h3>Save to GitHub Gist</h3>
               </div>
-              <button
-                className="modal-close-btn"
-                onClick={handleCloseSaveModal}
-              >
-                <X size={20} />
-              </button>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                {!isPremium && (
+                  <span
+                    style={{
+                      fontSize: "0.75rem",
+                      color:
+                        gistRemaining <= 1
+                          ? "#f59e0b"
+                          : "rgba(255,255,255,0.4)",
+                      fontWeight: 600,
+                    }}
+                  >
+                    {gistRemaining}/{FREE_GIST_LIMIT} free saves left
+                  </span>
+                )}
+                {isPremium && (
+                  <span
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 4,
+                      fontSize: "0.72rem",
+                      color: "#fbbf24",
+                      fontWeight: 600,
+                    }}
+                  >
+                    ♛ Unlimited
+                  </span>
+                )}
+                <button
+                  className="modal-close-btn"
+                  onClick={handleCloseSaveModal}
+                >
+                  <X size={20} />
+                </button>
+              </div>
             </div>
             <div className="modal-body">
               {!savedGistUrl ? (
