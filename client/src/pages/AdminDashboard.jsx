@@ -19,22 +19,26 @@ import {
   Activity,
   LogOut,
   AlertTriangle,
+  History,
+  FlaskConical,
+  BarChart2,
+  BookTemplate,
 } from "lucide-react";
 import "./AdminDashboard.css";
 
 const API_BASE = "http://localhost:5000";
 
 const ROLE_CONFIG = {
-  admin: { label: "Admin", color: "role-admin" },
-  premium: { label: "Pro", color: "role-premium" },
-  free: { label: "Free", color: "role-free" },
+  admin: { label: "Admin", cls: "role-admin" },
+  premium: { label: "Pro", cls: "role-premium" },
+  free: { label: "Free", cls: "role-free" },
 };
 
 function StatCard({ icon: Icon, label, value, sub, accent }) {
   return (
     <div className={`stat-card ${accent || ""}`}>
       <div className="stat-icon-wrap">
-        <Icon size={20} />
+        <Icon size={18} />
       </div>
       <div className="stat-body">
         <div className="stat-value">{value}</div>
@@ -78,7 +82,7 @@ export default function AdminDashboard() {
   const [roleFilter, setRoleFilter] = useState("");
   const [loading, setLoading] = useState(false);
   const [statsLoading, setStatsLoading] = useState(false);
-  const [confirm, setConfirm] = useState(null); // { action, userId, message }
+  const [confirm, setConfirm] = useState(null);
   const [toast, setToast] = useState(null);
 
   const authHeaders = {
@@ -91,12 +95,10 @@ export default function AdminDashboard() {
     setTimeout(() => setToast(null), 3000);
   };
 
-  // ── Guard: only admin can access ──
   useEffect(() => {
     if (user && user.role !== "admin") navigate("/");
   }, [user, navigate]);
 
-  // ── Fetch stats ──
   const fetchStats = useCallback(async () => {
     setStatsLoading(true);
     try {
@@ -112,7 +114,6 @@ export default function AdminDashboard() {
     }
   }, [token]);
 
-  // ── Fetch users ──
   const fetchUsers = useCallback(async () => {
     setLoading(true);
     try {
@@ -145,7 +146,6 @@ export default function AdminDashboard() {
     if (tab === "users") fetchUsers();
   }, [fetchUsers, tab]);
 
-  // ── Update role ──
   const updateRole = async (userId, role) => {
     try {
       const res = await fetch(`${API_BASE}/api/admin/users/${userId}`, {
@@ -158,15 +158,12 @@ export default function AdminDashboard() {
         setUsers((prev) => prev.map((u) => (u._id === userId ? data.user : u)));
         showToast(`Role updated to ${role}`);
         fetchStats();
-      } else {
-        showToast(data.error || "Failed to update", "error");
-      }
+      } else showToast(data.error || "Failed to update", "error");
     } catch {
       showToast("Network error", "error");
     }
   };
 
-  // ── Delete user ──
   const deleteUser = async (userId) => {
     try {
       const res = await fetch(`${API_BASE}/api/admin/users/${userId}`, {
@@ -178,9 +175,7 @@ export default function AdminDashboard() {
         setTotal((t) => t - 1);
         showToast("User deleted");
         fetchStats();
-      } else {
-        showToast("Failed to delete", "error");
-      }
+      } else showToast("Failed to delete", "error");
     } catch {
       showToast("Network error", "error");
     }
@@ -198,9 +193,11 @@ export default function AdminDashboard() {
       ? new Date(d).toLocaleDateString("en-IN", {
           day: "2-digit",
           month: "short",
-          year: "numeric",
+          year: "2-digit",
         })
       : "—";
+
+  const isPro = (u) => u.role === "premium" || u.role === "admin";
 
   if (!user || user.role !== "admin") return null;
 
@@ -209,24 +206,24 @@ export default function AdminDashboard() {
       {/* ── Sidebar ── */}
       <aside className="adm-sidebar">
         <div className="adm-logo">
-          <Shield size={22} />
-          <span>Admin</span>
+          <Shield size={20} className="adm-logo-icon" />
+          <span className="adm-logo-text">Admin</span>
         </div>
 
         <nav className="adm-nav">
           <button
-            className={
-              tab === "overview" ? "adm-nav-btn active" : "adm-nav-btn"
-            }
+            className={`adm-nav-btn ${tab === "overview" ? "active" : ""}`}
             onClick={() => setTab("overview")}
           >
-            <BarChart3 size={17} /> Overview
+            <BarChart3 size={16} />
+            <span>Overview</span>
           </button>
           <button
-            className={tab === "users" ? "adm-nav-btn active" : "adm-nav-btn"}
+            className={`adm-nav-btn ${tab === "users" ? "active" : ""}`}
             onClick={() => setTab("users")}
           >
-            <Users size={17} /> Users
+            <Users size={16} />
+            <span>Users</span>
           </button>
         </nav>
 
@@ -237,24 +234,25 @@ export default function AdminDashboard() {
             </div>
             <div>
               <div className="adm-uname">{user.username}</div>
-              <div className="adm-urole">Administrator</div>
+              <div className="adm-urole">admin</div>
             </div>
           </div>
           <button
             className="adm-logout"
+            title="Logout"
             onClick={() => {
               logout();
               navigate("/");
             }}
           >
-            <LogOut size={15} />
+            <LogOut size={14} />
           </button>
         </div>
       </aside>
 
       {/* ── Main ── */}
       <main className="adm-main">
-        {/* ══ OVERVIEW TAB ══ */}
+        {/* ══ OVERVIEW ══ */}
         {tab === "overview" && (
           <div className="adm-section">
             <div className="adm-header">
@@ -264,14 +262,14 @@ export default function AdminDashboard() {
                 onClick={fetchStats}
                 disabled={statsLoading}
               >
-                <RefreshCw size={15} className={statsLoading ? "spin" : ""} />
+                <RefreshCw size={13} className={statsLoading ? "spin" : ""} />{" "}
                 Refresh
               </button>
             </div>
 
             {statsLoading && !stats ? (
               <div className="adm-loading">
-                <RefreshCw size={24} className="spin" />
+                <RefreshCw size={22} className="spin" />
               </div>
             ) : stats ? (
               <>
@@ -286,7 +284,6 @@ export default function AdminDashboard() {
                     icon={UserX}
                     label="Free Users"
                     value={stats.stats.freeUsers}
-                    sub={`${100 - stats.stats.conversionRate}% of total`}
                   />
                   <StatCard
                     icon={Crown}
@@ -305,6 +302,7 @@ export default function AdminDashboard() {
                     icon={Zap}
                     label="AI Calls Today"
                     value={stats.stats.totalAIUsage}
+                    accent="accent-purple"
                   />
                   <StatCard
                     icon={TrendingUp}
@@ -322,11 +320,11 @@ export default function AdminDashboard() {
                           {u.username?.[0]?.toUpperCase()}
                         </div>
                         <div className="recent-info">
-                          <span className="recent-name">{u.username}</span>
-                          <span className="recent-email">{u.email}</span>
+                          <div className="recent-name">{u.username}</div>
+                          <div className="recent-email">{u.email}</div>
                         </div>
                         <span
-                          className={`role-badge ${ROLE_CONFIG[u.role]?.color}`}
+                          className={`role-badge ${ROLE_CONFIG[u.role]?.cls}`}
                         >
                           {ROLE_CONFIG[u.role]?.label}
                         </span>
@@ -344,7 +342,7 @@ export default function AdminDashboard() {
           </div>
         )}
 
-        {/* ══ USERS TAB ══ */}
+        {/* ══ USERS ══ */}
         {tab === "users" && (
           <div className="adm-section">
             <div className="adm-header">
@@ -356,15 +354,14 @@ export default function AdminDashboard() {
                 onClick={fetchUsers}
                 disabled={loading}
               >
-                <RefreshCw size={15} className={loading ? "spin" : ""} />
+                <RefreshCw size={13} className={loading ? "spin" : ""} />{" "}
                 Refresh
               </button>
             </div>
 
-            {/* Filters */}
             <div className="adm-filters">
               <div className="search-wrap">
-                <Search size={15} />
+                <Search size={14} />
                 <input
                   placeholder="Search by name or email…"
                   value={search}
@@ -388,11 +385,10 @@ export default function AdminDashboard() {
               </select>
             </div>
 
-            {/* Table */}
             <div className="adm-table-wrap">
               {loading ? (
                 <div className="adm-loading">
-                  <RefreshCw size={24} className="spin" />
+                  <RefreshCw size={22} className="spin" />
                 </div>
               ) : (
                 <table className="adm-table">
@@ -400,8 +396,66 @@ export default function AdminDashboard() {
                     <tr>
                       <th>User</th>
                       <th>Role</th>
-                      <th>AI Today</th>
-                      <th>Interviews</th>
+                      <th>
+                        <span
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 4,
+                          }}
+                        >
+                          <Zap size={11} />
+                          AI / Day
+                        </span>
+                      </th>
+                      <th>
+                        <span
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 4,
+                          }}
+                        >
+                          <FlaskConical size={11} />
+                          Interviews
+                        </span>
+                      </th>
+                      <th>
+                        <span
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 4,
+                          }}
+                        >
+                          <History size={11} />
+                          Versions
+                        </span>
+                      </th>
+                      <th>
+                        <span
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 4,
+                          }}
+                        >
+                          <BarChart2 size={11} />
+                          Complexity
+                        </span>
+                      </th>
+                      <th>
+                        <span
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 4,
+                          }}
+                        >
+                          <BookTemplate size={11} />
+                          Templates
+                        </span>
+                      </th>
                       <th>Joined</th>
                       <th>Actions</th>
                     </tr>
@@ -409,119 +463,171 @@ export default function AdminDashboard() {
                   <tbody>
                     {users.length === 0 ? (
                       <tr>
-                        <td colSpan={6} className="empty-row">
+                        <td colSpan={9} className="empty-row">
                           No users found
                         </td>
                       </tr>
                     ) : (
-                      users.map((u) => (
-                        <tr
-                          key={u._id}
-                          className={u._id === user.id ? "own-row" : ""}
-                        >
-                          <td>
-                            <div className="user-cell">
-                              <div className="tbl-avatar">
-                                {u.username?.[0]?.toUpperCase()}
-                              </div>
-                              <div>
-                                <div className="tbl-name">
-                                  {u.username}{" "}
-                                  {u._id === user.id && (
-                                    <span className="you-tag">you</span>
-                                  )}
+                      users.map((u) => {
+                        const pro = isPro(u);
+                        return (
+                          <tr
+                            key={u._id}
+                            className={u._id === user.id ? "own-row" : ""}
+                          >
+                            {/* User */}
+                            <td>
+                              <div className="user-cell">
+                                <div className="tbl-avatar">
+                                  {u.username?.[0]?.toUpperCase()}
                                 </div>
-                                <div className="tbl-email">{u.email}</div>
+                                <div>
+                                  <div className="tbl-name">
+                                    {u.username}
+                                    {u._id === user.id && (
+                                      <span className="you-tag">you</span>
+                                    )}
+                                  </div>
+                                  <div className="tbl-email">{u.email}</div>
+                                </div>
                               </div>
-                            </div>
-                          </td>
-                          <td>
-                            <span
-                              className={`role-badge ${ROLE_CONFIG[u.role]?.color}`}
-                            >
-                              {ROLE_CONFIG[u.role]?.label}
-                            </span>
-                          </td>
-                          <td>
-                            <span className="usage-num">
-                              {u.aiUsage?.count ?? 0}
-                            </span>
-                          </td>
-                          <td>
-                            <span className="usage-num">
-                              {u.interviewUsage?.count ?? 0}
-                            </span>
-                          </td>
-                          <td className="date-cell">
-                            {formatDate(u.createdAt)}
-                          </td>
-                          <td>
-                            <div className="action-row">
-                              {u.role !== "premium" && (
-                                <button
-                                  className="act-btn upgrade"
-                                  title="Upgrade to Pro"
-                                  onClick={() =>
-                                    setConfirm({
-                                      action: "role",
-                                      userId: u._id,
-                                      role: "premium",
-                                      message: `Upgrade "${u.username}" to Pro?`,
-                                    })
-                                  }
-                                >
-                                  <Crown size={14} />
-                                </button>
+                            </td>
+
+                            {/* Role */}
+                            <td>
+                              <span
+                                className={`role-badge ${ROLE_CONFIG[u.role]?.cls}`}
+                              >
+                                {ROLE_CONFIG[u.role]?.label}
+                              </span>
+                            </td>
+
+                            {/* AI / Day  — free: 5/day, pro: ∞ */}
+                            <td>
+                              {pro ? (
+                                <span className="feat-pill inf">∞</span>
+                              ) : (
+                                <span className="usage-num">
+                                  {u.aiUsage?.count ?? 0} / 5
+                                </span>
                               )}
-                              {u.role !== "free" && u._id !== user.id && (
-                                <button
-                                  className="act-btn downgrade"
-                                  title="Downgrade to Free"
-                                  onClick={() =>
-                                    setConfirm({
-                                      action: "role",
-                                      userId: u._id,
-                                      role: "free",
-                                      message: `Downgrade "${u.username}" to Free?`,
-                                    })
-                                  }
-                                >
-                                  <UserX size={14} />
-                                </button>
+                            </td>
+
+                            {/* Interviews — free: 2/day (easy only), pro: ∞ all difficulties */}
+                            <td>
+                              {pro ? (
+                                <span className="feat-pill inf">∞</span>
+                              ) : (
+                                <span className="usage-num">
+                                  {u.interviewUsage?.count ?? 0} / 2
+                                </span>
                               )}
-                              {u._id !== user.id && (
-                                <button
-                                  className="act-btn delete"
-                                  title="Delete user"
-                                  onClick={() =>
-                                    setConfirm({
-                                      action: "delete",
-                                      userId: u._id,
-                                      message: `Permanently delete "${u.username}"? This cannot be undone.`,
-                                    })
-                                  }
-                                >
-                                  <Trash2 size={14} />
-                                </button>
+                            </td>
+
+                            {/* Versions — free: 3 saves per room, pro: ∞ */}
+                            <td>
+                              {pro ? (
+                                <span className="feat-pill inf">∞</span>
+                              ) : (
+                                <span className="usage-num">
+                                  {u.versionCount ?? 0} / 3
+                                </span>
                               )}
-                            </div>
-                          </td>
-                        </tr>
-                      ))
+                            </td>
+
+                            {/* Complexity — free: basic only, pro: full analysis */}
+                            <td>
+                              {pro ? (
+                                <span className="feat-pill on">✓ Full</span>
+                              ) : (
+                                <span className="feat-pill off">Basic</span>
+                              )}
+                            </td>
+
+                            {/* Templates — free: Basic + DSA, pro: all */}
+                            <td>
+                              {pro ? (
+                                <span className="feat-pill on">All</span>
+                              ) : (
+                                <span className="feat-pill off">
+                                  Basic + DSA
+                                </span>
+                              )}
+                            </td>
+
+                            {/* Joined */}
+                            <td className="date-cell">
+                              {formatDate(u.createdAt)}
+                            </td>
+
+                            {/* Actions */}
+                            <td>
+                              <div className="action-row">
+                                {u.role !== "premium" && (
+                                  <button
+                                    className="act-btn upgrade"
+                                    title="Upgrade to Pro"
+                                    onClick={() =>
+                                      setConfirm({
+                                        action: "role",
+                                        userId: u._id,
+                                        role: "premium",
+                                        message: `Upgrade "${u.username}" to Pro?`,
+                                      })
+                                    }
+                                  >
+                                    <Crown size={13} />
+                                  </button>
+                                )}
+                                {u.role !== "free" && u._id !== user.id && (
+                                  <button
+                                    className="act-btn downgrade"
+                                    title="Downgrade to Free"
+                                    onClick={() =>
+                                      setConfirm({
+                                        action: "role",
+                                        userId: u._id,
+                                        role: "free",
+                                        message: `Downgrade "${u.username}" to Free?`,
+                                      })
+                                    }
+                                  >
+                                    <UserX size={13} />
+                                  </button>
+                                )}
+                                {u._id !== user.id && (
+                                  <button
+                                    className="act-btn delete"
+                                    title="Delete user"
+                                    onClick={() =>
+                                      setConfirm({
+                                        action: "delete",
+                                        userId: u._id,
+                                        message: `Permanently delete "${u.username}"? This cannot be undone.`,
+                                      })
+                                    }
+                                  >
+                                    <Trash2 size={13} />
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
                     )}
                   </tbody>
                 </table>
               )}
             </div>
 
-            {/* Pagination */}
             {totalPages > 1 && (
               <div className="adm-pagination">
                 <button
                   disabled={page <= 1}
                   onClick={() => setPage((p) => p - 1)}
                 >
-                  <ChevronLeft size={16} />
+                  <ChevronLeft size={14} />
                 </button>
                 <span>
                   Page {page} of {totalPages}
@@ -530,7 +636,7 @@ export default function AdminDashboard() {
                   disabled={page >= totalPages}
                   onClick={() => setPage((p) => p + 1)}
                 >
-                  <ChevronRight size={16} />
+                  <ChevronRight size={14} />
                 </button>
               </div>
             )}
@@ -538,7 +644,6 @@ export default function AdminDashboard() {
         )}
       </main>
 
-      {/* ── Confirm Modal ── */}
       {confirm && (
         <ConfirmModal
           message={confirm.message}
@@ -546,8 +651,6 @@ export default function AdminDashboard() {
           onCancel={() => setConfirm(null)}
         />
       )}
-
-      {/* ── Toast ── */}
       {toast && <div className={`adm-toast ${toast.type}`}>{toast.msg}</div>}
     </div>
   );
