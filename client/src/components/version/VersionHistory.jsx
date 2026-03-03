@@ -1,14 +1,39 @@
 // src/components/version/VersionHistory.jsx
-// ✅ FIXED: Shows UpgradePrompt when version save limit is hit (RBAC)
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { socket } from "../../utils/socket";
-import { Save, RotateCcw, FileText, Loader, X } from "lucide-react";
+import { Save, RotateCcw, FileText, Loader, X, Crown } from "lucide-react";
 import toast from "react-hot-toast";
+import { useAuth } from "../../contexts/AuthContext";
 import UpgradePrompt from "../UpgradePrompt";
 import "./VersionHistory.css";
 
+const FREE_VERSION_LIMIT = 3;
+
+// Per-room key so each room gets its own 3 free saves
+function getSessionKey(roomId) {
+  return `ct_version_saves_${roomId}`;
+}
+
+function getCount(key) {
+  try {
+    return parseInt(sessionStorage.getItem(key) || "0", 10);
+  } catch {
+    return 0;
+  }
+}
+
+function saveCount_(key, n) {
+  try {
+    sessionStorage.setItem(key, String(n));
+  } catch {}
+}
+
 function VersionHistory({ roomId, currentCode, onRestore, onClose }) {
+  const { isPremium } = useAuth();
+
+  const SESSION_KEY = getSessionKey(roomId);
+
   const [versions, setVersions] = useState([]);
   const [saveMessage, setSaveMessage] = useState("");
   const [loading, setLoading] = useState(true);
@@ -16,44 +41,66 @@ function VersionHistory({ roomId, currentCode, onRestore, onClose }) {
   const [selectedVersion, setSelectedVersion] = useState(null);
   const [showUpgradePrompt, setShowUpgradePrompt] = useState(false);
 
+  // saveCount = manual saves done this session (NOT counting auto-saves)
+  const [saveCount, setSaveCount] = useState(() =>
+    isPremium ? 0 : getCount(SESSION_KEY),
+  );
+  const remaining = Math.max(FREE_VERSION_LIMIT - saveCount, 0);
+  const limitReached = !isPremium && saveCount >= FREE_VERSION_LIMIT;
+
+  // Track whether the current pending save was manual (user-triggered)
+  const pendingManualSave = useRef(false);
+
   useEffect(() => {
     if (!socket || !roomId) return;
 
     socket.emit("get-versions", { roomId });
-
     const pollInterval = setInterval(() => {
       socket.emit("get-versions", { roomId });
     }, 30000);
 
-    const handleVersionsList = ({ versions: receivedVersions }) => {
-      const validVersions = (receivedVersions || []).filter(
+    const handleVersionsList = ({ versions: recv }) => {
+      const valid = (recv || []).filter(
         (v) => v && v.id && v.code !== undefined && v.timestamp,
       );
-      setVersions(validVersions);
+      setVersions(valid);
       setLoading(false);
     };
 
     const handleVersionSaved = ({ version, error, message }) => {
       setSaving(false);
 
+      // Only show upgrade prompt for MANUAL saves, never for auto-saves
       if (error === "LIMIT_REACHED" || error === "LOGIN_REQUIRED") {
-        setShowUpgradePrompt(true);
+        if (pendingManualSave.current) {
+          setShowUpgradePrompt(true);
+        }
+        pendingManualSave.current = false;
         return;
       }
 
       if (error) {
         toast.error(`Failed to save: ${message || error}`);
+        pendingManualSave.current = false;
         return;
       }
 
       if (version) {
         setVersions((prev) => [version, ...prev]);
         setSaveMessage("");
+
+        // Only count manual saves toward limit, not auto-saves
+        if (!isPremium && pendingManualSave.current) {
+          const next = saveCount + 1;
+          setSaveCount(next);
+          saveCount_(SESSION_KEY, next);
+        }
+        pendingManualSave.current = false;
         toast.success("Version saved!");
       }
     };
 
-    const handleVersionRestored = ({ version }) => {
+    const handleVersionRestored = () => {
       toast.success("Version restored!");
     };
 
@@ -67,13 +114,19 @@ function VersionHistory({ roomId, currentCode, onRestore, onClose }) {
       socket.off("version-saved", handleVersionSaved);
       socket.off("version-restored", handleVersionRestored);
     };
-  }, [roomId]);
+  }, [roomId, saveCount, isPremium]);
 
   const handleSaveVersion = () => {
+    // Block at frontend BEFORE emitting — never reaches backend if limit hit
+    if (limitReached) {
+      setShowUpgradePrompt(true);
+      return;
+    }
     if (!currentCode || currentCode.trim() === "") {
       toast.error("Cannot save empty code!");
       return;
     }
+    pendingManualSave.current = true;
     setSaving(true);
     socket.emit("save-version", {
       roomId,
@@ -94,12 +147,12 @@ function VersionHistory({ roomId, currentCode, onRestore, onClose }) {
     }
   };
 
-  const formatTimestamp = (timestamp) => {
-    if (!timestamp) return "Unknown";
+  const formatTimestamp = (ts) => {
+    if (!ts) return "Unknown";
     try {
-      const date = new Date(timestamp);
-      if (isNaN(date.getTime())) return "Invalid date";
-      return date.toLocaleString("en-US", {
+      const d = new Date(ts);
+      if (isNaN(d.getTime())) return "Invalid";
+      return d.toLocaleString("en-US", {
         month: "short",
         day: "numeric",
         hour: "2-digit",
@@ -122,12 +175,50 @@ function VersionHistory({ roomId, currentCode, onRestore, onClose }) {
   return (
     <div className="version-history-overlay">
       <div className="version-history-panel">
-        {/* ── Header removed: now provided by PanelWrapper in Room.jsx ── */}
-
         <div className="version-history-content">
-          {/* Save Section */}
+          {/* ── Save Section ── */}
           <div className="save-version-section">
-            <h3>Save Current Version</h3>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                marginBottom: 10,
+              }}
+            >
+              <h3 style={{ margin: 0 }}>SAVE CURRENT VERSION</h3>
+              {!isPremium && (
+                <span
+                  style={{
+                    fontSize: "0.72rem",
+                    fontWeight: 700,
+                    color:
+                      remaining <= 1 ? "#f59e0b" : "rgba(255,255,255,0.35)",
+                    fontFamily: "Geist Mono, monospace",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 4,
+                  }}
+                >
+                  {remaining}/{FREE_VERSION_LIMIT} free saves
+                </span>
+              )}
+              {isPremium && (
+                <span
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 4,
+                    fontSize: "0.72rem",
+                    color: "#fbbf24",
+                    fontWeight: 700,
+                  }}
+                >
+                  <Crown size={11} /> Unlimited
+                </span>
+              )}
+            </div>
+
             <div className="save-version-form">
               <input
                 type="text"
@@ -136,28 +227,52 @@ function VersionHistory({ roomId, currentCode, onRestore, onClose }) {
                 onChange={(e) => setSaveMessage(e.target.value)}
                 className="version-message-input"
                 onKeyDown={(e) => e.key === "Enter" && handleSaveVersion()}
+                disabled={limitReached}
+                style={
+                  limitReached ? { opacity: 0.4, cursor: "not-allowed" } : {}
+                }
               />
-              <button
-                className="btn-save-version"
-                onClick={handleSaveVersion}
-                disabled={saving}
-              >
-                {saving ? (
-                  <>
-                    <Loader size={13} className="spin" /> Saving...
-                  </>
-                ) : (
-                  <>
-                    <Save size={13} /> Save Version
-                  </>
-                )}
-              </button>
+              {limitReached ? (
+                <button
+                  className="btn-save-version btn-save-locked"
+                  onClick={() => setShowUpgradePrompt(true)}
+                >
+                  <Crown size={13} /> Upgrade for unlimited saves
+                </button>
+              ) : (
+                <button
+                  className="btn-save-version"
+                  onClick={handleSaveVersion}
+                  disabled={saving}
+                >
+                  {saving ? (
+                    <>
+                      <Loader size={13} className="spin" /> Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Save size={13} /> Save Version
+                      {!isPremium && remaining === 1 && (
+                        <span
+                          style={{
+                            fontSize: "0.68rem",
+                            opacity: 0.7,
+                            marginLeft: 4,
+                          }}
+                        >
+                          (last free)
+                        </span>
+                      )}
+                    </>
+                  )}
+                </button>
+              )}
             </div>
           </div>
 
-          {/* Versions List */}
+          {/* ── Versions List ── */}
           <div className="versions-list-section">
-            <h3>Saved Versions ({versions.length})</h3>
+            <h3>SAVED VERSIONS ({versions.length})</h3>
 
             {loading ? (
               <div className="version-loading">
@@ -199,15 +314,13 @@ function VersionHistory({ roomId, currentCode, onRestore, onClose }) {
                         className="btn-view-version"
                         onClick={() => setSelectedVersion(version)}
                       >
-                        <FileText size={12} />
-                        View Code
+                        <FileText size={12} /> View Code
                       </button>
                       <button
                         className="btn-restore-version"
                         onClick={() => handleRestoreVersion(version)}
                       >
-                        <RotateCcw size={12} />
-                        Restore
+                        <RotateCcw size={12} /> Restore
                       </button>
                     </div>
                   </div>
@@ -244,8 +357,7 @@ function VersionHistory({ roomId, currentCode, onRestore, onClose }) {
                     setSelectedVersion(null);
                   }}
                 >
-                  <RotateCcw size={13} />
-                  Restore This Version
+                  <RotateCcw size={13} /> Restore This Version
                 </button>
               </div>
             </div>

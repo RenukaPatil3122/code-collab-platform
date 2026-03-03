@@ -446,7 +446,7 @@ io.on("connection", (socket) => {
   // ─── Version History (with RBAC) ─────────────────────────
   socket.on("save-version", async ({ roomId, code, message }) => {
     // Check version limit
-    const check = await checkVersionLimit(socket.userId);
+    const check = await checkVersionLimit(socket.userId, roomId);
     if (!check.allowed) {
       return socket.emit("version-saved", {
         error: check.error,

@@ -1,6 +1,7 @@
 // server/middleware/rbac.js
 
 const User = require("../models/User");
+const Version = require("../models/Version");
 
 // ─── Check AI usage limit ─────────────────────────────────
 // Use on AI routes — free users get 5/day
@@ -108,9 +109,11 @@ async function checkInterviewLimit(userId, difficulty) {
 }
 
 // ─── Check Version History limit ─────────────────────────
-// Free users can only save 3 manual versions total
-async function checkVersionLimit(userId) {
+// Free users get 3 manual saves PER ROOM
+// Counts actual DB records instead of trusting stored counter
+async function checkVersionLimit(userId, roomId) {
   try {
+    // Guest — not logged in
     if (!userId) {
       return {
         allowed: false,
@@ -124,25 +127,26 @@ async function checkVersionLimit(userId) {
 
     const limits = user.getLimits();
 
-    // Premium — unlimited
+    // Premium/admin — unlimited
     if (limits.maxVersions === Infinity) {
       return { allowed: true, user };
     }
 
-    // Free — check count
-    if (user.versionCount >= limits.maxVersions) {
+    // Count actual manual saves for this room in DB
+    const manualSaveCount = await Version.countDocuments({
+      roomId,
+      auto: false,
+    });
+
+    if (manualSaveCount >= limits.maxVersions) {
       return {
         allowed: false,
         error: "LIMIT_REACHED",
-        message: `Free plan allows ${limits.maxVersions} saved versions. Upgrade to Pro for unlimited.`,
-        used: user.versionCount,
+        message: `Free plan allows ${limits.maxVersions} saved versions per room. Upgrade to Pro for unlimited.`,
+        used: manualSaveCount,
         limit: limits.maxVersions,
       };
     }
-
-    // Increment
-    user.versionCount += 1;
-    await user.save();
 
     return { allowed: true, user };
   } catch (err) {
