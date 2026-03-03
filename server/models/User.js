@@ -47,6 +47,12 @@ const userSchema = new mongoose.Schema(
       resetDate: { type: Date, default: () => new Date() },
     },
 
+    // ─── Gist Usage (resets daily) ───────────────────────────
+    gistUsage: {
+      count: { type: Number, default: 0 },
+      resetDate: { type: Date, default: () => new Date() },
+    },
+
     // ─── Version History (total manual saves, not auto) ───
     versionCount: {
       type: Number,
@@ -82,6 +88,7 @@ userSchema.methods.comparePassword = async function (candidatePassword) {
 // ─── Reset daily usage if it's a new day ──────────────────
 userSchema.methods.resetDailyUsageIfNeeded = function () {
   const now = new Date();
+
   const isNewDay = (resetDate) => {
     return (
       now.getDate() !== resetDate.getDate() ||
@@ -98,6 +105,12 @@ userSchema.methods.resetDailyUsageIfNeeded = function () {
   if (isNewDay(this.interviewUsage.resetDate)) {
     this.interviewUsage.count = 0;
     this.interviewUsage.resetDate = now;
+  }
+
+  // ✅ ADD THIS
+  if (this.gistUsage && isNewDay(this.gistUsage.resetDate)) {
+    this.gistUsage.count = 0;
+    this.gistUsage.resetDate = now;
   }
 };
 
@@ -132,7 +145,6 @@ userSchema.methods.toSafeObject = function () {
     interviewUsage: this.interviewUsage,
     versionCount: this.versionCount,
     limits,
-    premiumSince: this.premiumSince,
     premiumSince: this.premiumSince,
     createdAt: this.createdAt,
   };

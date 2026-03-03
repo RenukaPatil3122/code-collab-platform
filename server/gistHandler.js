@@ -1,6 +1,8 @@
 // server/gistHandler.js - FIXED VERSION WITH PERSONAL ACCESS TOKEN
 
 const axios = require("axios");
+const User = require("./models/User"); // ✅ add this
+const FREE_GIST_LIMIT = 3; // ✅ add this
 
 function setupGistRoutes(app) {
   // ─────────────────────────────────────────────────────────────────
@@ -15,6 +17,26 @@ function setupGistRoutes(app) {
       authenticated: hasToken,
       method: "personal_token",
     });
+  });
+
+  // ─────────────────────────────────────────────────────────────────
+  // 1.5 GET GIST USAGE (daily count)
+  // ─────────────────────────────────────────────────────────────────
+  app.get("/api/gist/usage", async (req, res) => {
+    try {
+      const userId = req.userId || req.user?._id;
+      if (!userId) return res.json({ count: 0 });
+
+      const user = await User.findById(userId);
+      if (!user) return res.json({ count: 0 });
+
+      user.resetDailyUsageIfNeeded?.();
+
+      res.json({ count: user.gistUsage?.count ?? 0 });
+    } catch (err) {
+      console.error("Usage fetch error:", err.message);
+      res.json({ count: 0 }); // fail safe
+    }
   });
 
   // ─────────────────────────────────────────────────────────────────
@@ -81,6 +103,25 @@ function setupGistRoutes(app) {
         "files",
       );
 
+      // ✅ Fetch user
+      const userId = req.userId || req.user?._id;
+      const user = userId ? await User.findById(userId) : null;
+
+      // ✅ Enforce free limit
+      if (user && user.role === "free") {
+        user.resetDailyUsageIfNeeded?.();
+        const count = user.gistUsage?.count ?? 0;
+
+        if (count >= FREE_GIST_LIMIT) {
+          return res.status(429).json({
+            success: false,
+            error: "LIMIT_REACHED",
+            message:
+              "You've used all 3 free Gist saves today. Upgrade to Pro for unlimited.",
+          });
+        }
+      }
+
       // Create Gist via GitHub API
       const gistResponse = await axios.post(
         "https://api.github.com/gists",
@@ -100,11 +141,21 @@ function setupGistRoutes(app) {
 
       console.log("✅ Gist created:", gistResponse.data.html_url);
 
+      // ✅ Increment usage for free users
+      if (user && user.role === "free") {
+        if (!user.gistUsage)
+          user.gistUsage = { count: 0, lastReset: new Date() };
+
+        user.gistUsage.count += 1;
+        await user.save();
+      }
+
       res.json({
         success: true,
         gistUrl: gistResponse.data.html_url,
         gistId: gistResponse.data.id,
         filesCount: Object.keys(files).length,
+        saveCount: user?.gistUsage?.count ?? 0, // ✅ important
       });
     } catch (error) {
       console.error("❌ Save to Gist error:", {

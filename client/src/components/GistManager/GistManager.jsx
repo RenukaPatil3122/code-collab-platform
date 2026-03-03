@@ -1,6 +1,9 @@
 // src/components/GistManager/GistManager.jsx
+// ✅ API_BASE from env variable — no hardcoded localhost
+// ✅ Save count tracked server-side — can't be bypassed by refresh
+// ✅ All other logic unchanged
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Github,
   Upload,
@@ -17,7 +20,8 @@ import PricingModal from "../PricingModal";
 import toast from "react-hot-toast";
 import "./GistManager.css";
 
-const API_BASE = "http://localhost:5000";
+// ✅ Env variable — works in dev AND production
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000";
 const FREE_GIST_LIMIT = 3;
 
 function getTheme() {
@@ -40,14 +44,32 @@ function GistManager() {
   const [isSaving, setIsSaving] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [savedGistUrl, setSavedGistUrl] = useState("");
-  const [localSaveCount, setLocalSaveCount] = useState(0);
+
+  // ✅ Server-side save count — fetched on mount, can't be bypassed by refresh
+  const [saveCount, setSaveCount] = useState(0);
+  const [saveCountLoading, setSaveCountLoading] = useState(true);
 
   const theme = getTheme();
 
-  // How many saves used (local session tracking)
-  const saveCount = localSaveCount;
   const remaining = Math.max(FREE_GIST_LIMIT - saveCount, 0);
   const isLimitReached = !isPremium && saveCount >= FREE_GIST_LIMIT;
+
+  // ✅ Fetch real save count from server on mount
+  useEffect(() => {
+    if (isPremium || !user) {
+      setSaveCountLoading(false);
+      return;
+    }
+    fetch(`${API_BASE}/api/gist/usage`, { credentials: "include" })
+      .then((r) => r.json())
+      .then((data) => {
+        if (typeof data.count === "number") setSaveCount(data.count);
+      })
+      .catch(() => {
+        // Silently fail — UI defaults to 0 used which is safe
+      })
+      .finally(() => setSaveCountLoading(false));
+  }, [user, isPremium]);
 
   const handleOpenSaveModal = () => {
     if (isLimitReached) {
@@ -92,13 +114,22 @@ function GistManager() {
 
       if (!response.ok) {
         const errorData = await response.json();
+        // ✅ Handle server-side limit rejection gracefully
+        if (response.status === 429) {
+          setShowSaveModal(false);
+          setShowPricing(true);
+          return;
+        }
         throw new Error(errorData.error || "Failed to save Gist");
       }
 
       const data = await response.json();
       if (data.success) {
         setSavedGistUrl(data.gistUrl);
-        if (!isPremium) setLocalSaveCount((c) => c + 1);
+        // ✅ Sync count from server response — always accurate
+        if (!isPremium && typeof data.saveCount === "number") {
+          setSaveCount(data.saveCount);
+        }
         toast.success(`Saved ${data.filesCount} files to GitHub Gist! 🎉`);
       } else {
         throw new Error(data.error || "Failed to save Gist");
@@ -162,7 +193,7 @@ function GistManager() {
   return (
     <div className="gist-manager">
       <div className="gist-actions">
-        {/* Save button — shows limit badge for free users */}
+        {/* Save button */}
         <button
           className={`gist-btn gist-btn-save ${isLimitReached ? "gist-btn-locked" : ""}`}
           onClick={handleOpenSaveModal}
@@ -174,7 +205,7 @@ function GistManager() {
         >
           {isLimitReached ? <Lock size={16} /> : <Upload size={16} />}
           <span>Save to Gist</span>
-          {!isPremium && !isLimitReached && (
+          {!isPremium && !isLimitReached && !saveCountLoading && (
             <span
               style={{
                 marginLeft: 4,
@@ -282,6 +313,9 @@ function GistManager() {
                       placeholder="e.g., My awesome project"
                       value={gistDescription}
                       onChange={(e) => setGistDescription(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") handleSaveToGist();
+                      }}
                     />
                   </div>
 
@@ -389,7 +423,7 @@ function GistManager() {
                   placeholder="https://gist.github.com/username/gist-id"
                   value={gistUrl}
                   onChange={(e) => setGistUrl(e.target.value)}
-                  onKeyPress={(e) => {
+                  onKeyDown={(e) => {
                     if (e.key === "Enter" && gistUrl.trim())
                       handleImportFromGist();
                   }}
