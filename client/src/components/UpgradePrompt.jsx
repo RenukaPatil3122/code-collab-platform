@@ -85,6 +85,7 @@ function UpgradePrompt({ reason, onClose, onUpgrade }) {
   if (showPricing) {
     return (
       <PricingModal
+        reason={reason}
         onClose={() => {
           setShowPricing(false);
           onClose();

@@ -1,16 +1,7 @@
 // src/components/PricingModal.jsx
 
 import React, { useState } from "react";
-import {
-  X,
-  Check,
-  Crown,
-  Zap,
-  Shield,
-  GitBranch,
-  Cpu,
-  Sparkles,
-} from "lucide-react";
+import { X, Check, Crown, Sparkles } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import "./PricingModal.css";
 
@@ -20,7 +11,7 @@ const FEATURES_FREE = [
   "Code execution",
   "AI Assistant — 5 uses/day",
   "Interview Mode — Easy only, 2/day",
-  "Version History — 3 saves",
+  "Version History — 3 saves/room",
   "Chat & Whiteboard",
 ];
 
@@ -33,15 +24,27 @@ const FEATURES_PRO = [
   "Early access to new features",
 ];
 
-function PricingModal({ onClose }) {
+// Dynamic header title based on what triggered the modal
+const MODAL_TITLES = {
+  ai_limit: "Unlock Unlimited AI",
+  interview_limit: "Unlock Unlimited Interviews",
+  difficulty_limit: "Unlock All Difficulties",
+  version_limit: "Unlock Unlimited Versions",
+  complexity_limit: "Unlock Unlimited Complexity",
+  default: "Upgrade to Pro",
+};
+
+function PricingModal({ onClose, reason }) {
   const [plan, setPlan] = useState("monthly");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const { token, login, isLoggedIn, updateUser } = useAuth();
+  const { token, isLoggedIn, updateUser } = useAuth();
 
   const price = plan === "monthly" ? "₹99" : "₹799";
   const perMonth = plan === "monthly" ? "₹99/mo" : "₹67/mo";
   const saving = plan === "yearly" ? "Save 33%" : null;
+
+  const modalTitle = MODAL_TITLES[reason] || MODAL_TITLES.default;
 
   async function handleUpgrade() {
     if (!isLoggedIn) {
@@ -56,7 +59,6 @@ function PricingModal({ onClose }) {
       const API_URL =
         process.env.REACT_APP_SOCKET_URL || "http://localhost:5000";
 
-      // 1. Create order on backend
       const orderRes = await fetch(`${API_URL}/api/payment/create-order`, {
         method: "POST",
         headers: {
@@ -70,7 +72,6 @@ function PricingModal({ onClose }) {
       if (!orderRes.ok)
         throw new Error(orderData.error || "Failed to create order");
 
-      // 2. Open Razorpay checkout
       const options = {
         key: process.env.REACT_APP_RAZORPAY_KEY_ID,
         amount: orderData.amount,
@@ -84,7 +85,6 @@ function PricingModal({ onClose }) {
 
         handler: async function (response) {
           try {
-            // 3. Verify payment on backend
             const verifyRes = await fetch(`${API_URL}/api/payment/verify`, {
               method: "POST",
               headers: {
@@ -102,7 +102,6 @@ function PricingModal({ onClose }) {
             const verifyData = await verifyRes.json();
             if (!verifyRes.ok) throw new Error(verifyData.error);
 
-            // 4. Update user in context
             if (updateUser) updateUser(verifyData.user);
             onClose();
             alert("🎉 Welcome to CodeTogether Pro!");
@@ -142,92 +141,95 @@ function PricingModal({ onClose }) {
             <div className="pricing-icon">
               <Crown size={18} />
             </div>
-            <span>Upgrade to Pro</span>
+            <span>{modalTitle}</span>
           </div>
           <button className="pricing-close" onClick={onClose}>
             <X size={18} />
           </button>
         </div>
 
-        {/* Toggle */}
-        <div className="pricing-toggle-wrap">
-          <div className="pricing-toggle">
-            <button
-              className={`toggle-btn ${plan === "monthly" ? "active" : ""}`}
-              onClick={() => setPlan("monthly")}
-            >
-              Monthly
-            </button>
-            <button
-              className={`toggle-btn ${plan === "yearly" ? "active" : ""}`}
-              onClick={() => setPlan("yearly")}
-            >
-              Yearly
-              {saving && <span className="toggle-save">{saving}</span>}
-            </button>
-          </div>
-        </div>
-
-        {/* Plans */}
-        <div className="pricing-plans">
-          {/* Free */}
-          <div className="plan-card">
-            <div className="plan-name">Free</div>
-            <div className="plan-price">
-              ₹0<span>/forever</span>
+        {/* Scrollable body */}
+        <div className="pricing-body">
+          {/* Toggle */}
+          <div className="pricing-toggle-wrap">
+            <div className="pricing-toggle">
+              <button
+                className={`toggle-btn ${plan === "monthly" ? "active" : ""}`}
+                onClick={() => setPlan("monthly")}
+              >
+                Monthly
+              </button>
+              <button
+                className={`toggle-btn ${plan === "yearly" ? "active" : ""}`}
+                onClick={() => setPlan("yearly")}
+              >
+                Yearly
+                {saving && <span className="toggle-save">{saving}</span>}
+              </button>
             </div>
-            <ul className="plan-features">
-              {FEATURES_FREE.map((f, i) => (
-                <li key={i}>
-                  <Check size={14} />
-                  <span>{f}</span>
-                </li>
-              ))}
-            </ul>
-            <div className="plan-current">Current plan</div>
           </div>
 
-          {/* Pro */}
-          <div className="plan-card pro">
-            <div className="plan-badge">
-              <Sparkles size={11} /> Most Popular
-            </div>
-            <div className="plan-name">Pro</div>
-            <div className="plan-price">
-              {price}
-              <span>/{plan === "monthly" ? "month" : "year"}</span>
-            </div>
-            {plan === "yearly" && (
-              <div className="plan-per-month">
-                Just {perMonth} billed yearly
+          {/* Plans */}
+          <div className="pricing-plans">
+            {/* Free */}
+            <div className="plan-card">
+              <div className="plan-name">Free</div>
+              <div className="plan-price">
+                ₹0<span>/forever</span>
               </div>
-            )}
-            <ul className="plan-features">
-              {FEATURES_PRO.map((f, i) => (
-                <li key={i}>
-                  <Check size={14} />
-                  <span>{f}</span>
-                </li>
-              ))}
-            </ul>
+              <ul className="plan-features">
+                {FEATURES_FREE.map((f, i) => (
+                  <li key={i}>
+                    <Check size={14} />
+                    <span>{f}</span>
+                  </li>
+                ))}
+              </ul>
+              <div className="plan-current">Current plan</div>
+            </div>
 
-            {error && <div className="pricing-error">{error}</div>}
-
-            <button
-              className="plan-upgrade-btn"
-              onClick={handleUpgrade}
-              disabled={loading}
-            >
-              {loading ? (
-                <span className="pricing-spinner" />
-              ) : (
-                `Upgrade for ${price}`
+            {/* Pro */}
+            <div className="plan-card pro">
+              <div className="plan-badge">
+                <Sparkles size={11} /> Most Popular
+              </div>
+              <div className="plan-name">Pro</div>
+              <div className="plan-price">
+                {price}
+                <span>/{plan === "monthly" ? "month" : "year"}</span>
+              </div>
+              {plan === "yearly" && (
+                <div className="plan-per-month">
+                  Just {perMonth} billed yearly
+                </div>
               )}
-            </button>
+              <ul className="plan-features">
+                {FEATURES_PRO.map((f, i) => (
+                  <li key={i}>
+                    <Check size={14} />
+                    <span>{f}</span>
+                  </li>
+                ))}
+              </ul>
 
-            <p className="plan-note">
-              Secure payment via Razorpay · Cancel anytime
-            </p>
+              {error && <div className="pricing-error">{error}</div>}
+
+              <button
+                className="plan-upgrade-btn"
+                onClick={handleUpgrade}
+                disabled={loading}
+              >
+                {loading ? (
+                  <span className="pricing-spinner" />
+                ) : (
+                  `Upgrade for ${price}`
+                )}
+              </button>
+
+              <p className="plan-note">
+                Secure payment via Razorpay · Cancel anytime
+              </p>
+            </div>
           </div>
         </div>
       </div>

@@ -173,6 +173,7 @@ function RoomContent() {
   const [showWhiteboard, setShowWhiteboard] = useState(false);
   const [showStdinPanel, setShowStdinPanel] = useState(false);
   const [showPricing, setShowPricing] = useState(false);
+  const [pricingReason, setPricingReason] = useState(null);
 
   const [isPanelMaximized, setIsPanelMaximized] = useState(false);
   const [isOutputMinimized, setIsOutputMinimized] = useState(false);
@@ -885,7 +886,13 @@ function RoomContent() {
                 onToggleMaximize={handleToggleMaximize}
                 isMobile={isMobile}
               >
-                <AIAssistant onClose={closeAllPanels} />
+                <AIAssistant
+                  onClose={closeAllPanels}
+                  onUpgrade={() => {
+                    setPricingReason("ai_limit");
+                    setShowPricing(true);
+                  }}
+                />
               </PanelWrapper>
             )}
             {showVersionHistory && (
@@ -902,6 +909,10 @@ function RoomContent() {
                   currentCode={code}
                   onRestore={handleVersionRestore}
                   onClose={closeAllPanels}
+                  onUpgrade={() => {
+                    setPricingReason("version_limit");
+                    setShowPricing(true);
+                  }}
                 />
               </PanelWrapper>
             )}
@@ -1004,7 +1015,15 @@ function RoomContent() {
           onClose={() => setShowWhiteboard(false)}
         />
       )}
-      {showPricing && <PricingModal onClose={() => setShowPricing(false)} />}
+      {showPricing && (
+        <PricingModal
+          reason={pricingReason}
+          onClose={() => {
+            setShowPricing(false);
+            setPricingReason(null);
+          }}
+        />
+      )}
 
       {/* Save Gist Modal */}
       {showSaveGistModal && (

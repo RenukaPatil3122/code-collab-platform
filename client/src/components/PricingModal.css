@@ -10,6 +10,7 @@
   justify-content: center;
   z-index: 100000;
   padding: 20px;
+  overflow-y: auto;
   animation: pFadeIn 0.2s ease;
 }
 @keyframes pFadeIn {
@@ -27,6 +28,11 @@
   border-radius: 24px;
   width: 100%;
   max-width: 700px;
+  /* Fix: cap height and let body scroll */
+  max-height: calc(100vh - 40px);
+  display: flex;
+  flex-direction: column;
+  margin: auto;
   box-shadow:
     0 30px 80px rgba(0, 0, 0, 0.6),
     0 0 80px rgba(99, 102, 241, 0.1);
@@ -45,13 +51,14 @@
   }
 }
 
-/* Header */
+/* Header — fixed, never scrolls */
 .pricing-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 22px 28px 18px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  flex-shrink: 0;
 }
 .pricing-header-left {
   display: flex;
@@ -87,6 +94,23 @@
 .pricing-close:hover {
   background: rgba(255, 255, 255, 0.12);
   color: white;
+}
+
+/* Scrollable body */
+.pricing-body {
+  overflow-y: auto;
+  flex: 1;
+  padding-bottom: 4px;
+}
+.pricing-body::-webkit-scrollbar {
+  width: 4px;
+}
+.pricing-body::-webkit-scrollbar-track {
+  background: transparent;
+}
+.pricing-body::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
 }
 
 /* Toggle */

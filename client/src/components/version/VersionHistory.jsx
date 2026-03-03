@@ -5,7 +5,6 @@ import { socket } from "../../utils/socket";
 import { Save, RotateCcw, FileText, Loader, X, Crown } from "lucide-react";
 import toast from "react-hot-toast";
 import { useAuth } from "../../contexts/AuthContext";
-import UpgradePrompt from "../UpgradePrompt";
 import "./VersionHistory.css";
 
 const FREE_VERSION_LIMIT = 3;
@@ -29,7 +28,13 @@ function saveCount_(key, n) {
   } catch {}
 }
 
-function VersionHistory({ roomId, currentCode, onRestore, onClose }) {
+function VersionHistory({
+  roomId,
+  currentCode,
+  onRestore,
+  onClose,
+  onUpgrade,
+}) {
   const { isPremium } = useAuth();
 
   const SESSION_KEY = getSessionKey(roomId);
@@ -39,7 +44,6 @@ function VersionHistory({ roomId, currentCode, onRestore, onClose }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [selectedVersion, setSelectedVersion] = useState(null);
-  const [showUpgradePrompt, setShowUpgradePrompt] = useState(false);
 
   // saveCount = manual saves done this session (NOT counting auto-saves)
   const [saveCount, setSaveCount] = useState(() =>
@@ -73,7 +77,7 @@ function VersionHistory({ roomId, currentCode, onRestore, onClose }) {
       // Only show upgrade prompt for MANUAL saves, never for auto-saves
       if (error === "LIMIT_REACHED" || error === "LOGIN_REQUIRED") {
         if (pendingManualSave.current) {
-          setShowUpgradePrompt(true);
+          onUpgrade?.();
         }
         pendingManualSave.current = false;
         return;
@@ -119,7 +123,7 @@ function VersionHistory({ roomId, currentCode, onRestore, onClose }) {
   const handleSaveVersion = () => {
     // Block at frontend BEFORE emitting — never reaches backend if limit hit
     if (limitReached) {
-      setShowUpgradePrompt(true);
+      onUpgrade?.();
       return;
     }
     if (!currentCode || currentCode.trim() === "") {
@@ -162,15 +166,6 @@ function VersionHistory({ roomId, currentCode, onRestore, onClose }) {
       return "Unknown";
     }
   };
-
-  if (showUpgradePrompt) {
-    return (
-      <UpgradePrompt
-        reason="version_limit"
-        onClose={() => setShowUpgradePrompt(false)}
-      />
-    );
-  }
 
   return (
     <div className="version-history-overlay">
@@ -235,7 +230,7 @@ function VersionHistory({ roomId, currentCode, onRestore, onClose }) {
               {limitReached ? (
                 <button
                   className="btn-save-version btn-save-locked"
-                  onClick={() => setShowUpgradePrompt(true)}
+                  onClick={() => onUpgrade?.()}
                 >
                   <Crown size={13} /> Upgrade for unlimited saves
                 </button>
