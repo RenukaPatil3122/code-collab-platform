@@ -158,10 +158,9 @@ function RoomContent() {
   const { showAIPanel, setShowAIPanel } = useAI();
   const { files, activeFile, activeFileData, updateFileContent } = useFiles();
 
-  injectActiveFile(activeFileData, updateFileContent);
   useEffect(() => {
     if (activeFile) autoDetectLanguage(activeFile);
-  }, [activeFile]);
+  }, [activeFile, autoDetectLanguage]);
 
   const [showTemplateModal, setShowTemplateModal] = useState(false);
   const [showInterviewModal, setShowInterviewModal] = useState(false);
@@ -1153,7 +1152,7 @@ function RoomContent() {
                   placeholder="https://gist.github.com/username/gist-id"
                   value={gistUrl}
                   onChange={(e) => setGistUrl(e.target.value)}
-                  onKeyPress={(e) =>
+                  onKeyDown={(e) =>
                     e.key === "Enter" &&
                     gistUrl.trim() &&
                     handleImportFromGist()
