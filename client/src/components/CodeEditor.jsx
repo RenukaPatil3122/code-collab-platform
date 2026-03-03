@@ -38,8 +38,8 @@ const LIGHT_THEME = {
   rules: [],
   colors: {
     "editor.background": "#ffffff",
-    "editor.lineHighlightBackground": "#dfe1f5",
-    "editor.lineHighlightBorder": "#6366f1",
+    "editor.lineHighlightBackground": "#f0f0f0",
+    "editor.lineHighlightBorder": "#00000000",
     "editorLineNumber.foreground": "#b0b8cc",
     "editorLineNumber.activeForeground": "#6366f1",
     "editorGutter.background": "#ffffff",
@@ -59,7 +59,7 @@ function getMonacoTheme() {
   const isLight =
     document.querySelector(".room-container")?.getAttribute("data-theme") ===
     "light";
-  return isLight ? "codetogether-light" : "codetogether-dark";
+  return isLight ? "codetogether-light-v2" : "codetogether-dark";
 }
 
 function CodeEditor({ language, onChange }) {
@@ -73,7 +73,7 @@ function CodeEditor({ language, onChange }) {
   const handleBeforeMount = (monaco) => {
     monacoRef.current = monaco;
     monaco.editor.defineTheme("codetogether-dark", DARK_THEME);
-    monaco.editor.defineTheme("codetogether-light", LIGHT_THEME);
+    monaco.editor.defineTheme("codetogether-light-v2", LIGHT_THEME);
   };
 
   // After editor mounts, set correct theme + watch for changes
