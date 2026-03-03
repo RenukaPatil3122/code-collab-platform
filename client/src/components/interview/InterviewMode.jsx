@@ -1,6 +1,8 @@
 // src/components/interview/InterviewMode.jsx
+// ✅ window.confirm replaced with custom ConfirmModal
+// ✅ No other logic changed
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useRef } from "react";
 import { useInterview } from "../../contexts/InterviewContext";
 import { useRoom } from "../../contexts/RoomContext";
 import { INTERVIEW_DIFFICULTIES } from "../../utils/constants";
@@ -23,8 +25,45 @@ import {
   CheckCircle,
   AlertCircle,
   Languages,
+  AlertTriangle,
 } from "lucide-react";
 import "./InterviewMode.css";
+
+/* ─── Inline confirm modal — replaces window.confirm ─── */
+function ConfirmModal({
+  title,
+  message,
+  confirmLabel,
+  confirmClass,
+  onConfirm,
+  onCancel,
+}) {
+  return (
+    <div className="interview-confirm-overlay" onClick={onCancel}>
+      <div
+        className="interview-confirm-modal"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="interview-confirm-icon">
+          <AlertTriangle size={22} />
+        </div>
+        <h3>{title}</h3>
+        <p>{message}</p>
+        <div className="interview-confirm-actions">
+          <button className="interview-confirm-cancel" onClick={onCancel}>
+            Cancel
+          </button>
+          <button
+            className={`interview-confirm-ok ${confirmClass || ""}`}
+            onClick={onConfirm}
+          >
+            {confirmLabel}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function InterviewMode({ onClose }) {
   const {
@@ -47,6 +86,10 @@ function InterviewMode({ onClose }) {
   const [selectedProblem, setSelectedProblem] = useState(null);
   const [selectedLanguage, setSelectedLanguage] = useState("javascript");
   const [showProblemSelect, setShowProblemSelect] = useState(false);
+
+  // ✅ Confirm modal state — replaces window.confirm
+  const [confirmModal, setConfirmModal] = useState(null);
+
   const problemPanelRef = useRef(null);
 
   const handleStart = () => {
@@ -55,19 +98,29 @@ function InterviewMode({ onClose }) {
   };
 
   const handleSubmit = () => {
-    if (
-      window.confirm(
-        "Are you sure you want to submit? This will end the interview.",
-      )
-    ) {
-      submitInterview(testResults);
-    }
+    setConfirmModal({
+      title: "Submit Interview",
+      message: "Are you sure you want to submit? This will end the interview.",
+      confirmLabel: "Submit",
+      confirmClass: "confirm-submit",
+      onConfirm: () => {
+        setConfirmModal(null);
+        submitInterview(testResults);
+      },
+    });
   };
 
   const handleEnd = () => {
-    if (window.confirm("Are you sure you want to end the interview?")) {
-      endInterview();
-    }
+    setConfirmModal({
+      title: "End Interview",
+      message: "Are you sure you want to end the interview?",
+      confirmLabel: "End",
+      confirmClass: "confirm-end",
+      onConfirm: () => {
+        setConfirmModal(null);
+        endInterview();
+      },
+    });
   };
 
   if (interviewLimitError) {
@@ -90,7 +143,13 @@ function InterviewMode({ onClose }) {
   if (isInterviewMode && currentProblem) {
     return (
       <div className="interview-mode-fullscreen">
-        {/* ✅ FIXED: title + badge in ONE flat flex row, no nested div */}
+        {confirmModal && (
+          <ConfirmModal
+            {...confirmModal}
+            onCancel={() => setConfirmModal(null)}
+          />
+        )}
+
         <div className="interview-header">
           <div className="interview-header-left">
             <Trophy size={18} className="interview-icon" />
@@ -150,7 +209,6 @@ function InterviewMode({ onClose }) {
         </div>
 
         <div className="interview-modal-content">
-          {/* Info card */}
           <div className="interview-info-card">
             <Clock size={20} />
             <div>
@@ -162,7 +220,6 @@ function InterviewMode({ onClose }) {
             </div>
           </div>
 
-          {/* Language */}
           <div className="language-selection">
             <h3>
               <Languages size={14} /> Select Programming Language
@@ -180,7 +237,6 @@ function InterviewMode({ onClose }) {
             </select>
           </div>
 
-          {/* Difficulty */}
           <div className="difficulty-selection">
             <h3>Select Difficulty</h3>
             <div className="difficulty-options">
@@ -217,7 +273,6 @@ function InterviewMode({ onClose }) {
             </div>
           </div>
 
-          {/* Problem picker */}
           <div className="problem-selection">
             <div className="problem-selection-header">
               <h3>Choose Problem</h3>
@@ -256,7 +311,6 @@ function InterviewMode({ onClose }) {
             )}
           </div>
 
-          {/* ✅ Start button */}
           <button className="btn-start-interview" onClick={handleStart}>
             <Play size={20} />
             Start Interview in{" "}
@@ -264,7 +318,6 @@ function InterviewMode({ onClose }) {
               selectedLanguage.slice(1)}
           </button>
 
-          {/* Tips */}
           <div className="interview-tips">
             <h4>💡 Tips</h4>
             <ul>

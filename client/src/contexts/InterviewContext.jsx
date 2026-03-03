@@ -1,8 +1,7 @@
 // src/contexts/InterviewContext.jsx
-// ✅ FIXED: Don't open interview until server confirms (prevents opening on limit error)
-// ✅ Handles replay - shows interview read-only without starting real timer
-// ✅ FIXED: "Interview ended" double toast — socket bounce-back guarded with ref
-// ✅ FIXED: interview-error handled for RBAC limit/upgrade errors
+// ✅ totalDuration exposed for TimerWidget percentage
+// ✅ pauseTimer/resumeTimer defined as proper useCallback at top level
+// ✅ No inline useCallback in value object
 
 import React, {
   createContext,
@@ -31,6 +30,8 @@ export const InterviewProvider = ({ children, roomId }) => {
   const [currentProblem, setCurrentProblem] = useState(null);
   const [difficulty, setDifficulty] = useState("easy");
   const [timeRemaining, setTimeRemaining] = useState(0);
+  // ✅ totalDuration tracks the full time so TimerWidget can show correct %
+  const [totalDuration, setTotalDuration] = useState(0);
   const [isTimerRunning, setIsTimerRunning] = useState(false);
   const [interviewResults, setInterviewResults] = useState(null);
   const [startTime, setStartTime] = useState(null);
@@ -38,11 +39,21 @@ export const InterviewProvider = ({ children, roomId }) => {
   const [interviewLanguage, setInterviewLanguage] = useState("javascript");
   const [interviewLimitError, setInterviewLimitError] = useState(null);
 
-  // ✅ Pending interview — stored locally until server confirms with interview-started
   const pendingInterview = useRef(null);
-
   const timerRef = useRef(null);
   const isEndingLocally = useRef(false);
+
+  // ✅ Defined at top level as proper useCallback — not inline in value object
+  const pauseTimer = useCallback(() => setIsTimerRunning(false), []);
+  const resumeTimer = useCallback(() => setIsTimerRunning(true), []);
+  const updateInterviewCode = useCallback(
+    (newCode) => setInterviewCode(newCode),
+    [],
+  );
+  const clearInterviewLimitError = useCallback(
+    () => setInterviewLimitError(null),
+    [],
+  );
 
   // Timer logic
   useEffect(() => {
@@ -76,17 +87,19 @@ export const InterviewProvider = ({ children, roomId }) => {
     };
   }, [isTimerRunning, timeRemaining]);
 
-  // ✅ Listen for replay events
+  // Replay events
   useEffect(() => {
     const handleReplayEvent = (e) => {
       const { type, data } = e.detail;
       if (type === "interview-started") {
         if (data.problem) {
+          const dur = INTERVIEW_DURATIONS[data.difficulty || "easy"];
           setCurrentProblem(data.problem);
           setDifficulty(data.difficulty || "easy");
           setInterviewLanguage(data.language || "javascript");
           setInterviewCode(data.starterCode || "");
-          setTimeRemaining(INTERVIEW_DURATIONS[data.difficulty || "easy"]);
+          setTimeRemaining(dur);
+          setTotalDuration(dur);
           setIsInterviewMode(true);
           setIsTimerRunning(false);
         }
@@ -95,6 +108,7 @@ export const InterviewProvider = ({ children, roomId }) => {
         setCurrentProblem(null);
         setInterviewCode("");
         setTimeRemaining(0);
+        setTotalDuration(0);
         setIsTimerRunning(false);
       }
     };
@@ -102,9 +116,8 @@ export const InterviewProvider = ({ children, roomId }) => {
     return () => window.removeEventListener("replay-event", handleReplayEvent);
   }, []);
 
-  // ✅ Socket events
+  // Socket events
   useEffect(() => {
-    // ✅ Server confirmed — NOW open the interview using pending data
     socket.on(
       SOCKET_EVENTS.INTERVIEW_STARTED,
       ({ problem, difficulty, duration }) => {
@@ -124,6 +137,7 @@ export const InterviewProvider = ({ children, roomId }) => {
         setCurrentProblem(resolvedProblem);
         setDifficulty(difficulty);
         setTimeRemaining(duration);
+        setTotalDuration(duration); // ✅ store for TimerWidget
         setIsInterviewMode(true);
         setIsTimerRunning(true);
         setStartTime(Date.now());
@@ -150,7 +164,6 @@ export const InterviewProvider = ({ children, roomId }) => {
       setIsTimerRunning(false);
     });
 
-    // ✅ Server rejected — clear pending, show upgrade prompt, DON'T open interview
     socket.on("interview-error", ({ error, message }) => {
       pendingInterview.current = null;
       setInterviewLimitError({ error, message });
@@ -177,7 +190,6 @@ export const InterviewProvider = ({ children, roomId }) => {
         selectedProblem.starterCode?.javascript ||
         `// ${selectedProblem.title}\n// Write your solution here\n\nfunction solve() {\n    // Your code here\n}\n`;
 
-      // ✅ Save locally but DON'T open yet — wait for server interview-started event
       pendingInterview.current = {
         problem: selectedProblem,
         language: selectedLanguage,
@@ -186,7 +198,6 @@ export const InterviewProvider = ({ children, roomId }) => {
         duration,
       };
 
-      // Emit — server responds with interview-started (allowed) or interview-error (blocked)
       socket.emit(SOCKET_EVENTS.START_INTERVIEW, {
         roomId,
         problem: selectedProblem,
@@ -197,23 +208,24 @@ export const InterviewProvider = ({ children, roomId }) => {
     [roomId],
   );
 
-  const endInterview = useCallback(() => {
-    isEndingLocally.current = true;
-    socket.emit(SOCKET_EVENTS.END_INTERVIEW, { roomId });
-    handleEndInterview();
-  }, [roomId]);
-
   const handleEndInterview = () => {
     setIsInterviewMode(false);
     setIsTimerRunning(false);
     setInterviewCode("");
     setCurrentProblem(null);
+    setTotalDuration(0);
     toast("Interview ended", {
       icon: "🏁",
       id: "interview-ended",
       duration: 2000,
     });
   };
+
+  const endInterview = useCallback(() => {
+    isEndingLocally.current = true;
+    socket.emit(SOCKET_EVENTS.END_INTERVIEW, { roomId });
+    handleEndInterview();
+  }, [roomId]);
 
   const handleTimeUp = () => {
     setIsTimerRunning(false);
@@ -230,22 +242,22 @@ export const InterviewProvider = ({ children, roomId }) => {
       const timeTaken = startTime
         ? Math.floor((Date.now() - startTime) / 1000)
         : 0;
-      const totalTime = INTERVIEW_DURATIONS[difficulty];
+      const total = totalDuration || INTERVIEW_DURATIONS[difficulty];
       socket.emit(SOCKET_EVENTS.SUBMIT_INTERVIEW, {
         roomId,
         code: interviewCode,
         testResults,
         timeTaken,
-        totalTime,
+        totalTime: total,
         difficulty,
         problem: currentProblem,
       });
-      const score = calculateScore(testResults, timeTaken, totalTime);
+      const score = calculateScore(testResults, timeTaken, total);
       setInterviewResults({
         code: interviewCode,
         testResults,
         timeTaken,
-        totalTime,
+        totalTime: total,
         score,
         difficulty,
         problem: currentProblem,
@@ -258,26 +270,29 @@ export const InterviewProvider = ({ children, roomId }) => {
         duration: 2000,
       });
     },
-    [roomId, difficulty, currentProblem, startTime, interviewCode],
+    [
+      roomId,
+      difficulty,
+      currentProblem,
+      startTime,
+      interviewCode,
+      totalDuration,
+    ],
   );
 
-  const calculateScore = (testResults, timeTaken, totalTime) => {
+  const calculateScore = (testResults, timeTaken, total) => {
     if (!testResults?.summary) return 0;
-    const { passed, total } = testResults.summary;
+    const { passed, totalTests } = testResults.summary;
+    const t = totalTests || testResults.summary.total || 1;
     return Math.round(
-      (passed / total) * 70 +
-        Math.max(0, ((totalTime - timeTaken) / totalTime) * 30),
+      (passed / t) * 70 + Math.max(0, ((total - timeTaken) / total) * 30),
     );
   };
 
-  const formatTime = (seconds) => {
+  const formatTime = useCallback((seconds) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
-  };
-
-  const clearInterviewLimitError = useCallback(() => {
-    setInterviewLimitError(null);
   }, []);
 
   const value = {
@@ -285,6 +300,7 @@ export const InterviewProvider = ({ children, roomId }) => {
     currentProblem,
     difficulty,
     timeRemaining,
+    totalDuration, // ✅ exposed for TimerWidget
     isTimerRunning,
     interviewResults,
     interviewCode,
@@ -294,13 +310,10 @@ export const InterviewProvider = ({ children, roomId }) => {
     startInterview,
     endInterview,
     submitInterview,
-    pauseTimer: useCallback(() => setIsTimerRunning(false), []),
-    resumeTimer: useCallback(() => setIsTimerRunning(true), []),
+    pauseTimer, // ✅ stable ref, defined above
+    resumeTimer, // ✅ stable ref, defined above
     formatTime,
-    updateInterviewCode: useCallback(
-      (newCode) => setInterviewCode(newCode),
-      [],
-    ),
+    updateInterviewCode,
     setInterviewCode,
   };
 

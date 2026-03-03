@@ -1,21 +1,28 @@
 // src/components/interview/TimerWidget.jsx
-
 import React from "react";
 import { useInterview } from "../../contexts/InterviewContext";
 import { Clock, Pause, Play } from "lucide-react";
 import "./TimerWidget.css";
 
 function TimerWidget() {
-  const { timeRemaining, isTimerRunning, formatTime, pauseTimer, resumeTimer } =
-    useInterview();
+  const {
+    timeRemaining,
+    totalDuration,
+    isTimerRunning,
+    formatTime,
+    pauseTimer,
+    resumeTimer,
+  } = useInterview();
 
   const getTimerClass = () => {
-    if (timeRemaining <= 60) return "critical"; // Last minute
-    if (timeRemaining <= 300) return "warning"; // Last 5 minutes
+    if (timeRemaining <= 60) return "critical";
+    if (timeRemaining <= 300) return "warning";
     return "normal";
   };
 
-  const percentage = (timeRemaining / (45 * 60)) * 100; // Assuming max 45 min
+  // ✅ Use actual totalDuration from context instead of hardcoded 45*60
+  const percentage =
+    totalDuration > 0 ? (timeRemaining / totalDuration) * 100 : 0;
 
   return (
     <div className={`timer-widget ${getTimerClass()}`}>

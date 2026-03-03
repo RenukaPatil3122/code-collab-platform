@@ -1,7 +1,6 @@
 // src/components/interview/InterviewEditor.jsx
-// ✅ Custom Monaco "interview-dark" theme — indigo accents, deep navy bg
-// ✅ Matches app font/color system (Geist Mono body, #818cf8 accents)
-// ✅ No padding.top jank — editor starts cleanly at line 1
+// ✅ ResizeObserver replaces double setTimeout layout hack
+// ✅ Custom Monaco themes unchanged
 
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import Editor from "@monaco-editor/react";
@@ -10,6 +9,9 @@ import { useRecording } from "../../contexts/RecordingContext";
 
 function InterviewEditor({ theme }) {
   const editorRef = useRef(null);
+  const containerRef = useRef(null);
+  const resizeObserverRef = useRef(null);
+
   const { interviewCode, interviewLanguage, updateInterviewCode } =
     useInterview();
   const { captureEvent, isRecording, isReplaying } = useRecording();
@@ -46,7 +48,6 @@ function InterviewEditor({ theme }) {
   const handleEditorDidMount = (editor, monaco) => {
     editorRef.current = editor;
 
-    // ✅ Custom dark theme — matches #0a0c18 editor bg, indigo accents
     monaco.editor.defineTheme("interview-dark", {
       base: "vs-dark",
       inherit: true,
@@ -105,9 +106,27 @@ function InterviewEditor({ theme }) {
     const isDark = !theme || theme === "vs-dark";
     monaco.editor.setTheme(isDark ? "interview-dark" : "interview-light");
 
-    setTimeout(() => editor.layout(), 50);
-    setTimeout(() => editor.layout(), 200);
+    // ✅ ResizeObserver — reliably triggers layout when container size changes
+    // replaces the fragile double-setTimeout approach
+    if (containerRef.current) {
+      resizeObserverRef.current = new ResizeObserver(() => {
+        editor.layout();
+      });
+      resizeObserverRef.current.observe(containerRef.current);
+    }
+
+    // One initial layout call after mount
+    editor.layout();
   };
+
+  // ✅ Clean up ResizeObserver on unmount
+  useEffect(() => {
+    return () => {
+      if (resizeObserverRef.current) {
+        resizeObserverRef.current.disconnect();
+      }
+    };
+  }, []);
 
   const handleChange = useCallback(
     (value) => {
@@ -126,34 +145,36 @@ function InterviewEditor({ theme }) {
     !theme || theme === "vs-dark" ? "interview-dark" : "interview-light";
 
   return (
-    <Editor
-      height="100%"
-      width="100%"
-      language={interviewLanguage}
-      value={editorValue}
-      onChange={handleChange}
-      theme={editorTheme}
-      options={{
-        minimap: { enabled: false },
-        fontSize: 14,
-        lineHeight: 22,
-        lineNumbers: "on",
-        scrollBeyondLastLine: false,
-        automaticLayout: true,
-        wordWrap: "on",
-        readOnly: isReplaying,
-        padding: { top: 16, bottom: 16 },
-        renderLineHighlight: "line",
-        smoothScrolling: true,
-        fontFamily: "'Geist Mono', 'Fira Code', monospace",
-        fontLigatures: true,
-        tabSize: 2,
-        insertSpaces: true,
-        cursorBlinking: "smooth",
-        cursorSmoothCaretAnimation: "on",
-      }}
-      onMount={handleEditorDidMount}
-    />
+    <div ref={containerRef} style={{ height: "100%", width: "100%" }}>
+      <Editor
+        height="100%"
+        width="100%"
+        language={interviewLanguage}
+        value={editorValue}
+        onChange={handleChange}
+        theme={editorTheme}
+        options={{
+          minimap: { enabled: false },
+          fontSize: 14,
+          lineHeight: 22,
+          lineNumbers: "on",
+          scrollBeyondLastLine: false,
+          automaticLayout: true,
+          wordWrap: "on",
+          readOnly: isReplaying,
+          padding: { top: 16, bottom: 16 },
+          renderLineHighlight: "line",
+          smoothScrolling: true,
+          fontFamily: "'Geist Mono', 'Fira Code', monospace",
+          fontLigatures: true,
+          tabSize: 2,
+          insertSpaces: true,
+          cursorBlinking: "smooth",
+          cursorSmoothCaretAnimation: "on",
+        }}
+        onMount={handleEditorDidMount}
+      />
+    </div>
   );
 }
 

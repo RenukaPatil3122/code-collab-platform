@@ -1108,3 +1108,140 @@
     gap: 16px;
   }
 }
+
+/* ── Confirm Modal — replaces window.confirm ── */
+.interview-confirm-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 20001;
+  backdrop-filter: blur(4px);
+  animation: im-fade 0.15s ease-out;
+}
+
+.interview-confirm-modal {
+  background: #131320;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 14px;
+  padding: 28px 26px 22px;
+  width: 92%;
+  max-width: 360px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  text-align: center;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6);
+  animation: im-slide 0.2s cubic-bezier(0.34, 1.4, 0.64, 1);
+}
+
+[data-theme="light"] .interview-confirm-modal {
+  background: #ffffff;
+  border-color: rgba(0, 0, 0, 0.1);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.12);
+}
+
+.interview-confirm-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.28);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #f59e0b;
+  margin-bottom: 4px;
+}
+
+.interview-confirm-modal h3 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: #eaeaf8;
+  letter-spacing: -0.02em;
+  font-family: "Geist", sans-serif;
+}
+
+[data-theme="light"] .interview-confirm-modal h3 {
+  color: #1a1a2e;
+}
+
+.interview-confirm-modal p {
+  margin: 0;
+  font-size: 13px;
+  color: #6a6a9a;
+  line-height: 1.6;
+  font-family: "Geist", sans-serif;
+}
+
+[data-theme="light"] .interview-confirm-modal p {
+  color: #6b7280;
+}
+
+.interview-confirm-actions {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+  margin-top: 6px;
+}
+
+.interview-confirm-cancel {
+  flex: 1;
+  height: 38px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 8px;
+  color: #8a8ab0;
+  font-family: "Geist", sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.interview-confirm-cancel:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #eaeaf8;
+}
+
+[data-theme="light"] .interview-confirm-cancel {
+  background: #f4f4fb;
+  border-color: rgba(0, 0, 0, 0.09);
+  color: #6b7280;
+}
+[data-theme="light"] .interview-confirm-cancel:hover {
+  background: #eaeaf4;
+  color: #1a1a2e;
+}
+
+.interview-confirm-ok {
+  flex: 1;
+  height: 38px;
+  border: none;
+  border-radius: 8px;
+  font-family: "Geist", sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  color: #fff;
+}
+.interview-confirm-ok.confirm-submit {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  box-shadow: 0 2px 12px rgba(16, 185, 129, 0.3);
+}
+.interview-confirm-ok.confirm-submit:hover {
+  box-shadow: 0 4px 18px rgba(16, 185, 129, 0.45);
+  transform: translateY(-1px);
+}
+.interview-confirm-ok.confirm-end {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  box-shadow: 0 2px 12px rgba(239, 68, 68, 0.3);
+}
+.interview-confirm-ok.confirm-end:hover {
+  box-shadow: 0 4px 18px rgba(239, 68, 68, 0.45);
+  transform: translateY(-1px);
+}
