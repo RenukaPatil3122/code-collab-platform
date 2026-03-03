@@ -15,7 +15,6 @@ import {
   Crown,
 } from "lucide-react";
 import MarkdownRenderer from "./MarkdownRenderer";
-import UpgradePrompt from "../UpgradePrompt";
 import "./AIAssistant.css";
 
 /* ─── Feature config ──────────────────────────────────── */
@@ -177,7 +176,6 @@ function ResponseCard({ item, onCopy, copied }) {
 
 /* ─── Footer bar sub-components ──────────────────────── */
 
-/** Pro user — gold shimmer bar */
 function FooterPro() {
   return (
     <div className="ai-tips ai-tips--pro">
@@ -190,7 +188,6 @@ function FooterPro() {
   );
 }
 
-/** Logged-in free user with ≥2 requests left — neutral */
 function FooterUsage({ remaining, dailyLimit }) {
   return (
     <div className="ai-tips">
@@ -205,7 +202,6 @@ function FooterUsage({ remaining, dailyLimit }) {
   );
 }
 
-/** 1 request left — amber warning */
 function FooterLow({ remaining, dailyLimit, onUpgrade }) {
   return (
     <div className="ai-tips ai-tips--low">
@@ -224,7 +220,6 @@ function FooterLow({ remaining, dailyLimit, onUpgrade }) {
   );
 }
 
-/** 0 requests left — red urgent */
 function FooterOut({ onUpgrade }) {
   return (
     <div className="ai-tips ai-tips--out">
@@ -240,7 +235,6 @@ function FooterOut({ onUpgrade }) {
   );
 }
 
-/** Guest / not logged in */
 function FooterGuest() {
   return (
     <div className="ai-tips">
@@ -254,7 +248,7 @@ function FooterGuest() {
 }
 
 /* ─── Main component ──────────────────────────────────── */
-export default function AIAssistant({ onClose }) {
+export default function AIAssistant({ onClose, onUpgrade }) {
   const {
     isAILoading,
     aiResponse,
@@ -287,17 +281,13 @@ export default function AIAssistant({ onClose }) {
     }
   }, [aiResponse]);
 
-  if (aiLimitError) {
-    return (
-      <UpgradePrompt
-        reason="ai_limit"
-        onClose={() => {
-          clearAiLimitError();
-          onClose();
-        }}
-      />
-    );
-  }
+  // Bubble AI limit error up to Room so PricingModal renders at root level
+  useEffect(() => {
+    if (aiLimitError) {
+      clearAiLimitError();
+      onUpgrade?.();
+    }
+  }, [aiLimitError]);
 
   const handleAction = (actionId) => {
     if (!code?.trim()) {
@@ -320,10 +310,8 @@ export default function AIAssistant({ onClose }) {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleUpgrade = () => {
-    // TODO: wire to your upgrade / billing flow
-    onClose?.();
-  };
+  // Footer upgrade clicks also bubble up to Room
+  const handleUpgrade = () => onUpgrade?.();
 
   const featureKeyMap = {
     explain: "explain",
@@ -334,12 +322,10 @@ export default function AIAssistant({ onClose }) {
   const activeFeatureKey = activeFeature ? featureKeyMap[activeFeature] : null;
   const showEmpty = !isAILoading && !aiResponse;
 
-  // Usage for footer
   const usedCount = localUsageCount ?? user?.aiUsage?.count ?? 0;
   const dailyLimit = user?.limits?.aiUsagePerDay ?? 5;
   const remaining = Math.max(dailyLimit - usedCount, 0);
 
-  /* pick which footer to render */
   const renderFooter = () => {
     if (isPremium) return <FooterPro />;
     if (!user) return <FooterGuest />;
