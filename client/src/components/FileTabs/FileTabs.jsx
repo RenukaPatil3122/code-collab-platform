@@ -35,12 +35,17 @@ function FileIcon({ name }) {
 
 function FileTabs() {
   const { openTabs, activeFile, selectFile, closeTab } = useFiles();
-  if (openTabs.length === 0) return null;
+
+  // Filter out .gitkeep files — they're internal folder markers, not real files
+  const visibleTabs = openTabs.filter(
+    (tab) => !tab.endsWith(".gitkeep") && tab.split("/").pop() !== ".gitkeep",
+  );
+
+  if (visibleTabs.length === 0) return null;
 
   return (
     <div className="file-tabs-bar">
-      {openTabs.map((filePath) => {
-        // ✅ Show only the filename, not the full folder path (like VSCode)
+      {visibleTabs.map((filePath) => {
         const displayName = filePath.includes("/")
           ? filePath.split("/").pop()
           : filePath;
@@ -50,7 +55,7 @@ function FileTabs() {
             key={filePath}
             className={`file-tab ${activeFile === filePath ? "active" : ""}`}
             onClick={() => selectFile(filePath)}
-            title={filePath} // full path on hover tooltip
+            title={filePath}
           >
             <FileIcon name={filePath} />
             <span className="tab-name">{displayName}</span>

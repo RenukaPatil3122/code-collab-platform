@@ -244,6 +244,8 @@
   flex-direction: column;
   overflow: hidden;
   min-height: 0;
+  /* stretch children so idle state fills full width */
+  align-items: stretch;
 }
 
 /* Status banners */
@@ -354,19 +356,25 @@
 }
 
 /* ─────────────────────────────────────────────────────────
-   IDLE EMPTY STATE — text only, no icon
+   IDLE EMPTY STATE — perfectly centered
 ───────────────────────────────────────────────────────── */
 .output-idle-state {
-  flex: 1;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 32px 20px;
   gap: 8px;
   text-align: center;
+  padding: 20px;
+  pointer-events: none;
   animation: fade-up 0.3s ease-out both;
 }
+
 @keyframes fade-up {
   from {
     opacity: 0;
@@ -421,4 +429,5 @@
     0 0 0 1px rgba(255, 255, 255, 0.08) inset;
   margin-bottom: 4px;
   opacity: 0.7;
+  pointer-events: none;
 }
