@@ -1,14 +1,34 @@
 // aiHandler.js - Gemini AI Integration for CodeTogether
-// ✅ FIXED: Socket AI requests now enforce RBAC limits (free = 5/day, premium = unlimited)
+// ✅ Singleton Gemini client (instantiated once at module load)
+// ✅ REST routes now enforce RBAC limits via shared helper
 
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 
+if (!process.env.GEMINI_API_KEY) {
+  throw new Error("GEMINI_API_KEY is not defined in environment variables");
+}
+
+// ── Singleton — created once, reused for every request ──
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+const geminiModel = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+
 async function askGemini(prompt) {
-  const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-  const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
-  const result = await model.generateContent(prompt);
-  const response = await result.response;
-  return response.text();
+  try {
+    const result = await geminiModel.generateContent(prompt);
+    const response = await result.response;
+    const text = response.text();
+
+    if (!text || !text.trim()) {
+      throw new Error("Empty AI response");
+    }
+
+    return text;
+  } catch (err) {
+    console.error("Gemini API error:", err.message);
+
+    // Never expose provider error details to client
+    throw new Error("AI service temporarily unavailable. Please try again.");
+  }
 }
 
 async function explainCode(code, language = "JavaScript") {
@@ -112,17 +132,46 @@ Provide a structured review covering:
   return await askGemini(prompt);
 }
 
+// ─────────────────────────────────────────────────────────────
+// ✅ Shared RBAC helper — used by both socket and REST handlers
+// ─────────────────────────────────────────────────────────────
+async function checkAndConsumeAILimit(userId) {
+  const User = require("./models/User");
+  const user = await User.findById(userId);
+  if (!user) return { allowed: false, reason: "LOGIN_REQUIRED" };
+
+  user.resetDailyUsageIfNeeded();
+  const limits = user.getLimits();
+
+  if (
+    limits.aiUsagePerDay !== Infinity &&
+    user.aiUsage.count >= limits.aiUsagePerDay
+  ) {
+    return {
+      allowed: false,
+      reason: "LIMIT_REACHED",
+      limit: limits.aiUsagePerDay,
+    };
+  }
+
+  if (limits.aiUsagePerDay !== Infinity) {
+    user.aiUsage.count += 1;
+    await user.save();
+  }
+
+  return { allowed: true };
+}
+
 // ─────────────────────────────────────────────
-// Socket Handler — ✅ WITH RBAC LIMIT CHECK
+// Socket Handler
 // ─────────────────────────────────────────────
 function setupAISocket(socket) {
   socket.on(
     "ai-request",
-    async ({ roomId, feature, code, language, error, context }) => {
+    async ({ roomId, feature, code, language, errorMessage, context }) => {
       try {
         console.log(`🤖 AI request: ${feature} for ${language}`);
 
-        // ── RBAC: require login ──
         if (!socket.userId) {
           return socket.emit("ai-response", {
             error: "LOGIN_REQUIRED",
@@ -131,42 +180,28 @@ function setupAISocket(socket) {
           });
         }
 
-        // ── RBAC: check daily limit ──
-        const User = require("./models/User");
-        const user = await User.findById(socket.userId);
-
-        if (!user) {
+        const rbac = await checkAndConsumeAILimit(socket.userId);
+        if (!rbac.allowed) {
           return socket.emit("ai-response", {
-            error: "LOGIN_REQUIRED",
-            message: "User not found. Please sign in again.",
+            error: rbac.reason,
+            message:
+              rbac.reason === "LIMIT_REACHED"
+                ? `You've used all ${rbac.limit} free AI requests today. Upgrade to Pro for unlimited access.`
+                : "User not found. Please sign in again.",
             feature,
           });
         }
-
-        user.resetDailyUsageIfNeeded();
-        const limits = user.getLimits();
-
-        if (
-          limits.aiUsagePerDay !== Infinity &&
-          user.aiUsage.count >= limits.aiUsagePerDay
-        ) {
-          return socket.emit("ai-response", {
-            error: "LIMIT_REACHED",
-            message: `You've used all ${limits.aiUsagePerDay} free AI requests today. Upgrade to Pro for unlimited access.`,
-            feature,
-          });
-        }
-
-        // Increment usage for non-premium users
-        if (limits.aiUsagePerDay !== Infinity) {
-          user.aiUsage.count += 1;
-          await user.save();
-        }
-        // ── end RBAC ──
 
         if (!code || !code.trim()) {
           socket.emit("ai-response", { error: "No code provided", feature });
           return;
+        }
+
+        if (code.length > 15000) {
+          return socket.emit("ai-response", {
+            error: "Code too large. Please reduce size.",
+            feature,
+          });
         }
 
         let response = "";
@@ -176,7 +211,7 @@ function setupAISocket(socket) {
             response = await explainCode(code, language);
             break;
           case "debug":
-            response = await debugCode(code, language, error);
+            response = await debugCode(code, language, errorMessage);
             break;
           case "optimize":
             response = await optimizeCode(code, language);
@@ -199,13 +234,52 @@ function setupAISocket(socket) {
 }
 
 // ─────────────────────────────────────────────
-// Express REST Routes
+// Express REST Routes — ✅ NOW WITH RBAC
 // ─────────────────────────────────────────────
 function setupAIRoutes(app) {
-  app.post("/api/ai/explain", async (req, res) => {
+  // Expects your existing auth middleware to set req.userId or req.user._id
+  async function rbacMiddleware(req, res, next) {
+    const userId = req.userId || req.user?._id;
+
+    if (!userId) {
+      return res.status(401).json({
+        error: "LOGIN_REQUIRED",
+        message: "Please sign in to use the AI Assistant.",
+      });
+    }
+
+    try {
+      const rbac = await checkAndConsumeAILimit(userId);
+      if (!rbac.allowed) {
+        return res.status(429).json({
+          error: rbac.reason,
+          message:
+            rbac.reason === "LIMIT_REACHED"
+              ? `You've used all ${rbac.limit} free AI requests today. Upgrade to Pro for unlimited access.`
+              : "User not found. Please sign in again.",
+        });
+      }
+      next();
+    } catch (err) {
+      res
+        .status(500)
+        .json({ error: "RBAC check failed", details: err.message });
+    }
+  }
+
+  app.post("/api/ai/explain", rbacMiddleware, async (req, res) => {
     try {
       const { code, language } = req.body;
-      if (!code) return res.status(400).json({ error: "No code provided" });
+      if (!code || !code.trim()) {
+        return res.status(400).json({ error: "No code provided" });
+      }
+
+      if (code.length > 15000) {
+        return res.status(400).json({
+          error: "Code too large. Please reduce size.",
+        });
+      }
+
       const result = await explainCode(code, language);
       res.json({ success: true, result });
     } catch (err) {
@@ -215,10 +289,19 @@ function setupAIRoutes(app) {
     }
   });
 
-  app.post("/api/ai/debug", async (req, res) => {
+  app.post("/api/ai/debug", rbacMiddleware, async (req, res) => {
     try {
       const { code, language, errorMessage } = req.body;
-      if (!code) return res.status(400).json({ error: "No code provided" });
+      if (!code || !code.trim()) {
+        return res.status(400).json({ error: "No code provided" });
+      }
+
+      if (code.length > 15000) {
+        return res.status(400).json({
+          error: "Code too large. Please reduce size.",
+        });
+      }
+
       const result = await debugCode(code, language, errorMessage);
       res.json({ success: true, result });
     } catch (err) {
@@ -228,10 +311,19 @@ function setupAIRoutes(app) {
     }
   });
 
-  app.post("/api/ai/optimize", async (req, res) => {
+  app.post("/api/ai/optimize", rbacMiddleware, async (req, res) => {
     try {
       const { code, language } = req.body;
-      if (!code) return res.status(400).json({ error: "No code provided" });
+      if (!code || !code.trim()) {
+        return res.status(400).json({ error: "No code provided" });
+      }
+
+      if (code.length > 15000) {
+        return res.status(400).json({
+          error: "Code too large. Please reduce size.",
+        });
+      }
+
       const result = await optimizeCode(code, language);
       res.json({ success: true, result });
     } catch (err) {
@@ -241,10 +333,19 @@ function setupAIRoutes(app) {
     }
   });
 
-  app.post("/api/ai/tests", async (req, res) => {
+  app.post("/api/ai/tests", rbacMiddleware, async (req, res) => {
     try {
       const { code, language } = req.body;
-      if (!code) return res.status(400).json({ error: "No code provided" });
+      if (!code || !code.trim()) {
+        return res.status(400).json({ error: "No code provided" });
+      }
+
+      if (code.length > 15000) {
+        return res.status(400).json({
+          error: "Code too large. Please reduce size.",
+        });
+      }
+
       const result = await generateTests(code, language);
       res.json({ success: true, result });
     } catch (err) {
@@ -254,7 +355,7 @@ function setupAIRoutes(app) {
     }
   });
 
-  console.log("✅ AI REST routes registered");
+  console.log("✅ AI REST routes registered (with RBAC)");
 }
 
 module.exports = { setupAIRoutes, setupAISocket };

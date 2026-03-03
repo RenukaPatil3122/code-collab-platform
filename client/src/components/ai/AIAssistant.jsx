@@ -3,6 +3,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { useAI } from "../../contexts/AIContext";
 import { useRoom } from "../../contexts/RoomContext";
 import { useAuth } from "../../contexts/AuthContext";
+import { toast } from "react-hot-toast";
 import {
   Sparkles,
   Lightbulb,
@@ -291,7 +292,7 @@ export default function AIAssistant({ onClose, onUpgrade }) {
 
   const handleAction = (actionId) => {
     if (!code?.trim()) {
-      alert("Write some code first!");
+      toast.error("Write some code first!");
       return;
     }
     setActive(actionId);
