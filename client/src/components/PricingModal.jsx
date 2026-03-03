@@ -12,7 +12,6 @@ const FEATURES_FREE = [
   "AI Assistant — 5 uses/day",
   "Interview Mode — Easy only, 2/day",
   "Version History — 3 saves/room",
-  "Chat & Whiteboard",
 ];
 
 const FEATURES_PRO = [
