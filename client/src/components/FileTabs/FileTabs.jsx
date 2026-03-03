@@ -36,10 +36,7 @@ function FileIcon({ name }) {
 function FileTabs() {
   const { openTabs, activeFile, selectFile, closeTab } = useFiles();
 
-  // Filter out .gitkeep files — they're internal folder markers, not real files
-  const visibleTabs = openTabs.filter(
-    (tab) => !tab.endsWith(".gitkeep") && tab.split("/").pop() !== ".gitkeep",
-  );
+  const visibleTabs = openTabs.filter((tab) => !tab.endsWith(".gitkeep"));
 
   if (visibleTabs.length === 0) return null;
 
