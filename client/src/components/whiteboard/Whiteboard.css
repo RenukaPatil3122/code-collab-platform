@@ -353,9 +353,12 @@
   padding: 9px 16px;
   background: var(--wb-toolbar-bg);
   border-bottom: 1px solid var(--wb-border-mid);
+  border-top: 1px solid rgba(99, 102, 241, 0.12); /* ADD — subtle accent separator from header */
   flex-shrink: 0;
   flex-wrap: wrap;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.03),
+    0 2px 8px rgba(0, 0, 0, 0.2); /* ADD — slight depth shadow downward */
 }
 
 :root.light .wb-toolbar,
