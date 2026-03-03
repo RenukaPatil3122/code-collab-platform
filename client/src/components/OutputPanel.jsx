@@ -148,11 +148,12 @@ function OutputPanel({
               </span>
             )}
 
-          {/* Run Again */}
+          {/* Run Again — disabled while already running to prevent spam */}
           {showRunAgain && (
             <button
               className="run-again-btn"
               onClick={runCode}
+              disabled={isRunning}
               title="Run Again"
             >
               <RotateCcw size={12} />
@@ -183,7 +184,7 @@ function OutputPanel({
             )}
           </button>
 
-          {/* Close X */}
+          {/* Close */}
           <button
             className="control-btn control-btn-close"
             onClick={onClose}
