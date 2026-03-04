@@ -22,14 +22,13 @@ export function AuthProvider({ children }) {
 
   async function fetchMe(t) {
     try {
-      const res = await fetch(`${API_URL}/api/auth/me`, {
+      const res = await fetch(`${API_BASE}/api/auth/me`, {
         headers: { Authorization: `Bearer ${t}` },
       });
       if (res.ok) {
         const data = await res.json();
         setUser(data.user);
       } else {
-        // Token invalid/expired — clear it
         logout();
       }
     } catch {
@@ -40,7 +39,7 @@ export function AuthProvider({ children }) {
   }
 
   async function register(username, email, password) {
-    const res = await fetch(`${API_URL}/api/auth/register`, {
+    const res = await fetch(`${API_BASE}/api/auth/register`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ username, email, password }),
@@ -55,7 +54,7 @@ export function AuthProvider({ children }) {
   }
 
   async function login(email, password) {
-    const res = await fetch(`${API_URL}/api/auth/login`, {
+    const res = await fetch(`${API_BASE}/api/auth/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, password }),
@@ -75,7 +74,6 @@ export function AuthProvider({ children }) {
     setUser(null);
   }
 
-  // Call this after successful payment to update user role immediately
   function updateUser(updatedUser) {
     setUser(updatedUser);
   }
