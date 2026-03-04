@@ -117,6 +117,8 @@ function TemplateModal({ language, onSelectTemplate, onClose }) {
 
   const handleCategoryClick = (cat) => {
     setCategory(cat);
+    setSearchTerm("");
+    setPreview(null);
   };
 
   const handleSelect = (code, category) => {
@@ -128,8 +130,12 @@ function TemplateModal({ language, onSelectTemplate, onClose }) {
     onClose();
   };
 
+  const firstUnlocked = filtered.find(
+    ([, t]) => !isProCat(t.category) || isPremium,
+  );
   const displayedPreview =
     preview ||
+    (firstUnlocked ? { name: firstUnlocked[0], ...firstUnlocked[1] } : null) ||
     (filtered[0] ? { name: filtered[0][0], ...filtered[0][1] } : null);
 
   return (
