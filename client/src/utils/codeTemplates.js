@@ -21,7 +21,7 @@ const templates = {
     "Async/Await": {
       description: "Async function template",
       category: "Basics",
-      code: `async function fetchData(url) {\n  try {\n    const response = await fetch(url);\n    const data = await response.json();\n    return data;\n  } catch (error) {\n    console.error("Error:", error);\n  }\n}\n\nfetchData("https://api.example.com/data").then(console.log);`,
+      code: `async function delay(ms) {\n  return new Promise(resolve => setTimeout(resolve, ms));\n}\n\nasync function main() {\n  try {\n    console.log("Starting...");\n    await delay(100);\n    console.log("Done after delay!");\n    return "success";\n  } catch (error) {\n    console.error("Error:", error);\n  }\n}\n\nmain().then(result => console.log("Result:", result));`,
     },
 
     // ── DSA ─────────────────────────────────────────────────────────────
