@@ -15,13 +15,14 @@ export const RecordingProvider = ({ children }) => {
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getDisplayMedia({
-        video: { mediaSource: "screen" },
+        video: true,
         audio: false,
       });
 
       const mimeType = MediaRecorder.isTypeSupported("video/webm;codecs=vp9")
         ? "video/webm;codecs=vp9"
         : "video/webm";
+
       const mediaRecorder = new MediaRecorder(stream, { mimeType });
 
       mediaRecorder.ondataavailable = (event) => {
@@ -38,10 +39,10 @@ export const RecordingProvider = ({ children }) => {
       mediaRecorder.start();
       mediaRecorderRef.current = mediaRecorder;
       setIsRecording(true);
-      return true; // ✅ success
+      return true;
     } catch (error) {
       console.error("Failed to start recording:", error);
-      return false; // ✅ user cancelled or denied — no toast
+      return false;
     }
   };
 
@@ -62,7 +63,6 @@ export const RecordingProvider = ({ children }) => {
     URL.revokeObjectURL(url);
   };
 
-  // Clears the recorded blob so user can record again
   const clearRecording = () => {
     setRecordedBlob(null);
   };
