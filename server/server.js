@@ -528,10 +528,12 @@ io.on("connection", (socket) => {
   });
 
   socket.on("whiteboard-draw", ({ roomId, drawData }) => {
+    if (!drawData) return;
     socket.to(roomId).emit("whiteboard-draw", { drawData });
   });
 
   socket.on("whiteboard-sync", ({ roomId, imageData }) => {
+    if (!imageData || imageData.length > 5_000_000) return; // 5MB cap
     whiteboardStates.set(roomId, imageData);
   });
 
