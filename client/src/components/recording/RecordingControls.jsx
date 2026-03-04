@@ -136,6 +136,7 @@ function RecordingControls() {
   const handleVideoEnded = () => {
     setIsPlaying(false);
     setProgress(0);
+    setCurrentTime(0);
     if (videoRef.current) videoRef.current.currentTime = 0;
   };
 
