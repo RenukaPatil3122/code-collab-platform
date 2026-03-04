@@ -671,4 +671,19 @@ body {
     font-size: 0.78rem;
     padding: 7px 12px;
   }
+  .nav-auth-btns {
+    gap: 6px;
+  }
+  .nav-signin {
+    padding: 7px 12px;
+    font-size: 0.8rem;
+  }
+  .nav-register {
+    padding: 7px 12px;
+    font-size: 0.8rem;
+    gap: 4px;
+  }
+  .nav-register svg {
+    display: none;
+  }
 }

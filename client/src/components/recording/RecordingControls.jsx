@@ -81,13 +81,22 @@ function RecordingControls() {
   };
 
   const handleStartRecording = async () => {
-    // ✅ Only show toast HERE — guard with id to prevent any double-fire
-    // Do NOT let RecordingContext also show a toast for this
+    // ✅ Detect mobile — screen recording not supported
+    const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+    if (isMobile) {
+      toast("Screen recording isn't available on mobile devices", {
+        icon: "📱",
+        duration: 3000,
+        id: "recording-mobile-unsupported",
+      });
+      return;
+    }
+
     const success = await startRecording();
     if (success) {
       toast.success("🎬 Recording started!", {
         duration: 2000,
-        id: "recording-started", // ✅ deduplication key
+        id: "recording-started",
       });
     }
   };
