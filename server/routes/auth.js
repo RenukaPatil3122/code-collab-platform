@@ -18,7 +18,9 @@ function generateToken(userId) {
 // ─── POST /api/auth/register ──────────────────────────────
 router.post("/register", async (req, res) => {
   try {
-    const { username, email, password } = req.body;
+    const { username: rawUsername, email: rawEmail, password } = req.body;
+    const username = rawUsername?.trim();
+    const email = rawEmail?.trim().toLowerCase();
 
     if (!username || !email || !password) {
       return res.status(400).json({ error: "All fields are required" });
@@ -31,7 +33,7 @@ router.post("/register", async (req, res) => {
     }
 
     // Check duplicates
-    const existingEmail = await User.findOne({ email: email.toLowerCase() });
+    const existingEmail = await User.findOne({ email });
     if (existingEmail) {
       return res.status(409).json({ error: "Email already registered" });
     }

@@ -38,7 +38,7 @@ function AuthModal({ onClose, defaultTab = "login" }) {
     setError("");
     setLoading(true);
     try {
-      await login(loginEmail, loginPassword);
+      await login(loginEmail.trim(), loginPassword);
       reconnectSocketWithToken();
       onClose();
     } catch (err) {
@@ -57,7 +57,7 @@ function AuthModal({ onClose, defaultTab = "login" }) {
     }
     setLoading(true);
     try {
-      await register(regUsername, regEmail, regPassword);
+      await register(regUsername.trim(), regEmail.trim(), regPassword);
       reconnectSocketWithToken();
       onClose();
     } catch (err) {

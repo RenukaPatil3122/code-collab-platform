@@ -61,6 +61,7 @@ function verifySocketToken(socket, next) {
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
     socket.userId = decoded.userId;
+    socket.userRole = "authenticated";
     next();
   } catch {
     socket.userId = null;
