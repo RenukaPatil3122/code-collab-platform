@@ -152,6 +152,7 @@ function RoomContent() {
     executionTime,
     memoryUsed,
     injectActiveFile,
+    clearOutput,
   } = useRoom();
 
   const { isInterviewMode } = useInterview();
@@ -165,6 +166,10 @@ function RoomContent() {
   useEffect(() => {
     setShowOutput(false);
   }, [activeFile]);
+
+  useEffect(() => {
+    injectActiveFile(activeFileData, updateFileContent);
+  }, [activeFileData, injectActiveFile, updateFileContent]);
 
   const [showTemplateModal, setShowTemplateModal] = useState(false);
   const [showInterviewModal, setShowInterviewModal] = useState(false);
@@ -396,6 +401,12 @@ function RoomContent() {
   const handleSelectTemplate = (templateCode) => {
     if (activeFile) updateFileContent(activeFile, templateCode);
     else updateCode(templateCode);
+
+    // ← ADD THESE 3 LINES: wipe stale output so old result never shows
+    clearOutput();
+    setShowOutput(false);
+    setIsOutputMinimized(false);
+
     toast.success("Template loaded!", {
       duration: 2000,
       id: "template-loaded",

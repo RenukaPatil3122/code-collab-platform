@@ -44,6 +44,11 @@ export const RoomProvider = ({ children, roomId, username }) => {
   const [memoryUsed, setMemoryUsed] = useState(null);
 
   const [output, setOutput] = useState("");
+  const clearOutput = useCallback(() => {
+    setOutput("");
+    setExecutionTime(null);
+    setMemoryUsed(null);
+  }, []);
   const [isRunning, setIsRunning] = useState(false);
   const [stdin, setStdin] = useState("");
 
@@ -336,6 +341,7 @@ export const RoomProvider = ({ children, roomId, username }) => {
     setTestCases,
     setStdin,
     injectActiveFile,
+    clearOutput,
   };
 
   return <RoomContext.Provider value={value}>{children}</RoomContext.Provider>;
