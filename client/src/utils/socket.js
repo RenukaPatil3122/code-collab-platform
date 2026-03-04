@@ -2,7 +2,7 @@
 
 import { io } from "socket.io-client";
 
-const SOCKET_URL = process.env.REACT_APP_SOCKET_URL || "http://localhost:5000";
+const SOCKET_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
 
 // Get token from localStorage — sent in handshake so server knows who this is
 function getToken() {

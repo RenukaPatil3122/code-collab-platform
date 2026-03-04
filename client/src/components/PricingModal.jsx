@@ -56,10 +56,9 @@ function PricingModal({ onClose, reason }) {
     setError("");
 
     try {
-      const API_URL =
-        process.env.REACT_APP_SOCKET_URL || "http://localhost:5000";
+      const API_BASE = process.env.REACT_APP_API_URL || "http://localhost:5000";
 
-      const orderRes = await fetch(`${API_URL}/api/payment/create-order`, {
+      const orderRes = await fetch(`${API_BASE}/api/payment/create-order`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -85,7 +84,7 @@ function PricingModal({ onClose, reason }) {
 
         handler: async function (response) {
           try {
-            const verifyRes = await fetch(`${API_URL}/api/payment/verify`, {
+            const verifyRes = await fetch(`${API_BASE}/api/payment/verify`, {
               method: "POST",
               headers: {
                 "Content-Type": "application/json",
