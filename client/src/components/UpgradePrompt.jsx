@@ -48,6 +48,14 @@ const MESSAGES = {
     cta: "Upgrade to Pro",
     highlight: "complexity",
   },
+  default: {
+    icon: <Crown size={22} />,
+    iconColor: "#fbbf24",
+    title: "Upgrade to Pro",
+    desc: "Unlock unlimited access to all Pro features.",
+    cta: "Upgrade to Pro",
+    highlight: "",
+  },
 };
 
 const PERKS = [
@@ -72,7 +80,7 @@ const PERKS = [
 function UpgradePrompt({ reason, onClose, onUpgrade }) {
   const [showPricing, setShowPricing] = useState(false);
 
-  const msg = MESSAGES[reason] || MESSAGES.ai_limit;
+  const msg = MESSAGES[reason] || MESSAGES.default;
 
   const handleCta = () => {
     if (onUpgrade) {
