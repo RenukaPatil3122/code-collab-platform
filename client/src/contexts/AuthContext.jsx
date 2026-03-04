@@ -1,6 +1,7 @@
 // src/contexts/AuthContext.jsx
 
 import React, { createContext, useContext, useState, useEffect } from "react";
+import { reconnectSocketWithToken } from "../utils/socket";
 
 const AuthContext = createContext(null);
 
@@ -50,6 +51,7 @@ export function AuthProvider({ children }) {
     localStorage.setItem("ct_token", data.token);
     setToken(data.token);
     setUser(data.user);
+    reconnectSocketWithToken();
     return data.user;
   }
 
@@ -65,6 +67,7 @@ export function AuthProvider({ children }) {
     localStorage.setItem("ct_token", data.token);
     setToken(data.token);
     setUser(data.user);
+    reconnectSocketWithToken();
     return data.user;
   }
 

@@ -72,6 +72,7 @@ export const RoomProvider = ({ children, roomId, username }) => {
   useEffect(() => {
     if (!roomId || !username) return;
 
+    socket.disconnect();
     socket.connect();
     socket.emit(SOCKET_EVENTS.JOIN_ROOM, { roomId, username });
 
