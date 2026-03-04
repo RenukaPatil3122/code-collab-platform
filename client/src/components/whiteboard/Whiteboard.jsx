@@ -376,7 +376,10 @@ function Whiteboard({ roomId, username, onClose }) {
     off.width = canvas.width;
     off.height = canvas.height;
     const oc = off.getContext("2d");
-    oc.fillStyle = "#13131f";
+    const isDark =
+      document.querySelector(".room-container")?.getAttribute("data-theme") !==
+      "light";
+    oc.fillStyle = isDark ? "#13131f" : "#ffffff";
     oc.fillRect(0, 0, off.width, off.height);
     oc.drawImage(canvas, 0, 0);
     const a = document.createElement("a");
