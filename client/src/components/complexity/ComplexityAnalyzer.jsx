@@ -35,7 +35,7 @@ function stripNoise(line) {
   return s.trim();
 }
 
-function analyzeComplexity(code) {
+function analyzeComplexity(code, language) {
   if (!code || !code.trim()) return null;
   const lines = code.split("\n");
   let timeComplexity = "O(1)",
@@ -67,12 +67,16 @@ function analyzeComplexity(code) {
       if (funcDefLine === -1 && defRe.test(line)) funcDefLine = i;
     });
   }
+  const isPython = language === "python";
+  const isJava = ["java", "cpp", "c"].includes(language);
   const isLoop = (s) =>
     /^\s*for\s*\(/.test(s) ||
     /^\s*for\s+\w+\s+(?:in|of)\b/.test(s) ||
     /^\s*while\s*\(/.test(s) ||
     /^\s*do\s*[\{$]/.test(s) ||
-    /\.\s*(?:forEach|map|filter|reduce|flatMap)\s*\(/.test(s);
+    /\.\s*(?:forEach|map|filter|reduce|flatMap|stream)\s*\(/.test(s) ||
+    (isPython && /^\s*for\s+\w[\w,\s]*\s+in\b/.test(s)) ||
+    (isJava && /\bfor\s*\(\s*\w+\s+\w+\s*:\s*\w+\s*\)/.test(s));
   const isSort = (s) =>
     /\.\s*sort\s*\(/.test(s) ||
     /\b(?:mergeSort|quickSort|heapSort|bubbleSort|insertionSort)\s*\(/.test(
