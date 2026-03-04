@@ -56,7 +56,7 @@ import Whiteboard from "../components/whiteboard/Whiteboard";
 import { LANGUAGES } from "../utils/constants";
 import "./Room.css";
 
-const API_BASE = "http://localhost:5000";
+const API_BASE = process.env.REACT_APP_API_URL || "http://localhost:5000";
 const DEFAULT_PANEL_WIDTH = 420;
 const MIN_PANEL_WIDTH = 260;
 const MAX_PANEL_WIDTH = 700;

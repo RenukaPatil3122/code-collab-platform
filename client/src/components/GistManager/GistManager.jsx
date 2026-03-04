@@ -21,7 +21,7 @@ import toast from "react-hot-toast";
 import "./GistManager.css";
 
 // ✅ Env variable — works in dev AND production
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000";
+const API_BASE = process.env.REACT_APP_API_URL || "http://localhost:5000";
 const FREE_GIST_LIMIT = 3;
 
 function getTheme() {
