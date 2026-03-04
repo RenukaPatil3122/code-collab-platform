@@ -8,7 +8,7 @@ const mongoose = require("mongoose");
 const { setupAIRoutes, setupAISocket } = require("./aiHandler");
 const { setupGistRoutes } = require("./gistHandler");
 const { executeMultiFile } = require("./executors/multiFileExecutor");
-const { verifySocketToken } = require("./middleware/auth");
+const { verifySocketToken, optionalToken } = require("./middleware/auth");
 const { checkInterviewLimit, checkVersionLimit } = require("./middleware/rbac");
 const authRoutes = require("./routes/auth");
 const paymentRoutes = require("./routes/payment");
@@ -38,8 +38,11 @@ app.use("/api/auth", authRoutes);
 app.use("/api/payment", paymentRoutes);
 app.use("/api/admin", adminRoutes);
 
+// ─── Gist Routes (with optional auth so userId is attached) ──
+app.use("/api/gist", optionalToken);
 setupGistRoutes(app);
-setupAIRoutes(app); // AI routes handle their own limit check via checkAILimit middleware
+
+setupAIRoutes(app);
 
 mongoose
   .connect(process.env.MONGODB_URI)
@@ -58,8 +61,6 @@ const io = new Server(server, {
 });
 
 // ─── Socket.io Auth Middleware ────────────────────────────
-// Runs before every socket connection
-// Guests are allowed but marked with userId = null
 io.use(verifySocketToken);
 
 const rooms = new Map();
@@ -95,7 +96,7 @@ function getDefaultFiles() {
   };
 }
 
-// ─── Auto-save (unchanged) ────────────────────────────────
+// ─── Auto-save ────────────────────────────────────────────
 setInterval(async () => {
   for (const [roomId, room] of rooms) {
     try {
@@ -161,7 +162,7 @@ io.on("connection", (socket) => {
       username: username || `Guest${socket.id.slice(0, 4)}`,
       socketId: socket.id,
       color: getRandomColor(),
-      userId: socket.userId || null, // attach userId if logged in
+      userId: socket.userId || null,
     });
     socket.emit("room-state", {
       code: room.code,
@@ -380,11 +381,10 @@ io.on("connection", (socket) => {
     socket.emit("execution-cancelled");
   });
 
-  // ─── Interview Mode (with RBAC) ───────────────────────────
+  // ─── Interview Mode ───────────────────────────────────────
   socket.on(
     "start-interview",
     async ({ roomId, problem, difficulty, duration }) => {
-      // Check limits
       const check = await checkInterviewLimit(socket.userId, difficulty);
       if (!check.allowed) {
         return socket.emit("interview-error", {
@@ -445,9 +445,8 @@ io.on("connection", (socket) => {
     },
   );
 
-  // ─── Version History (with RBAC) ─────────────────────────
+  // ─── Version History ──────────────────────────────────────
   socket.on("save-version", async ({ roomId, code, message }) => {
-    // Check version limit
     const check = await checkVersionLimit(socket.userId, roomId);
     if (!check.allowed) {
       return socket.emit("version-saved", {
@@ -504,7 +503,7 @@ io.on("connection", (socket) => {
         const room = rooms.get(roomId);
         if (room) {
           room.code = version.code;
-          io.to(roomId).emit("version-restored", {
+          socket.to(roomId).emit("version-restored", {
             version: {
               id: version._id.toString(),
               code: version.code,
@@ -513,7 +512,7 @@ io.on("connection", (socket) => {
               timestamp: version.timestamp,
             },
           });
-          io.to(roomId).emit("code-update", { code: version.code });
+          socket.to(roomId).emit("code-update", { code: version.code });
         }
       }
     } catch (err) {
@@ -533,7 +532,7 @@ io.on("connection", (socket) => {
   });
 
   socket.on("whiteboard-sync", ({ roomId, imageData }) => {
-    if (!imageData || imageData.length > 5_000_000) return; // 5MB cap
+    if (!imageData || imageData.length > 5_000_000) return;
     whiteboardStates.set(roomId, imageData);
   });
 

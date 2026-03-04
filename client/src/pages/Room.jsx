@@ -162,6 +162,10 @@ function RoomContent() {
     if (activeFile) autoDetectLanguage(activeFile);
   }, [activeFile, autoDetectLanguage]);
 
+  useEffect(() => {
+    setShowOutput(false);
+  }, [activeFile]);
+
   const [showTemplateModal, setShowTemplateModal] = useState(false);
   const [showInterviewModal, setShowInterviewModal] = useState(false);
   const [showVersionHistory, setShowVersionHistory] = useState(false);
