@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { X, Check, Crown, Sparkles } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import "./PricingModal.css";
+import toast from "react-hot-toast";
 
 const FEATURES_FREE = [
   "Real-time collaboration",
@@ -103,7 +104,10 @@ function PricingModal({ onClose, reason }) {
 
             if (updateUser) updateUser(verifyData.user);
             onClose();
-            alert("🎉 Welcome to CodeTogether Pro!");
+            toast.success("🎉 Welcome to CodeTogether Pro!", {
+              duration: 3000,
+              id: "upgrade-success",
+            });
           } catch (err) {
             setError("Payment verification failed. Contact support.");
           } finally {
