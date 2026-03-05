@@ -63,10 +63,21 @@ function VersionHistory({
   useEffect(() => {
     if (!socket || !roomId) return;
 
-    socket.emit("get-versions", { roomId });
+    setTimeout(() => {
+      // ← ADD delay on initial load
+      socket.emit("get-versions", { roomId });
+    }, 800);
+
     const pollInterval = setInterval(() => {
       socket.emit("get-versions", { roomId });
     }, 30000);
+
+    const handleConnect = () => {
+      // ← ADD this function
+      setTimeout(() => {
+        socket.emit("get-versions", { roomId });
+      }, 300);
+    };
 
     const handleVersionsList = ({ versions: recv }) => {
       const valid = (recv || []).filter(
@@ -120,12 +131,14 @@ function VersionHistory({
       toast.success("Version restored!");
     };
 
+    socket.on("connect", handleConnect);
     socket.on("versions-list", handleVersionsList);
     socket.on("version-saved", handleVersionSaved);
     socket.on("version-restored", handleVersionRestored);
 
     return () => {
       clearInterval(pollInterval);
+      socket.off("connect", handleConnect); // ← ADD this
       socket.off("versions-list", handleVersionsList);
       socket.off("version-saved", handleVersionSaved);
       socket.off("version-restored", handleVersionRestored);
