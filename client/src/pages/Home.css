@@ -686,4 +686,7 @@ body {
   .nav-register svg {
     display: none;
   }
+  .join-upgrade-nudge {
+    display: none;
+  }
 }

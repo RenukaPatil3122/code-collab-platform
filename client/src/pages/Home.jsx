@@ -222,8 +222,8 @@ function Home() {
         </h1>
 
         <p className="hero-sub">
-          Real-time collaboration, AI assistance, interview prep —<br />
-          everything your team needs in one editor.
+          Real-time collaboration, AI assistance, interview prep — everything
+          your team needs in one editor.
         </p>
 
         <div className="join-card">
@@ -303,7 +303,7 @@ function Home() {
             { icon: <Cpu size={14} />, text: "AI Assistant" },
             { icon: <Shield size={14} />, text: "Interview Mode" },
             { icon: <GitBranch size={14} />, text: "Version History" },
-            { icon: <Zap size={14} />, text: "15+ Languages" },
+            { icon: <Zap size={14} />, text: "10+ Languages" },
           ].map((f, i) => (
             <div className="pill" key={i}>
               {f.icon}
@@ -314,7 +314,7 @@ function Home() {
 
         <div className="home-stats">
           {[
-            { value: "15+", label: "Languages" },
+            { value: "10+", label: "Languages" },
             { value: "∞", label: "Collaborators", infinity: true },
             { value: "<100ms", label: "Sync latency" },
           ].map((s, i) => (
