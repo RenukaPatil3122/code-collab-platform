@@ -631,3 +631,28 @@ const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
 });
+
+// FIX #7: Self-ping every 14 min to prevent Render free tier sleeping.
+// Render spins down after 15 min inactivity — this keeps it awake.
+// Set RENDER_EXTERNAL_URL in your Render environment variables
+// to your server URL e.g. https://code-collab-platform.onrender.com
+const SELF_URL = process.env.RENDER_EXTERNAL_URL;
+if (SELF_URL) {
+  setInterval(
+    async () => {
+      try {
+        const { default: fetch } = await import("node-fetch").catch(() => ({
+          default: global.fetch,
+        }));
+        const pingFn = fetch || global.fetch;
+        if (!pingFn) return;
+        const res = await pingFn(`${SELF_URL}/api/health`);
+        console.log(`🏓 Keep-alive: ${res.status}`);
+      } catch (e) {
+        console.warn("⚠️ Keep-alive failed:", e.message);
+      }
+    },
+    14 * 60 * 1000,
+  );
+  console.log(`🏓 Keep-alive enabled → ${SELF_URL}`);
+}
