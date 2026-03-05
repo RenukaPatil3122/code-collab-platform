@@ -483,7 +483,18 @@ io.on("connection", (socket) => {
       const dbVersions = await Version.find({ roomId })
         .sort({ timestamp: -1 })
         .limit(50);
+
+      // Get global user save count across ALL rooms
+      let totalUserSaves = 0;
+      if (socket.userId) {
+        totalUserSaves = await Version.countDocuments({
+          userId: socket.userId,
+          auto: false,
+        });
+      }
+
       socket.emit("versions-list", {
+        totalUserSaves,
         versions: dbVersions.map((v) => ({
           id: v._id.toString(),
           code: v.code,
@@ -493,7 +504,7 @@ io.on("connection", (socket) => {
         })),
       });
     } catch (err) {
-      socket.emit("versions-list", { versions: [] });
+      socket.emit("versions-list", { versions: [], totalUserSaves: 0 });
     }
   });
 

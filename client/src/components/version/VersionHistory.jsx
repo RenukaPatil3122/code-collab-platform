@@ -80,7 +80,7 @@ function VersionHistory({
       }, 500);
     };
 
-    const handleVersionsList = ({ versions: recv }) => {
+    const handleVersionsList = ({ versions: recv, totalUserSaves }) => {
       const valid = (recv || []).filter(
         (v) => v && v.id && v.code !== undefined && v.timestamp,
       );
@@ -88,9 +88,13 @@ function VersionHistory({
       setLoading(false);
 
       if (!isPremium) {
-        const manualSaves = valid.filter((v) => !v.auto).length;
-        setSaveCount(manualSaves);
-        saveCount_(SESSION_KEY, manualSaves);
+        // Use global count from server if available, else count local list
+        const count =
+          totalUserSaves !== undefined
+            ? totalUserSaves
+            : valid.filter((v) => !v.auto).length;
+        setSaveCount(count);
+        saveCount_(SESSION_KEY, count);
       }
     };
 
