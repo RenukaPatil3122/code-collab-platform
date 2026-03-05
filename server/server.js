@@ -458,6 +458,7 @@ io.on("connection", (socket) => {
     try {
       const version = await Version.create({
         roomId,
+        userId: socket.userId || null, // ← ADD THIS
         code,
         message: message || `Saved at ${new Date().toLocaleTimeString()}`,
         auto: false,

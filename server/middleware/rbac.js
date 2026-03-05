@@ -132,9 +132,9 @@ async function checkVersionLimit(userId, roomId) {
       return { allowed: true, user };
     }
 
-    // Count actual manual saves for this room in DB
+    // TO THIS — count across all rooms for this user:
     const manualSaveCount = await Version.countDocuments({
-      roomId,
+      userId,
       auto: false,
     });
 

@@ -3,6 +3,11 @@
 const mongoose = require("mongoose");
 
 const versionSchema = new mongoose.Schema({
+  userId: {
+    type: String,
+    default: null,
+    index: true,
+  },
   roomId: {
     type: String,
     required: true,
@@ -26,7 +31,6 @@ const versionSchema = new mongoose.Schema({
   },
 });
 
-// Index for faster queries
 versionSchema.index({ roomId: 1, timestamp: -1 });
 
 module.exports = mongoose.model("Version", versionSchema);
