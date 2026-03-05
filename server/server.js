@@ -1,4 +1,4 @@
-// server/server.js
+// server/server.js — FULL REPLACEMENT
 require("dotenv").config();
 const express = require("express");
 const http = require("http");
@@ -33,15 +33,11 @@ app.use(
 
 app.use(express.json());
 
-// ─── Auth Routes ──────────────────────────────────────────
 app.use("/api/auth", authRoutes);
 app.use("/api/payment", paymentRoutes);
 app.use("/api/admin", adminRoutes);
-
-// ─── Gist Routes (with optional auth so userId is attached) ──
 app.use("/api/gist", optionalToken);
 setupGistRoutes(app);
-
 setupAIRoutes(app);
 
 mongoose
@@ -58,9 +54,11 @@ const io = new Server(server, {
     methods: ["GET", "POST"],
     credentials: true,
   },
+  // FIX #7: Increase ping settings to prevent Vercel cold-start disconnects
+  pingTimeout: 60000,
+  pingInterval: 25000,
 });
 
-// ─── Socket.io Auth Middleware ────────────────────────────
 io.use(verifySocketToken);
 
 const rooms = new Map();
@@ -103,13 +101,10 @@ setInterval(async () => {
       if (room.users.size === 0) continue;
       if (!room.code || room.code.trim().length < AUTO_SAVE_MIN_LENGTH)
         continue;
-
       const lastAutoSave = await Version.findOne({ roomId, auto: true })
         .sort({ timestamp: -1 })
         .select("code");
-
       if (lastAutoSave && lastAutoSave.code === room.code) continue;
-
       const autoSaveCount = await Version.countDocuments({
         roomId,
         auto: true,
@@ -120,7 +115,6 @@ setInterval(async () => {
         });
         if (oldest) await Version.deleteOne({ _id: oldest._id });
       }
-
       await Version.create({
         roomId,
         code: room.code,
@@ -128,7 +122,6 @@ setInterval(async () => {
         auto: true,
         timestamp: new Date(),
       });
-
       console.log(`💾 Auto-saved room ${roomId}`);
     } catch (err) {
       console.error(`❌ Auto-save error for room ${roomId}:`, err);
@@ -155,6 +148,8 @@ io.on("connection", (socket) => {
         previousCode: null,
         files: getDefaultFiles(),
         activeFile: "main.js",
+        stdin: "", // FIX #5: persist stdin per room
+        chatMessages: [], // FIX #3: persist chat messages per room
       });
     }
     const room = rooms.get(roomId);
@@ -164,6 +159,7 @@ io.on("connection", (socket) => {
       color: getRandomColor(),
       userId: socket.userId || null,
     });
+
     socket.emit("room-state", {
       code: room.code,
       language: room.language,
@@ -171,6 +167,8 @@ io.on("connection", (socket) => {
       testCases: room.testCases || [],
       files: room.files,
       activeFile: room.activeFile,
+      stdin: room.stdin || "", // FIX #5: send current stdin to joining user
+      chatMessages: room.chatMessages || [], // FIX #3: send chat history to joining user
     });
     socket.emit("files-state", {
       files: room.files,
@@ -196,6 +194,15 @@ io.on("connection", (socket) => {
     if (room) {
       room.language = language;
       io.to(roomId).emit("language-update", { language });
+    }
+  });
+
+  // FIX #5: Sync stdin across all users
+  socket.on("stdin-change", ({ roomId, stdin }) => {
+    const room = rooms.get(roomId);
+    if (room) {
+      room.stdin = stdin;
+      socket.to(roomId).emit("stdin-update", { stdin });
     }
   });
 
@@ -318,6 +325,8 @@ io.on("connection", (socket) => {
             testCases: [],
             interviewMode: null,
             previousCode: null,
+            stdin: stdin || "",
+            chatMessages: [],
             files: {
               [entryName]: {
                 name: entryName,
@@ -329,10 +338,8 @@ io.on("connection", (socket) => {
           });
           room = rooms.get(roomId);
         }
-
         const token = { cancelled: false };
         runningExecutions.set(socket.id, token);
-
         const entryFile = clientActiveFile || room.activeFile;
         if (entryFile) {
           room.files[entryFile] = {
@@ -345,16 +352,18 @@ io.on("connection", (socket) => {
           room.activeFile = entryFile;
         }
         if (language) room.language = language;
-
         const { output, error, executionTime, memoryUsed } =
-          await executeMultiFile(room.files, language, stdin || "", entryFile);
-
+          await executeMultiFile(
+            room.files,
+            language,
+            stdin || room.stdin || "",
+            entryFile,
+          );
         if (token.cancelled) {
           runningExecutions.delete(socket.id);
           return;
         }
         runningExecutions.delete(socket.id);
-
         socket.emit("code-output", {
           output: output || "Code executed successfully (no output)",
           error,
@@ -375,9 +384,7 @@ io.on("connection", (socket) => {
 
   socket.on("cancel-execution", () => {
     const token = runningExecutions.get(socket.id);
-    if (token) {
-      token.cancelled = true;
-    }
+    if (token) token.cancelled = true;
     socket.emit("execution-cancelled");
   });
 
@@ -392,7 +399,6 @@ io.on("connection", (socket) => {
           message: check.message,
         });
       }
-
       const room = rooms.get(roomId);
       if (room) {
         room.previousCode = room.code;
@@ -454,11 +460,10 @@ io.on("connection", (socket) => {
         message: check.message,
       });
     }
-
     try {
       const version = await Version.create({
         roomId,
-        userId: socket.userId || null, // ← ADD THIS
+        userId: socket.userId || null,
         code,
         message: message || `Saved at ${new Date().toLocaleTimeString()}`,
         auto: false,
@@ -483,8 +488,6 @@ io.on("connection", (socket) => {
       const dbVersions = await Version.find({ roomId })
         .sort({ timestamp: -1 })
         .limit(50);
-
-      // Get global user save count across ALL rooms
       let totalUserSaves = 0;
       if (socket.userId) {
         totalUserSaves = await Version.countDocuments({
@@ -492,7 +495,6 @@ io.on("connection", (socket) => {
           auto: false,
         });
       }
-
       socket.emit("versions-list", {
         totalUserSaves,
         versions: dbVersions.map((v) => ({
@@ -558,12 +560,18 @@ io.on("connection", (socket) => {
     const room = rooms.get(roomId);
     if (room && room.users.has(socket.id)) {
       const user = room.users.get(socket.id);
-      io.to(roomId).emit("chat-message", {
+      const chatMsg = {
         username: user.username,
         message,
         timestamp: new Date().toISOString(),
         color: user.color,
-      });
+      };
+      // FIX #3: Persist chat messages in room state (keep last 200)
+      if (!room.chatMessages) room.chatMessages = [];
+      room.chatMessages.push(chatMsg);
+      if (room.chatMessages.length > 200) room.chatMessages.shift();
+
+      io.to(roomId).emit("chat-message", chatMsg);
     }
   });
 
@@ -614,6 +622,7 @@ app.get("/", (req, res) => {
   });
 });
 
+// FIX #7: Health endpoint for keep-alive pings
 app.get("/api/health", (req, res) => {
   res.json({ status: "OK", uptime: process.uptime() });
 });

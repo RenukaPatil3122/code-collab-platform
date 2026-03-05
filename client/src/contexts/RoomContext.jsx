@@ -19,8 +19,6 @@ export const useRoom = () => {
   return context;
 };
 
-// ✅ Uses EXT_TO_LANGUAGE from constants — single source of truth
-// cs → csharp, rs → rust, py → python, all covered
 const detectLang = (fileName) => {
   if (!fileName) return null;
   const ext = fileName.split(".").pop().toLowerCase();
@@ -88,6 +86,8 @@ export const RoomProvider = ({ children, roomId, username }) => {
         language: initialLang,
         users: roomUsers,
         testCases: roomTestCases,
+        stdin: roomStdin, // FIX #5: restore stdin from room state
+        chatMessages: roomChat, // FIX #3: restore chat history from room state
       }) => {
         const saved = localStorage.getItem(`ct-code-${roomId}`);
         setCode(saved || initialCode);
@@ -95,6 +95,20 @@ export const RoomProvider = ({ children, roomId, username }) => {
         setUsers(roomUsers);
         setTestCases(roomTestCases || []);
         setIsConnected(true);
+
+        // FIX #5: seed stdin so late joiners see whatever was already typed
+        if (roomStdin) setStdin(roomStdin);
+
+        // FIX #3: broadcast chat history to Chat component via custom event
+        // (Chat.jsx listens for this so it can populate its message list)
+        if (roomChat && roomChat.length > 0) {
+          window.dispatchEvent(
+            new CustomEvent("chat-history", {
+              detail: { roomId, messages: roomChat },
+            }),
+          );
+        }
+
         toast.success("Connected!", { duration: 1500, id: "room-connected" });
       },
     );
@@ -223,8 +237,6 @@ export const RoomProvider = ({ children, roomId, username }) => {
     [roomId],
   );
 
-  // ✅ FIXED: removed the `detected !== language` guard that was blocking updates
-  // Now always syncs dropdown + socket when switching files
   const autoDetectLanguage = useCallback(
     (fileName) => {
       const detected = detectLang(fileName);
@@ -252,7 +264,6 @@ export const RoomProvider = ({ children, roomId, username }) => {
     const activeFile = activeFileRef.current;
     const currentContent = activeFile?.content ?? code;
     const currentFileName = activeFile?.name ?? "main.js";
-    // ✅ Always re-detect from filename at run time so it's never stale
     const detectedLang = detectLang(currentFileName) || language;
 
     if (!currentContent?.trim()) {

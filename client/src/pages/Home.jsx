@@ -287,10 +287,8 @@ function Home() {
                   }
                 }}
               >
-                <Sparkles size={12} />
-                {isLoggedIn
-                  ? "Upgrade to Pro — unlock unlimited AI & more"
-                  : "Sign up free — unlock AI, interviews & more"}
+                <Crown size={12} />
+                {isLoggedIn ? "Upgrade to Pro" : "Sign up free"}
                 <ArrowRight size={12} />
               </button>
             )}

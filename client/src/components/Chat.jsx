@@ -4,8 +4,14 @@ import { socket } from "../utils/socket";
 import { Send } from "lucide-react";
 import "./Chat.css";
 
+// FIX #3: Store messages outside the component so they survive panel close/reopen
+// Keyed by roomId so different rooms don't share history
+const persistedMessages = {};
+
 function Chat({ roomId, username, users, onClose }) {
-  const [messages, setMessages] = useState([]);
+  const [messages, setMessages] = useState(
+    () => persistedMessages[roomId] || [],
+  );
   const [inputMessage, setInputMessage] = useState("");
   const messagesEndRef = useRef(null);
 
@@ -14,16 +20,46 @@ function Chat({ roomId, username, users, onClose }) {
   }, [messages]);
 
   useEffect(() => {
-    const handleChatMessage = (data) => setMessages((prev) => [...prev, data]);
+    const handleChatMessage = (data) => {
+      setMessages((prev) => {
+        const next = [...prev, data];
+        // Persist so messages survive panel close/reopen and code runs
+        persistedMessages[roomId] = next;
+        return next;
+      });
+    };
     socket.on("chat-message", handleChatMessage);
     return () => socket.off("chat-message", handleChatMessage);
-  }, []);
+  }, [roomId]);
+
+  // FIX #3: Load chat history when joining a room that already has messages
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.detail.roomId === roomId && e.detail.messages?.length > 0) {
+        setMessages(e.detail.messages);
+        persistedMessages[roomId] = e.detail.messages;
+      }
+    };
+    window.addEventListener("chat-history", handler);
+    return () => window.removeEventListener("chat-history", handler);
+  }, [roomId]);
 
   const handleSendMessage = (e) => {
     e.preventDefault();
     if (inputMessage.trim()) {
-      socket.emit("chat-message", { roomId, message: inputMessage, username });
+      socket.emit("chat-message", {
+        roomId,
+        message: inputMessage.trim(),
+        username,
+      });
       setInputMessage("");
+    }
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage(e);
     }
   };
 
@@ -59,7 +95,7 @@ function Chat({ roomId, username, users, onClose }) {
       <div className="chat-messages">
         {messages.length === 0 ? (
           <div className="empty-chat">
-            <p>No messages yet</p>
+            <p>No messages yet. Say hi! 👋</p>
           </div>
         ) : (
           messages.map((msg, index) => {
@@ -99,12 +135,18 @@ function Chat({ roomId, username, users, onClose }) {
       <form className="chat-input-form" onSubmit={handleSendMessage}>
         <input
           type="text"
-          placeholder="Type a message..."
+          placeholder="Type a message... (Enter to send)"
           value={inputMessage}
           onChange={(e) => setInputMessage(e.target.value)}
+          onKeyDown={handleKeyDown}
           className="chat-input"
         />
-        <button type="submit" className="btn-send" title="Send">
+        <button
+          type="submit"
+          className="btn-send"
+          title="Send"
+          disabled={!inputMessage.trim()}
+        >
           <Send size={15} />
         </button>
       </form>

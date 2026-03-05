@@ -1,4 +1,4 @@
-// src/pages/Room.jsx
+// src/pages/Room.jsx — FULL REPLACEMENT
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useLocation, useNavigate } from "react-router-dom";
 import { socket } from "../utils/socket";
@@ -162,14 +162,20 @@ function RoomContent() {
   useEffect(() => {
     if (activeFile) autoDetectLanguage(activeFile);
   }, [activeFile, autoDetectLanguage]);
-
   useEffect(() => {
     setShowOutput(false);
   }, [activeFile]);
-
   useEffect(() => {
     injectActiveFile(activeFileData, updateFileContent);
   }, [activeFileData, injectActiveFile, updateFileContent]);
+
+  // FIX #5: Sync stdin from other users
+  useEffect(() => {
+    socket.on("stdin-update", ({ stdin: remoteStdin }) => {
+      setStdin(remoteStdin);
+    });
+    return () => socket.off("stdin-update");
+  }, [setStdin]);
 
   const [showTemplateModal, setShowTemplateModal] = useState(false);
   const [showInterviewModal, setShowInterviewModal] = useState(false);
@@ -202,7 +208,6 @@ function RoomContent() {
   const [isSaving, setIsSaving] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
 
-  // Gist save count — persisted in sessionStorage
   const [gistSaveCount, setGistSaveCount] = useState(() => {
     try {
       return parseInt(sessionStorage.getItem("ct_gist_saves") || "0", 10);
@@ -379,7 +384,6 @@ function RoomContent() {
     openPanel("tests");
     runTests();
   }, [openPanel, runTests]);
-
   const handleToggleChat = (v) => (v ? openPanel("chat") : setShowChat(false));
   const handleToggleAI = (v) => (v ? openPanel("ai") : setShowAIPanel(false));
   const handleToggleVH = (v) =>
@@ -401,12 +405,9 @@ function RoomContent() {
   const handleSelectTemplate = (templateCode) => {
     if (activeFile) updateFileContent(activeFile, templateCode);
     else updateCode(templateCode);
-
-    // ← ADD THESE 3 LINES: wipe stale output so old result never shows
     clearOutput();
     setShowOutput(false);
     setIsOutputMinimized(false);
-
     toast.success("Template loaded!", {
       duration: 2000,
       id: "template-loaded",
@@ -468,7 +469,6 @@ function RoomContent() {
       const data = await response.json();
       if (data.success) {
         setSavedGistUrl(data.gistUrl);
-        // Increment gist save count
         if (!isPremium) {
           const next = gistSaveCount + 1;
           setGistSaveCount(next);
@@ -644,7 +644,14 @@ function RoomContent() {
                   rows={4}
                   placeholder="Enter input for your program (one value per line)..."
                   value={stdin}
-                  onChange={(e) => setStdin(e.target.value)}
+                  onChange={(e) => {
+                    setStdin(e.target.value);
+                    // FIX #5: Broadcast stdin to all users in room
+                    socket.emit("stdin-change", {
+                      roomId,
+                      stdin: e.target.value,
+                    });
+                  }}
                   autoFocus
                 />
               </div>
@@ -721,6 +728,14 @@ function RoomContent() {
             >
               {theme === "vs-dark" ? <Sun size={18} /> : <Moon size={18} />}
             </button>
+            {/* FIX #4: Chat button now in header after theme toggle — always visible */}
+            <button
+              className={`feature-btn ${showChat ? "active" : ""}`}
+              title="Chat"
+              onClick={() => handleToggleChat(!showChat)}
+            >
+              <MessageSquare size={18} />
+            </button>
           </div>
 
           <div className="more-menu-container" ref={moreMenuRef}>
@@ -758,7 +773,6 @@ function RoomContent() {
                     <div className="menu-divider" />
                   </>
                 )}
-                {/* ── Save to Gist with limit ── */}
                 <button
                   onClick={() =>
                     menuAction(() => {
@@ -792,11 +806,6 @@ function RoomContent() {
                   onClick={() => menuAction(() => setShowTemplateModal(true))}
                 >
                   <BookTemplate size={16} /> Templates
-                </button>
-                <button
-                  onClick={() => menuAction(() => handleToggleChat(!showChat))}
-                >
-                  <MessageSquare size={16} /> Chat
                 </button>
                 <div className="menu-divider" />
                 <button onClick={handleLeaveRoom} className="danger">
