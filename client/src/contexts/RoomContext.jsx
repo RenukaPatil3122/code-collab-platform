@@ -86,8 +86,8 @@ export const RoomProvider = ({ children, roomId, username }) => {
         language: initialLang,
         users: roomUsers,
         testCases: roomTestCases,
-        stdin: roomStdin, // FIX #5: restore stdin from room state
-        chatMessages: roomChat, // FIX #3: restore chat history from room state
+        stdin: roomStdin,
+        chatMessages: roomChat,
       }) => {
         const saved = localStorage.getItem(`ct-code-${roomId}`);
         setCode(saved || initialCode);
@@ -96,11 +96,8 @@ export const RoomProvider = ({ children, roomId, username }) => {
         setTestCases(roomTestCases || []);
         setIsConnected(true);
 
-        // FIX #5: seed stdin so late joiners see whatever was already typed
         if (roomStdin) setStdin(roomStdin);
 
-        // FIX #3: broadcast chat history to Chat component via custom event
-        // (Chat.jsx listens for this so it can populate its message list)
         if (roomChat && roomChat.length > 0) {
           window.dispatchEvent(
             new CustomEvent("chat-history", {
@@ -136,8 +133,11 @@ export const RoomProvider = ({ children, roomId, username }) => {
       },
     );
 
+    // FIX: only update the code state for localStorage/runCode purposes.
+    // Do NOT let this trigger editor resets — CodeEditor handles its own
+    // remote updates via file-content-update + pushEditOperations.
     socket.on(SOCKET_EVENTS.CODE_UPDATE, ({ code: newCode }) => {
-      setCode(newCode);
+      setCode(newCode); // just keeps RoomContext.code in sync for runCode()
     });
 
     socket.on(SOCKET_EVENTS.LANGUAGE_UPDATE, ({ language: newLang }) => {
@@ -218,16 +218,17 @@ export const RoomProvider = ({ children, roomId, username }) => {
     };
   }, [roomId, username]);
 
-  const updateCode = useCallback(
-    (newCode) => {
-      setCode(newCode);
-      socket.emit(SOCKET_EVENTS.CODE_CHANGE, { roomId, code: newCode });
-      if (activeFileRef.current && updateFileContentRef.current) {
-        updateFileContentRef.current(activeFileRef.current.name, newCode);
-      }
-    },
-    [roomId],
-  );
+  const updateCode = useCallback((newCode) => {
+    setCode(newCode);
+    // FIX: removed socket.emit CODE_CHANGE here — file content is already
+    // synced via FileContext.updateFileContent → file-content-change socket event.
+    // Emitting BOTH code-change AND file-content-change was causing double
+    // updates: code-update → CodeEditor pushEditOperations conflicting with
+    // file-content-update → scrambled line counts and cursor jumps.
+    if (activeFileRef.current && updateFileContentRef.current) {
+      updateFileContentRef.current(activeFileRef.current.name, newCode);
+    }
+  }, []);
 
   const updateLanguage = useCallback(
     (newLang) => {
