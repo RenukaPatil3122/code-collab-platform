@@ -74,6 +74,13 @@ function VersionHistory({
       );
       setVersions(valid);
       setLoading(false);
+
+      // ✅ Sync save count from actual DB — not sessionStorage
+      if (!isPremium) {
+        const manualSaves = valid.filter((v) => !v.auto).length;
+        setSaveCount(manualSaves);
+        saveCount_(SESSION_KEY, manualSaves); // keep sessionStorage in sync too
+      }
     };
 
     const handleVersionSaved = ({ version, error, message }) => {
