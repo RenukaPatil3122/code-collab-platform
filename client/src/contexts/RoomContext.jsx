@@ -74,7 +74,12 @@ export const RoomProvider = ({ children, roomId, username }) => {
 
     socket.disconnect();
     socket.connect();
-    socket.emit(SOCKET_EVENTS.JOIN_ROOM, { roomId, username });
+
+    const handleConnected = () => {
+      socket.emit(SOCKET_EVENTS.JOIN_ROOM, { roomId, username });
+    };
+
+    socket.once("connect", handleConnected);
 
     socket.on(
       SOCKET_EVENTS.ROOM_STATE,
@@ -184,6 +189,7 @@ export const RoomProvider = ({ children, roomId, username }) => {
     });
 
     return () => {
+      socket.off("connect", handleConnected);
       socket.off(SOCKET_EVENTS.ROOM_STATE);
       socket.off(SOCKET_EVENTS.USER_JOINED);
       socket.off(SOCKET_EVENTS.USER_LEFT);
