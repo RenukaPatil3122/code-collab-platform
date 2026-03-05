@@ -5,6 +5,7 @@ import React, {
   useState,
   useCallback,
   useEffect,
+  useRef,
 } from "react";
 import { socket } from "../utils/socket";
 import { SOCKET_EVENTS, EXT_TO_LANGUAGE } from "../utils/constants";
@@ -34,6 +35,12 @@ export const FileProvider = ({ children, roomId, onLanguageChange }) => {
   const [activeFile, setActiveFileState] = useState("main.js");
   const [openTabs, setOpenTabs] = useState(["main.js"]);
 
+  // THE FIX: when WE emit file-content-change, we add the fileName here.
+  // When the server echoes file-content-update back to us, we skip it —
+  // we already have the latest content locally, so no setFiles needed.
+  // Without this, setFiles → activeFileData changes → CodeEditor setValue() → cursor reset.
+  const pendingLocalUpdates = useRef(new Set());
+
   useEffect(() => {
     if (!roomId) return;
 
@@ -62,13 +69,11 @@ export const FileProvider = ({ children, roomId, onLanguageChange }) => {
       toast(`📄 New file: ${file.name}`, { duration: 2000 });
     });
 
-    // ✅ FIX 1: FILE_DELETED — derive `remaining` from the functional updater
-    // so we never read stale `files` from closure
     socket.on(SOCKET_EVENTS.FILE_DELETED, ({ fileName }) => {
       setFiles((prev) => {
         const next = { ...prev };
         delete next[fileName];
-        const remaining = Object.keys(next); // ✅ fresh — from updated state
+        const remaining = Object.keys(next);
         setOpenTabs((t) => t.filter((tab) => tab !== fileName));
         setActiveFileState((cur) =>
           cur === fileName ? remaining[0] || null : cur,
@@ -89,6 +94,13 @@ export const FileProvider = ({ children, roomId, onLanguageChange }) => {
     });
 
     socket.on(SOCKET_EVENTS.FILE_CONTENT_UPDATE, ({ fileName, content }) => {
+      // THE FIX: skip updates that originated from us
+      // (server echoes our own file-content-change back — we don't need it)
+      if (pendingLocalUpdates.current.has(fileName)) {
+        pendingLocalUpdates.current.delete(fileName);
+        return;
+      }
+      // Genuine update from a remote user — apply it
       setFiles((prev) => ({
         ...prev,
         [fileName]: { ...prev[fileName], content },
@@ -109,12 +121,8 @@ export const FileProvider = ({ children, roomId, onLanguageChange }) => {
       socket.off(SOCKET_EVENTS.FILE_CONTENT_UPDATE);
       socket.off(SOCKET_EVENTS.FILE_SELECTED);
     };
-  }, [roomId]); // ✅ FIX 2: removed `files` from deps — all handlers now use
-  // functional updater pattern so they don't need files in scope.
-  // Previously `files` here caused socket listeners to re-register
-  // on every single file change (every keystroke).
+  }, [roomId]);
 
-  // ✅ FIX: Now accepts optional `content` parameter so Open Folder can load real file contents
   const createFile = useCallback(
     (fileName, content = "") => {
       if (!fileName.trim()) return;
@@ -138,25 +146,20 @@ export const FileProvider = ({ children, roomId, onLanguageChange }) => {
     [roomId, files, onLanguageChange],
   );
 
-  // ✅ Bulk loader — atomically replaces workspace
-  // options.openTabs = false → don't open any tabs (used by Open Folder)
   const loadFilesFromDisk = useCallback(
     (fileMap, options = {}) => {
       const { openTabs: shouldOpenTabs = true } = options;
       setFiles(fileMap);
       const paths = Object.keys(fileMap).filter((p) => !p.endsWith(".gitkeep"));
-
       if (shouldOpenTabs) {
         setOpenTabs(paths);
         const first = paths[0] || null;
         setActiveFileState(first);
         if (first) onLanguageChange?.(first);
       } else {
-        // ✅ No tabs open — user clicks a file to open it (like VSCode)
         setOpenTabs([]);
         setActiveFileState(null);
       }
-
       socket.emit(SOCKET_EVENTS.FILES_STATE, {
         roomId,
         files: fileMap,
@@ -241,6 +244,8 @@ export const FileProvider = ({ children, roomId, onLanguageChange }) => {
 
   const updateFileContent = useCallback(
     (fileName, content) => {
+      // Mark as local so the server echo is ignored in FILE_CONTENT_UPDATE
+      pendingLocalUpdates.current.add(fileName);
       setFiles((prev) => ({
         ...prev,
         [fileName]: { ...prev[fileName], content },
@@ -260,7 +265,7 @@ export const FileProvider = ({ children, roomId, onLanguageChange }) => {
     openTabs,
     activeFileData: files[activeFile] || null,
     createFile,
-    loadFilesFromDisk, // ✅ new: used by Open Folder
+    loadFilesFromDisk,
     deleteFile,
     renameFile,
     selectFile,
