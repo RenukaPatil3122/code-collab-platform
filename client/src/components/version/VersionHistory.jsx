@@ -9,7 +9,6 @@ import "./VersionHistory.css";
 
 const FREE_VERSION_LIMIT = 3;
 
-// Per-room key so each room gets its own 3 free saves
 function getSessionKey(roomId) {
   return `ct_version_saves_${roomId}`;
 }
@@ -45,14 +44,12 @@ function VersionHistory({
   const [saving, setSaving] = useState(false);
   const [selectedVersion, setSelectedVersion] = useState(null);
 
-  // saveCount = manual saves done this session (NOT counting auto-saves)
   const [saveCount, setSaveCount] = useState(() =>
     isPremium ? 0 : getCount(SESSION_KEY),
   );
   const remaining = Math.max(FREE_VERSION_LIMIT - saveCount, 0);
   const limitReached = !isPremium && saveCount >= FREE_VERSION_LIMIT;
 
-  // Track whether the current pending save was manual (user-triggered)
   const pendingManualSave = useRef(false);
 
   const saveCountRef = useRef(saveCount);
@@ -63,20 +60,24 @@ function VersionHistory({
   useEffect(() => {
     if (!socket || !roomId) return;
 
-    setTimeout(() => {
-      // ← ADD delay on initial load
-      socket.emit("get-versions", { roomId });
-    }, 800);
+    socket.emit("get-versions", { roomId });
+    setTimeout(() => socket.emit("get-versions", { roomId }), 1000);
+    setTimeout(() => socket.emit("get-versions", { roomId }), 3000);
 
     const pollInterval = setInterval(() => {
       socket.emit("get-versions", { roomId });
     }, 30000);
 
-    const handleConnect = () => {
-      // ← ADD this function
+    const handleRoomState = () => {
       setTimeout(() => {
         socket.emit("get-versions", { roomId });
-      }, 300);
+      }, 200);
+    };
+
+    const handleConnect = () => {
+      setTimeout(() => {
+        socket.emit("get-versions", { roomId });
+      }, 500);
     };
 
     const handleVersionsList = ({ versions: recv }) => {
@@ -86,37 +87,28 @@ function VersionHistory({
       setVersions(valid);
       setLoading(false);
 
-      // ✅ Sync save count from actual DB — not sessionStorage
       if (!isPremium) {
         const manualSaves = valid.filter((v) => !v.auto).length;
         setSaveCount(manualSaves);
-        saveCount_(SESSION_KEY, manualSaves); // keep sessionStorage in sync too
+        saveCount_(SESSION_KEY, manualSaves);
       }
     };
 
     const handleVersionSaved = ({ version, error, message }) => {
       setSaving(false);
-
-      // Only show upgrade prompt for MANUAL saves, never for auto-saves
       if (error === "LIMIT_REACHED" || error === "LOGIN_REQUIRED") {
-        if (pendingManualSave.current) {
-          onUpgrade?.();
-        }
+        if (pendingManualSave.current) onUpgrade?.();
         pendingManualSave.current = false;
         return;
       }
-
       if (error) {
         toast.error(`Failed to save: ${message || error}`);
         pendingManualSave.current = false;
         return;
       }
-
       if (version) {
         setVersions((prev) => [version, ...prev]);
         setSaveMessage("");
-
-        // Only count manual saves toward limit, not auto-saves
         if (!isPremium && pendingManualSave.current) {
           const next = saveCountRef.current + 1;
           setSaveCount(next);
@@ -131,6 +123,7 @@ function VersionHistory({
       toast.success("Version restored!");
     };
 
+    socket.on("room-state", handleRoomState);
     socket.on("connect", handleConnect);
     socket.on("versions-list", handleVersionsList);
     socket.on("version-saved", handleVersionSaved);
@@ -138,7 +131,8 @@ function VersionHistory({
 
     return () => {
       clearInterval(pollInterval);
-      socket.off("connect", handleConnect); // ← ADD this
+      socket.off("room-state", handleRoomState);
+      socket.off("connect", handleConnect);
       socket.off("versions-list", handleVersionsList);
       socket.off("version-saved", handleVersionSaved);
       socket.off("version-restored", handleVersionRestored);
@@ -146,7 +140,6 @@ function VersionHistory({
   }, [roomId, isPremium]);
 
   const handleSaveVersion = () => {
-    // Block at frontend BEFORE emitting — never reaches backend if limit hit
     if (limitReached) {
       onUpgrade?.();
       return;
