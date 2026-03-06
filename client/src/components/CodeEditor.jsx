@@ -531,7 +531,7 @@ function CodeEditor({ language, onChange, roomId, username }) {
               automaticLayout: true,
               wordWrap: "on",
               cursorSmoothCaretAnimation: "off",
-              renderLineHighlight: "line",
+              renderLineHighlight: "none",
               cursorWidth: 3,
               quickSuggestions: false,
               acceptSuggestionOnCommitCharacter: false,
