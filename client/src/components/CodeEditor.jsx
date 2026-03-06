@@ -85,7 +85,9 @@ function getYjsWsUrl() {
 }
 
 // Convert char offset → Monaco { lineNumber, column }
-function offsetToPos(text, offset) {
+// Uses the CURRENT model text each time — called after each individual op is applied
+function offsetToPos(model, offset) {
+  const text = model.getValue();
   const clamped = Math.max(0, Math.min(offset, text.length));
   const before = text.slice(0, clamped);
   const lines = before.split("\n");
@@ -95,51 +97,14 @@ function offsetToPos(text, offset) {
   };
 }
 
-// Convert Monaco { lineNumber, column } → char offset
-function posToOffset(text, lineNumber, column) {
-  const lines = text.split("\n");
-  let offset = 0;
-  for (let i = 0; i < lineNumber - 1 && i < lines.length; i++) {
-    offset += lines[i].length + 1; // +1 for \n
-  }
-  return Math.min(offset + Math.max(0, column - 1), text.length);
-}
-
 // ─────────────────────────────────────────────────────────────────────────────
-// Adjust a cursor offset after a Yjs delta is applied.
-// Walk the delta ops, track position in the OLD string,
-// and shift the cursor offset for any inserts/deletes that occurred before it.
-// ─────────────────────────────────────────────────────────────────────────────
-function adjustOffset(cursorOffset, delta) {
-  let pos = 0; // position in old string
-  let adj = cursorOffset; // adjusted cursor in new string
-
-  for (const op of delta) {
-    if (pos >= cursorOffset && !op.insert) break; // past cursor, done
-
-    if (op.retain !== undefined) {
-      pos += op.retain;
-    } else if (op.insert !== undefined) {
-      // Insert happened at `pos` in old string
-      if (pos <= cursorOffset) {
-        adj += op.insert.length;
-      }
-      // inserts don't advance `pos` in the OLD string
-    } else if (op.delete !== undefined) {
-      // Delete of `op.delete` chars starting at `pos`
-      if (pos < cursorOffset) {
-        const charsBeforeCursor = Math.min(op.delete, cursorOffset - pos);
-        adj -= charsBeforeCursor;
-      }
-      pos += op.delete;
-    }
-  }
-
-  return Math.max(0, adj);
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// MonacoBinding — Y.Text ↔ Monaco with precise delta ops
+// MonacoBinding
+//
+// The key fix: apply each Yjs delta op ONE AT A TIME, re-reading the model
+// text after each op. This way positions are always correct regardless of
+// how many ops are in a single delta.
+//
+// mute is a counter (not boolean) so nested/async calls don't prematurely unmute.
 // ─────────────────────────────────────────────────────────────────────────────
 class MonacoBinding {
   constructor(yText, monacoModel, editor, monacoInstance) {
@@ -147,91 +112,84 @@ class MonacoBinding {
     this.model = monacoModel;
     this.editor = editor;
     this.monaco = monacoInstance;
-    this.mute = false;
+    this.muteDepth = 0; // counter: >0 means muted
     this._disposed = false;
 
     // ── Yjs → Monaco ──────────────────────────────────────────────────────
+    // Apply each op individually, re-reading positions from the live model.
     this._yObserver = (event) => {
-      if (this._disposed || this.mute) return;
-      this.mute = true;
+      if (this._disposed) return;
+      if (this.muteDepth > 0) return;
+
+      this.muteDepth++;
       try {
         const delta = event.delta;
-        const oldText = this.model.getValue();
-
-        // Save cursor as char offset in OLD text
-        const curPos = this.editor.getPosition();
-        const curOffset = curPos
-          ? posToOffset(oldText, curPos.lineNumber, curPos.column)
-          : 0;
-
-        // Build Monaco edits from delta (operate on OLD text positions)
-        let scanPos = 0;
-        const edits = [];
+        let charOffset = 0; // tracks position in the EVOLVING text
 
         for (const op of delta) {
           if (op.retain !== undefined) {
-            scanPos += op.retain;
+            charOffset += op.retain;
           } else if (op.insert !== undefined) {
-            const pos = offsetToPos(oldText, scanPos);
-            edits.push({
-              range: new this.monaco.Range(
-                pos.lineNumber,
-                pos.column,
-                pos.lineNumber,
-                pos.column,
-              ),
-              text: op.insert,
-            });
-            // inserts don't move scanPos in old text
+            // Re-read position from model AFTER previous ops were applied
+            const pos = offsetToPos(this.model, charOffset);
+            this.model.pushEditOperations(
+              [],
+              [
+                {
+                  range: new this.monaco.Range(
+                    pos.lineNumber,
+                    pos.column,
+                    pos.lineNumber,
+                    pos.column,
+                  ),
+                  text: op.insert,
+                },
+              ],
+              () => null,
+            );
+            charOffset += op.insert.length;
           } else if (op.delete !== undefined) {
-            const startPos = offsetToPos(oldText, scanPos);
-            const endPos = offsetToPos(oldText, scanPos + op.delete);
-            edits.push({
-              range: new this.monaco.Range(
-                startPos.lineNumber,
-                startPos.column,
-                endPos.lineNumber,
-                endPos.column,
-              ),
-              text: "",
-            });
-            scanPos += op.delete;
+            const startPos = offsetToPos(this.model, charOffset);
+            const endPos = offsetToPos(this.model, charOffset + op.delete);
+            this.model.pushEditOperations(
+              [],
+              [
+                {
+                  range: new this.monaco.Range(
+                    startPos.lineNumber,
+                    startPos.column,
+                    endPos.lineNumber,
+                    endPos.column,
+                  ),
+                  text: "",
+                },
+              ],
+              () => null,
+            );
+            // charOffset stays — those chars are gone now
           }
         }
-
-        if (edits.length > 0) {
-          this.model.pushEditOperations([], edits, () => null);
-        }
-
-        // Restore cursor: adjust offset for ops that happened before cursor
-        const newOffset = adjustOffset(curOffset, delta);
-        const newText = this.model.getValue();
-        const newPos = offsetToPos(newText, newOffset);
-        try {
-          this.editor.setPosition(newPos);
-        } catch (_) {}
       } catch (e) {
         console.warn("MonacoBinding yObserver error:", e.message);
-        // Fallback: full replace
-        const newContent = this.yText.toString();
-        if (this.model.getValue() !== newContent) {
-          this.model.pushEditOperations(
-            [],
-            [{ range: this.model.getFullModelRange(), text: newContent }],
-            () => null,
-          );
-        }
+        // Fallback: full content sync
+        try {
+          const newContent = this.yText.toString();
+          if (this.model.getValue() !== newContent) {
+            this.model.setValue(newContent);
+          }
+        } catch (_) {}
       } finally {
-        this.mute = false;
+        this.muteDepth--;
       }
     };
 
     // ── Monaco → Yjs ──────────────────────────────────────────────────────
     this._monacoDisposable = this.model.onDidChangeContent((e) => {
-      if (this._disposed || this.mute) return;
-      this.mute = true;
+      if (this._disposed) return;
+      if (this.muteDepth > 0) return; // skip — this change came from _yObserver
+
+      this.muteDepth++;
       try {
-        // Sort in reverse so earlier offsets aren't shifted by later ops
         const changes = [...e.changes].sort(
           (a, b) => b.rangeOffset - a.rangeOffset,
         );
@@ -240,9 +198,9 @@ class MonacoBinding {
             if (rangeLength > 0) this.yText.delete(rangeOffset, rangeLength);
             if (text.length > 0) this.yText.insert(rangeOffset, text);
           }
-        }, this); // 'this' as origin prevents Yjs echoing back to _yObserver
+        }, this);
       } finally {
-        this.mute = false;
+        this.muteDepth--;
       }
     });
 
@@ -334,7 +292,6 @@ function CodeEditor({ language, onChange, roomId, username }) {
 
     const yText = ydoc.getText("content");
 
-    // Seed doc with initial content only if it's brand new (empty after first sync)
     provider.once("sync", (isSynced) => {
       if (isSynced && yText.length === 0 && initialContent) {
         ydoc.transact(() => yText.insert(0, initialContent));
@@ -346,7 +303,6 @@ function CodeEditor({ language, onChange, roomId, username }) {
 
     bindingRef.current = new MonacoBinding(yText, model, editor, monaco);
 
-    // Keep FileContext + server room.code in sync for Run Code / Version History
     yText.observe(() => {
       if (IS_REPLAYING || isReplayingLocal.current) return;
       const content = yText.toString();
@@ -397,7 +353,6 @@ function CodeEditor({ language, onChange, roomId, username }) {
     });
   };
 
-  // File switch → re-setup Yjs
   useEffect(() => {
     const editor = editorRef.current;
     const monaco = monacoRef.current;
