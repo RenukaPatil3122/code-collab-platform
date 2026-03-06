@@ -84,8 +84,7 @@ function getYjsWsUrl() {
   return apiUrl.replace(/^https/, "wss").replace(/^http/, "ws");
 }
 
-// Convert char offset → Monaco { lineNumber, column }
-// Uses the CURRENT model text each time — called after each individual op is applied
+// Convert char offset → Monaco position, reading LIVE from model
 function offsetToPos(model, offset) {
   const text = model.getValue();
   const clamped = Math.max(0, Math.min(offset, text.length));
@@ -97,40 +96,43 @@ function offsetToPos(model, offset) {
   };
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// MonacoBinding
-//
-// The key fix: apply each Yjs delta op ONE AT A TIME, re-reading the model
-// text after each op. This way positions are always correct regardless of
-// how many ops are in a single delta.
-//
-// mute is a counter (not boolean) so nested/async calls don't prematurely unmute.
-// ─────────────────────────────────────────────────────────────────────────────
 class MonacoBinding {
-  constructor(yText, monacoModel, editor, monacoInstance) {
+  constructor(yText, monacoModel, editor, monacoInstance, onContentChange) {
     this.yText = yText;
     this.model = monacoModel;
     this.editor = editor;
     this.monaco = monacoInstance;
-    this.muteDepth = 0; // counter: >0 means muted
+    this.onContentChange = onContentChange; // callback for server sync
+    this.muteDepth = 0;
     this._disposed = false;
 
     // ── Yjs → Monaco ──────────────────────────────────────────────────────
-    // Apply each op individually, re-reading positions from the live model.
+    // Each op is applied one at a time. charOffset tracks position in the
+    // CURRENT model (which grows/shrinks as we apply ops).
+    //
+    // KEY FIX: For inserts, charOffset advances by insert length AFTER applying.
+    // For deletes, charOffset does NOT advance (chars removed from current pos).
+    // For retain, charOffset advances by retain amount.
     this._yObserver = (event) => {
-      if (this._disposed) return;
-      if (this.muteDepth > 0) return;
-
+      if (this._disposed || this.muteDepth > 0) return;
       this.muteDepth++;
       try {
+        // Skip events originating from Monaco→Yjs (our own edits)
+        if (event.transaction.origin === this) {
+          return;
+        }
+
         const delta = event.delta;
-        let charOffset = 0; // tracks position in the EVOLVING text
+        // charOffset = current position in the LIVE model text
+        // We re-read model.getValue() via offsetToPos after each op
+        let charOffset = 0;
 
         for (const op of delta) {
           if (op.retain !== undefined) {
+            // Move forward in the current model text
             charOffset += op.retain;
           } else if (op.insert !== undefined) {
-            // Re-read position from model AFTER previous ops were applied
+            // Insert at current charOffset in live model
             const pos = offsetToPos(this.model, charOffset);
             this.model.pushEditOperations(
               [],
@@ -147,8 +149,10 @@ class MonacoBinding {
               ],
               () => null,
             );
+            // After insert, charOffset advances past the inserted text
             charOffset += op.insert.length;
           } else if (op.delete !== undefined) {
+            // Delete op.delete chars starting at charOffset in live model
             const startPos = offsetToPos(this.model, charOffset);
             const endPos = offsetToPos(this.model, charOffset + op.delete);
             this.model.pushEditOperations(
@@ -166,17 +170,22 @@ class MonacoBinding {
               ],
               () => null,
             );
-            // charOffset stays — those chars are gone now
+            // charOffset stays — deleted chars are gone, next op starts at same offset
           }
         }
+
+        // Notify server of updated content
+        if (this.onContentChange) {
+          this.onContentChange(this.yText.toString());
+        }
       } catch (e) {
-        console.warn("MonacoBinding yObserver error:", e.message);
-        // Fallback: full content sync
+        console.warn("yObserver error:", e.message);
         try {
           const newContent = this.yText.toString();
           if (this.model.getValue() !== newContent) {
             this.model.setValue(newContent);
           }
+          if (this.onContentChange) this.onContentChange(newContent);
         } catch (_) {}
       } finally {
         this.muteDepth--;
@@ -185,20 +194,19 @@ class MonacoBinding {
 
     // ── Monaco → Yjs ──────────────────────────────────────────────────────
     this._monacoDisposable = this.model.onDidChangeContent((e) => {
-      if (this._disposed) return;
-      if (this.muteDepth > 0) return; // skip — this change came from _yObserver
-
+      if (this._disposed || this.muteDepth > 0) return;
       this.muteDepth++;
       try {
         const changes = [...e.changes].sort(
           (a, b) => b.rangeOffset - a.rangeOffset,
         );
+        // Use 'this' as transaction origin so _yObserver can skip our own changes
         this.yText.doc.transact(() => {
           for (const { rangeOffset, rangeLength, text } of changes) {
             if (rangeLength > 0) this.yText.delete(rangeOffset, rangeLength);
             if (text.length > 0) this.yText.insert(rangeOffset, text);
           }
-        }, this);
+        }, this); // <-- 'this' as origin
       } finally {
         this.muteDepth--;
       }
@@ -234,6 +242,7 @@ function CodeEditor({ language, onChange, roomId, username }) {
 
   const onChangeRef = useRef(onChange);
   const updateFileContentRef = useRef(updateFileContent);
+  const activeFileNameRef = useRef(activeFile);
 
   useEffect(() => {
     onChangeRef.current = onChange;
@@ -243,6 +252,7 @@ function CodeEditor({ language, onChange, roomId, username }) {
   }, [updateFileContent]);
   useEffect(() => {
     activeFileRef.current = activeFile;
+    activeFileNameRef.current = activeFile;
   }, [activeFile]);
 
   useEffect(() => {
@@ -301,14 +311,49 @@ function CodeEditor({ language, onChange, roomId, username }) {
     const model = editor.getModel();
     if (!model) return;
 
-    bindingRef.current = new MonacoBinding(yText, model, editor, monaco);
-
-    yText.observe(() => {
+    // Content change callback — called by binding when remote changes arrive
+    const onContentChange = (content) => {
       if (IS_REPLAYING || isReplayingLocal.current) return;
-      const content = yText.toString();
-      updateFileContentRef.current(fileName, content, true);
+      const fn = activeFileNameRef.current;
+      updateFileContentRef.current(fn, content, true);
       onChangeRef.current(content);
-      socket.emit("file-content-change", { roomId, fileName, content });
+      socket.emit("file-content-change", { roomId, fileName: fn, content });
+    };
+
+    // Also handle local Monaco→Yjs changes for server sync
+    // We hook into onDidChangeContent AFTER binding is created
+    bindingRef.current = new MonacoBinding(
+      yText,
+      model,
+      editor,
+      monaco,
+      onContentChange,
+    );
+
+    // For LOCAL edits (Monaco→Yjs), also notify server
+    // The binding's Monaco→Yjs path doesn't call onContentChange, so we add a
+    // separate yText observer that fires for ALL changes and syncs to server.
+    // We use a flag to avoid double-calling for remote changes (binding already calls it).
+    yText.observeDeep((events) => {
+      if (IS_REPLAYING || isReplayingLocal.current) return;
+      // Only fire for local transactions (origin === binding instance = local Monaco edit)
+      for (const event of events) {
+        if (event.transaction.origin === bindingRef.current) {
+          const content = yText.toString();
+          updateFileContentRef.current(
+            activeFileNameRef.current,
+            content,
+            true,
+          );
+          onChangeRef.current(content);
+          socket.emit("file-content-change", {
+            roomId,
+            fileName: activeFileNameRef.current,
+            content,
+          });
+          break;
+        }
+      }
     });
   };
 
