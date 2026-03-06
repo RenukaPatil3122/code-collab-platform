@@ -13,6 +13,91 @@ const authRoutes = require("./routes/auth");
 const paymentRoutes = require("./routes/payment");
 const adminRoutes = require("./routes/admin");
 
+// ── Yjs ─────────────────────────────────────────────────────────────────────
+const { WebSocketServer } = require("ws");
+const Y = require("yjs");
+
+// y-websocket uses lib0 variable-length integer encoding.
+// We implement the minimal subset needed here directly.
+// lib0 writeVarUint encodes a uint as 1-byte if < 128, which covers our message types (0,1,2).
+// So for values 0-127, the varint IS just the raw byte — but lib0 also writes
+// the payload length as a varint prefix before each sub-message.
+// The actual y-websocket message structure (from y-websocket source):
+//
+//   messageSync (type=0):
+//     [0x00] [syncType: varint] [payload: rest of bytes]
+//   messageSyncStep1:
+//     [0x00, 0x00] + writeVarUint8Array(stateVector)
+//   messageSyncStep2:
+//     [0x00, 0x01] + writeVarUint8Array(update)
+//   messageUpdate (also sent as sync):
+//     [0x00, 0x02] + writeVarUint8Array(update)  ← some versions use this
+//     OR just broadcasts as-is
+//   messageAwareness (type=1):
+//     [0x01] + writeVarUint8Array(awarenessUpdate)
+//
+// writeVarUint8Array = writeVarUint(length) + bytes
+
+function writeVarUint(val) {
+  const bytes = [];
+  while (val > 127) {
+    bytes.push((val & 0x7f) | 0x80);
+    val >>>= 7;
+  }
+  bytes.push(val);
+  return Buffer.from(bytes);
+}
+
+function writeVarUint8Array(arr) {
+  const lenBytes = writeVarUint(arr.length);
+  return Buffer.concat([lenBytes, Buffer.from(arr)]);
+}
+
+// Read a varint from a Buffer at offset, returns { value, bytesRead }
+function readVarUint(buf, offset) {
+  let value = 0;
+  let shift = 0;
+  let bytesRead = 0;
+  while (true) {
+    if (offset + bytesRead >= buf.length)
+      throw new Error("Unexpected end of buffer reading varint");
+    const byte = buf[offset + bytesRead];
+    bytesRead++;
+    value |= (byte & 0x7f) << shift;
+    shift += 7;
+    if ((byte & 0x80) === 0) break;
+  }
+  return { value, bytesRead };
+}
+
+// Read a varUint8Array (length-prefixed byte array)
+function readVarUint8Array(buf, offset) {
+  const { value: length, bytesRead } = readVarUint(buf, offset);
+  const start = offset + bytesRead;
+  const end = start + length;
+  if (end > buf.length)
+    throw new Error("Unexpected end of buffer reading array");
+  return { data: buf.slice(start, end), nextOffset: end };
+}
+
+// Build a SyncStep1 message: [0x00, 0x00, varUint8Array(stateVector)]
+function buildSyncStep1(stateVector) {
+  return Buffer.concat([
+    Buffer.from([0x00, 0x00]),
+    writeVarUint8Array(stateVector),
+  ]);
+}
+
+// Build a SyncStep2 message: [0x00, 0x01, varUint8Array(update)]
+function buildSyncStep2(update) {
+  return Buffer.concat([Buffer.from([0x00, 0x01]), writeVarUint8Array(update)]);
+}
+
+// Build an update broadcast message: [0x00, 0x02, varUint8Array(update)]
+function buildUpdate(update) {
+  return Buffer.concat([Buffer.from([0x00, 0x02]), writeVarUint8Array(update)]);
+}
+
 console.log(
   "API KEY:",
   process.env.GEMINI_API_KEY ? "✅ Loaded" : "❌ Missing",
@@ -43,7 +128,115 @@ mongoose
   .catch((err) => console.error("❌ MongoDB connection error:", err));
 
 const Version = require("./models/Version");
-const User = require("./models/User");
+
+// ── Yjs rooms ────────────────────────────────────────────────────────────────
+// Map<roomName, { doc: Y.Doc, conns: Set<WebSocket> }>
+const yjsRooms = new Map();
+
+function getYjsRoom(roomName) {
+  if (!yjsRooms.has(roomName)) {
+    const doc = new Y.Doc();
+    const conns = new Set();
+    yjsRooms.set(roomName, { doc, conns });
+
+    doc.on("update", (update, origin) => {
+      const room = yjsRooms.get(roomName);
+      if (!room) return;
+      const msg = buildUpdate(update);
+      room.conns.forEach((ws) => {
+        if (ws !== origin && ws.readyState === 1) ws.send(msg);
+      });
+    });
+  }
+  return yjsRooms.get(roomName);
+}
+
+function yjsHandleConnection(ws, roomName) {
+  const room = getYjsRoom(roomName);
+  room.conns.add(ws);
+  ws.binaryType = "arraybuffer";
+
+  ws.on("message", (raw) => {
+    try {
+      const buf = Buffer.from(raw);
+      if (buf.length < 1) return;
+
+      const msgType = buf[0]; // 0=sync, 1=awareness
+
+      if (msgType === 0x00) {
+        // Sync message
+        if (buf.length < 2) return;
+        const syncType = buf[1];
+
+        if (syncType === 0x00) {
+          // SyncStep1: client sends us its state vector
+          // Payload: varUint8Array(stateVector) starting at buf[2]
+          const { data: stateVector } = readVarUint8Array(buf, 2);
+          const { doc } = room;
+
+          // Reply with SyncStep2: our diff from their state vector
+          const diff = Y.encodeStateAsUpdate(doc, new Uint8Array(stateVector));
+          ws.send(buildSyncStep2(diff));
+
+          // Also send them our SyncStep1 so they send us their diff
+          const ourSV = Y.encodeStateVector(doc);
+          ws.send(buildSyncStep1(ourSV));
+        } else if (syncType === 0x01 || syncType === 0x02) {
+          // SyncStep2 or Update: client sends us an update
+          const { data: update } = readVarUint8Array(buf, 2);
+          Y.applyUpdate(room.doc, new Uint8Array(update), ws);
+        }
+      } else if (msgType === 0x01) {
+        // Awareness: relay to all other peers as-is
+        room.conns.forEach((conn) => {
+          if (conn !== ws && conn.readyState === 1) conn.send(raw);
+        });
+      }
+    } catch (e) {
+      console.error("Yjs WS parse error:", e.message);
+    }
+  });
+
+  const cleanup = () => {
+    room.conns.delete(ws);
+    if (room.conns.size === 0) {
+      setTimeout(() => {
+        const r = yjsRooms.get(roomName);
+        if (r && r.conns.size === 0) {
+          r.doc.destroy();
+          yjsRooms.delete(roomName);
+          console.log(`🗑️ Yjs doc cleaned: ${roomName}`);
+        }
+      }, 30000);
+    }
+  };
+  ws.on("close", cleanup);
+  ws.on("error", cleanup);
+
+  // Initiate handshake: send our SyncStep1 so client can send us diff
+  const sv = Y.encodeStateVector(room.doc);
+  ws.send(buildSyncStep1(sv));
+  console.log(`🔗 Yjs synced: ${roomName} (${room.conns.size} peers)`);
+}
+
+const wss = new WebSocketServer({ noServer: true });
+wss.on("connection", (ws, req) => {
+  const url = new URL(req.url, "http://localhost");
+  const roomName = url.searchParams.get("room") || url.pathname.slice(1);
+  if (!roomName) {
+    ws.close();
+    return;
+  }
+  yjsHandleConnection(ws, roomName);
+});
+
+server.on("upgrade", (req, socket, head) => {
+  const { pathname } = new URL(req.url, "http://localhost");
+  if (pathname.startsWith("/socket.io")) return;
+  wss.handleUpgrade(req, socket, head, (ws) => wss.emit("connection", ws, req));
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 const io = new Server(server, {
   cors: {
@@ -167,19 +360,18 @@ io.on("connection", (socket) => {
       files: room.files,
       activeFile: room.activeFile,
     });
-    socket.to(roomId).emit("user-joined", {
-      username: room.users.get(socket.id).username,
-      users: Array.from(room.users.values()),
-    });
+    socket
+      .to(roomId)
+      .emit("user-joined", {
+        username: room.users.get(socket.id).username,
+        users: Array.from(room.users.values()),
+      });
     console.log(`👤 ${username} joined room: ${roomId}`);
   });
 
   socket.on("code-change", ({ roomId, code }) => {
     const room = rooms.get(roomId);
-    if (room) {
-      room.code = code;
-      socket.to(roomId).emit("code-update", { code });
-    }
+    if (room) room.code = code;
   });
 
   socket.on("language-change", ({ roomId, language }) => {
@@ -234,18 +426,12 @@ io.on("connection", (socket) => {
     }
   });
 
-  // THE ONLY content sync handler — clean, no OT, no patches
-  // sourceSocketId lets the client skip its own echo
   socket.on("file-content-change", ({ roomId, fileName, content }) => {
     const room = rooms.get(roomId);
     if (room && room.files[fileName]) {
       room.files[fileName].content = content;
       if (fileName === room.activeFile) room.code = content;
-      socket.to(roomId).emit("file-content-update", {
-        fileName,
-        content,
-        sourceSocketId: socket.id,
-      });
+      // NO broadcast — Yjs handles editor sync
     }
   });
 
@@ -262,33 +448,32 @@ io.on("connection", (socket) => {
       const room = rooms.get(roomId);
       const results = [];
       for (let i = 0; i < testCases.length; i++) {
-        const testCase = testCases[i];
+        const tc = testCases[i];
         const startTime = Date.now();
         try {
           const { output, error } = await executeMultiFile(
             room.files,
             language,
-            testCase.input || "",
+            tc.input || "",
             room.activeFile,
           );
-          const executionTime = Date.now() - startTime;
-          const passed =
-            !error && output.trim() === testCase.expectedOutput.trim();
+          const et = Date.now() - startTime;
+          const passed = !error && output.trim() === tc.expectedOutput.trim();
           results.push({
             testCase: i + 1,
-            input: testCase.input,
-            expectedOutput: testCase.expectedOutput,
+            input: tc.input,
+            expectedOutput: tc.expectedOutput,
             actualOutput: output || error,
             passed,
-            executionTime,
+            executionTime: et,
             error: !!error,
           });
-        } catch (testError) {
+        } catch (e) {
           results.push({
             testCase: i + 1,
-            input: testCase.input,
-            expectedOutput: testCase.expectedOutput,
-            actualOutput: testError.message,
+            input: tc.input,
+            expectedOutput: tc.expectedOutput,
+            actualOutput: e.message,
             passed: false,
             executionTime: Date.now() - startTime,
             error: true,
@@ -315,7 +500,7 @@ io.on("connection", (socket) => {
       try {
         let room = rooms.get(roomId);
         if (!room) {
-          const entryName = clientActiveFile || "main.js";
+          const n = clientActiveFile || "main.js";
           rooms.set(roomId, {
             code: code || "",
             language: language || "javascript",
@@ -326,13 +511,13 @@ io.on("connection", (socket) => {
             stdin: stdin || "",
             chatMessages: [],
             files: {
-              [entryName]: {
-                name: entryName,
+              [n]: {
+                name: n,
                 content: code || "",
                 language: language || "javascript",
               },
             },
-            activeFile: entryName,
+            activeFile: n,
           });
           room = rooms.get(roomId);
         }
@@ -381,8 +566,8 @@ io.on("connection", (socket) => {
   );
 
   socket.on("cancel-execution", () => {
-    const token = runningExecutions.get(socket.id);
-    if (token) token.cancelled = true;
+    const t = runningExecutions.get(socket.id);
+    if (t) t.cancelled = true;
     socket.emit("execution-cancelled");
   });
 
@@ -418,7 +603,6 @@ io.on("connection", (socket) => {
     if (room) {
       if (room.previousCode !== null) {
         room.code = room.previousCode;
-        io.to(roomId).emit("code-update", { code: room.previousCode });
         room.previousCode = null;
       }
       room.interviewMode = null;
@@ -442,7 +626,6 @@ io.on("connection", (socket) => {
       });
       if (room && room.previousCode !== null) {
         room.code = room.previousCode;
-        io.to(roomId).emit("code-update", { code: room.previousCode });
         room.previousCode = null;
       }
     },
@@ -456,7 +639,7 @@ io.on("connection", (socket) => {
         message: check.message,
       });
     try {
-      const version = await Version.create({
+      const v = await Version.create({
         roomId,
         userId: socket.userId || null,
         code,
@@ -466,11 +649,11 @@ io.on("connection", (socket) => {
       });
       socket.emit("version-saved", {
         version: {
-          id: version._id.toString(),
-          code: version.code,
-          message: version.message,
-          auto: version.auto,
-          timestamp: version.timestamp,
+          id: v._id.toString(),
+          code: v.code,
+          message: v.message,
+          auto: v.auto,
+          timestamp: v.timestamp,
         },
       });
     } catch (err) {
@@ -511,15 +694,17 @@ io.on("connection", (socket) => {
         const room = rooms.get(roomId);
         if (room) {
           room.code = version.code;
-          socket.to(roomId).emit("version-restored", {
-            version: {
-              id: version._id.toString(),
-              code: version.code,
-              message: version.message,
-              auto: version.auto,
-              timestamp: version.timestamp,
-            },
-          });
+          socket
+            .to(roomId)
+            .emit("version-restored", {
+              version: {
+                id: version._id.toString(),
+                code: version.code,
+                message: version.message,
+                auto: version.auto,
+                timestamp: version.timestamp,
+              },
+            });
           socket.to(roomId).emit("code-update", { code: version.code });
         }
       }
@@ -529,8 +714,8 @@ io.on("connection", (socket) => {
   });
 
   socket.on("whiteboard-join", ({ roomId }) => {
-    const state = whiteboardStates.get(roomId);
-    if (state) socket.emit("whiteboard-state", { imageData: state });
+    const s = whiteboardStates.get(roomId);
+    if (s) socket.emit("whiteboard-state", { imageData: s });
   });
   socket.on("whiteboard-draw", ({ roomId, drawData }) => {
     if (!drawData) return;
@@ -566,12 +751,14 @@ io.on("connection", (socket) => {
     const room = rooms.get(roomId);
     if (room && room.users.has(socket.id)) {
       const user = room.users.get(socket.id);
-      socket.to(roomId).emit("cursor-update", {
-        socketId: socket.id,
-        username: user.username,
-        color: user.color,
-        position,
-      });
+      socket
+        .to(roomId)
+        .emit("cursor-update", {
+          socketId: socket.id,
+          username: user.username,
+          color: user.color,
+          position,
+        });
     }
   });
 
@@ -582,10 +769,12 @@ io.on("connection", (socket) => {
       if (room.users.has(socket.id)) {
         const user = room.users.get(socket.id);
         room.users.delete(socket.id);
-        socket.to(roomId).emit("user-left", {
-          username: user.username,
-          users: Array.from(room.users.values()),
-        });
+        socket
+          .to(roomId)
+          .emit("user-left", {
+            username: user.username,
+            users: Array.from(room.users.values()),
+          });
         if (room.users.size === 0) {
           setTimeout(() => {
             if (rooms.get(roomId)?.users.size === 0) {

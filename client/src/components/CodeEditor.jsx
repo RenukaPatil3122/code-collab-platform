@@ -1,6 +1,8 @@
 // src/components/CodeEditor.jsx
 import React, { useEffect, useRef } from "react";
 import Editor from "@monaco-editor/react";
+import * as Y from "yjs";
+import { WebsocketProvider } from "y-websocket";
 import FileTabs from "./FileTabs/FileTabs";
 import { useFiles } from "../contexts/FileContext";
 import { socket } from "../utils/socket";
@@ -77,60 +79,141 @@ function configureMonacoValidation(monaco, language) {
   } catch (_) {}
 }
 
-function applyRemoteContent(editor, monaco, newContent) {
-  const model = editor.getModel();
-  if (!model) return;
-  if (model.getValue() === newContent) return;
+// Derive Yjs WebSocket URL from the API URL
+function getYjsWsUrl() {
+  const apiUrl = process.env.REACT_APP_API_URL || "http://localhost:5000";
+  return apiUrl.replace(/^https/, "wss").replace(/^http/, "ws");
+}
 
-  const savedPos = editor.getPosition();
-  const savedSel = editor.getSelection();
+// ─────────────────────────────────────────────────────────────────────────────
+// Manual MonacoBinding — connects a Y.Text to a Monaco editor model.
+// This replaces the y-monaco package which can't resolve monaco-editor internals
+// when used with @monaco-editor/react.
+//
+// How it works:
+//   - Observes Y.Text changes and applies them as Monaco edit operations
+//   - Observes Monaco model changes and applies them to Y.Text
+//   - Uses an isApplying flag to break the feedback loop
+// ─────────────────────────────────────────────────────────────────────────────
+class MonacoBinding {
+  constructor(yText, monacoModel, editor) {
+    this.yText = yText;
+    this.model = monacoModel;
+    this.editor = editor;
+    this.isApplying = false;
+    this._disposed = false;
 
-  model.pushEditOperations(
-    [],
-    [{ range: model.getFullModelRange(), text: newContent }],
-    () => null,
-  );
+    // Yjs → Monaco: when remote (or local) Yjs change arrives, update Monaco
+    this._yObserver = (event, transaction) => {
+      if (this._disposed) return;
+      if (this.isApplying) return; // We caused this change, skip
 
-  const lc = model.getLineCount();
-  if (savedPos) {
-    const line = Math.min(savedPos.lineNumber, lc);
-    const col = Math.min(savedPos.column, model.getLineMaxColumn(line));
-    try {
-      editor.setPosition({ lineNumber: line, column: col });
-    } catch (_) {}
+      this.isApplying = true;
+      try {
+        // Save cursor/selection before applying remote changes
+        const position = this.editor.getPosition();
+        const selection = this.editor.getSelection();
+
+        // Apply the full Yjs text to Monaco via a single edit operation
+        // (MonacoBinding proper uses delta ops, but full replace is safe here
+        //  because isApplying prevents the Monaco→Yjs observer from firing)
+        const newContent = this.yText.toString();
+        if (this.model.getValue() !== newContent) {
+          this.model.pushEditOperations(
+            [],
+            [{ range: this.model.getFullModelRange(), text: newContent }],
+            () => null,
+          );
+        }
+
+        // Restore cursor (clamp to new line count)
+        const lc = this.model.getLineCount();
+        if (position) {
+          const line = Math.min(position.lineNumber, lc);
+          const col = Math.min(
+            position.column,
+            this.model.getLineMaxColumn(line),
+          );
+          try {
+            this.editor.setPosition({ lineNumber: line, column: col });
+          } catch (_) {}
+        }
+        if (selection) {
+          try {
+            const sl = Math.min(selection.startLineNumber, lc);
+            const el = Math.min(selection.endLineNumber, lc);
+            this.editor.setSelection({
+              startLineNumber: sl,
+              startColumn: Math.min(
+                selection.startColumn,
+                this.model.getLineMaxColumn(sl),
+              ),
+              endLineNumber: el,
+              endColumn: Math.min(
+                selection.endColumn,
+                this.model.getLineMaxColumn(el),
+              ),
+            });
+          } catch (_) {}
+        }
+      } finally {
+        this.isApplying = false;
+      }
+    };
+
+    // Monaco → Yjs: when the local user types, sync to Yjs
+    this._monacoDisposable = this.model.onDidChangeContent((e) => {
+      if (this._disposed) return;
+      if (this.isApplying) return; // Remote change, skip
+
+      this.isApplying = true;
+      try {
+        // Apply each Monaco change as a Yjs insert/delete
+        // Monaco gives us: range (lines/cols) + text inserted + rangeLength (chars deleted)
+        const doc = this.yText.doc;
+        doc.transact(() => {
+          // We process changes in reverse order so offsets don't shift
+          const changes = [...e.changes].sort(
+            (a, b) => b.rangeOffset - a.rangeOffset,
+          );
+          for (const change of changes) {
+            const { rangeOffset, rangeLength, text } = change;
+            if (rangeLength > 0) this.yText.delete(rangeOffset, rangeLength);
+            if (text.length > 0) this.yText.insert(rangeOffset, text);
+          }
+        });
+      } finally {
+        this.isApplying = false;
+      }
+    });
+
+    this.yText.observe(this._yObserver);
   }
-  if (savedSel) {
-    try {
-      const sl = Math.min(savedSel.startLineNumber, lc);
-      const el = Math.min(savedSel.endLineNumber, lc);
-      editor.setSelection({
-        startLineNumber: sl,
-        startColumn: Math.min(savedSel.startColumn, model.getLineMaxColumn(sl)),
-        endLineNumber: el,
-        endColumn: Math.min(savedSel.endColumn, model.getLineMaxColumn(el)),
-      });
-    } catch (_) {}
+
+  destroy() {
+    this._disposed = true;
+    this.yText.unobserve(this._yObserver);
+    this._monacoDisposable?.dispose();
   }
 }
 
-function CodeEditor({ language, onChange, roomId }) {
+// ─────────────────────────────────────────────────────────────────────────────
+
+function CodeEditor({ language, onChange, roomId, username }) {
   const editorRef = useRef(null);
   const monacoRef = useRef(null);
   const { activeFileData, updateFileContent, activeFile } = useFiles();
   const activeFileRef = useRef(activeFile);
   const isReplayingLocal = useRef(false);
   const cursorDecorationsRef = useRef({});
-  const loadedFileRef = useRef(null);
-  const isApplyingRemote = useRef(false);
+
+  // Yjs refs — recreated on each file switch
+  const ydocRef = useRef(null);
+  const providerRef = useRef(null);
+  const bindingRef = useRef(null);
 
   const onChangeRef = useRef(onChange);
   const updateFileContentRef = useRef(updateFileContent);
-  const activeFileStateRef = useRef(activeFile);
-
-  // Debounce timer lives HERE in CodeEditor — not in FileContext
-  // This way we read directly from Monaco model at fire time,
-  // which is always YOUR current content, never affected by remote state updates
-  const debounceTimerRef = useRef({});
 
   useEffect(() => {
     onChangeRef.current = onChange;
@@ -140,9 +223,9 @@ function CodeEditor({ language, onChange, roomId }) {
   }, [updateFileContent]);
   useEffect(() => {
     activeFileRef.current = activeFile;
-    activeFileStateRef.current = activeFile;
   }, [activeFile]);
 
+  // ── Language change ──────────────────────────────────────────────────────
   useEffect(() => {
     if (!editorRef.current || !monacoRef.current) return;
     const model = editorRef.current.getModel();
@@ -150,6 +233,81 @@ function CodeEditor({ language, onChange, roomId }) {
     configureMonacoValidation(monacoRef.current, language);
   }, [language]);
 
+  // ── Destroy Yjs binding for current file ────────────────────────────────
+  const destroyYjs = () => {
+    try {
+      bindingRef.current?.destroy();
+    } catch (_) {}
+    try {
+      providerRef.current?.destroy();
+    } catch (_) {}
+    try {
+      ydocRef.current?.destroy();
+    } catch (_) {}
+    bindingRef.current = null;
+    providerRef.current = null;
+    ydocRef.current = null;
+  };
+
+  // ── Setup Yjs for a file ─────────────────────────────────────────────────
+  const setupYjs = (editor, monaco, fileName, initialContent) => {
+    destroyYjs();
+
+    const ydoc = new Y.Doc();
+    ydocRef.current = ydoc;
+
+    // Each file gets its own Yjs room: "ct-{roomId}-{safeFileName}"
+    const safeFile = fileName.replace(/[^a-zA-Z0-9_-]/g, "_");
+    const yjsRoom = `ct-${roomId}-${safeFile}`;
+    const wsUrl = getYjsWsUrl();
+
+    const provider = new WebsocketProvider(wsUrl, yjsRoom, ydoc, {
+      connect: true,
+    });
+    providerRef.current = provider;
+
+    provider.awareness.setLocalStateField("user", {
+      name: username || "Guest",
+      color:
+        "#" +
+        Math.floor(Math.random() * 0xffffff)
+          .toString(16)
+          .padStart(6, "0"),
+    });
+
+    const yText = ydoc.getText("content");
+
+    // Seed the doc with initial content once synced (only if doc is empty)
+    let seeded = false;
+    provider.on("sync", (isSynced) => {
+      if (isSynced && !seeded) {
+        seeded = true;
+        if (yText.length === 0 && initialContent) {
+          ydoc.transact(() => yText.insert(0, initialContent));
+        }
+      }
+    });
+
+    const model = editor.getModel();
+    if (!model) return;
+
+    // Bind Yjs ↔ Monaco
+    const binding = new MonacoBinding(yText, model, editor);
+    bindingRef.current = binding;
+
+    // Keep FileContext + RoomContext in sync so Run Code works
+    yText.observe(() => {
+      if (IS_REPLAYING || isReplayingLocal.current) return;
+      const content = yText.toString();
+      updateFileContentRef.current(fileName, content, true);
+      onChangeRef.current(content);
+
+      // Keep server room.code updated for Run Code / Version History
+      socket.emit("file-content-change", { roomId, fileName, content });
+    });
+  };
+
+  // ── Monaco beforeMount ───────────────────────────────────────────────────
   const handleBeforeMount = (monaco) => {
     monacoRef.current = monaco;
     monaco.editor.defineTheme("codetogether-dark", DARK_THEME);
@@ -157,6 +315,7 @@ function CodeEditor({ language, onChange, roomId }) {
     configureMonacoValidation(monaco, language);
   };
 
+  // ── Monaco onMount ───────────────────────────────────────────────────────
   const handleEditorDidMount = (editor) => {
     editorRef.current = editor;
     if (monacoRef.current) monacoRef.current.editor.setTheme(getMonacoTheme());
@@ -173,45 +332,14 @@ function CodeEditor({ language, onChange, roomId }) {
       editor._themeObserver = observer;
     }
 
-    if (activeFile && activeFileData) {
-      loadedFileRef.current = activeFile;
-      isApplyingRemote.current = true;
-      editor.getModel()?.setValue(activeFileData.content ?? "");
-      isApplyingRemote.current = false;
+    if (activeFile) {
+      setupYjs(
+        editor,
+        monacoRef.current,
+        activeFile,
+        activeFileData?.content ?? "",
+      );
     }
-
-    editor.getModel()?.onDidChangeContent(() => {
-      if (isApplyingRemote.current) return;
-      if (IS_REPLAYING || isReplayingLocal.current) return;
-
-      const fileName = activeFileStateRef.current;
-      if (!fileName) return;
-
-      // Read content immediately from Monaco for React state sync
-      const newContent = editor.getModel()?.getValue() || "";
-
-      // Update FileContext state immediately (no emit yet)
-      updateFileContentRef.current(fileName, newContent, true); // skipEmit=true, we handle emit here
-      onChangeRef.current(newContent);
-
-      // Debounce the socket emit FROM HERE
-      // We capture content in a closure at keystroke time — this is YOUR content
-      // When the timer fires, we re-read from Monaco to get the absolute latest
-      // Monaco model is only written by YOU here (remote writes set isApplyingRemote=true and return early)
-      clearTimeout(debounceTimerRef.current[fileName]);
-      debounceTimerRef.current[fileName] = setTimeout(() => {
-        if (isApplyingRemote.current) return; // don't emit if currently applying remote
-        const freshContent = editorRef.current?.getModel()?.getValue();
-        if (freshContent === undefined || freshContent === null) return;
-        const currentFile = activeFileStateRef.current;
-        if (!currentFile) return;
-        socket.emit("file-content-change", {
-          roomId,
-          fileName: currentFile,
-          content: freshContent,
-        });
-      }, 30);
-    });
 
     editor.onDidChangeCursorPosition((e) => {
       if (roomId)
@@ -226,64 +354,24 @@ function CodeEditor({ language, onChange, roomId }) {
     });
   };
 
-  useEffect(
-    () => () => {
-      editorRef.current?._themeObserver?.disconnect();
-    },
-    [],
-  );
-
-  // File tab switch only
+  // ── File switch → re-setup Yjs ───────────────────────────────────────────
   useEffect(() => {
     const editor = editorRef.current;
-    if (!editor || !activeFileData) return;
-    if (loadedFileRef.current === activeFile) return;
-    loadedFileRef.current = activeFile;
-    isApplyingRemote.current = true;
-    editor.getModel()?.setValue(activeFileData.content ?? "");
-    isApplyingRemote.current = false;
+    const monaco = monacoRef.current;
+    if (!editor || !monaco || !activeFile) return;
+    setupYjs(editor, monaco, activeFile, activeFileData?.content ?? "");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeFile]);
 
-  // Remote updates
+  // ── Cleanup ──────────────────────────────────────────────────────────────
   useEffect(() => {
-    const handleFileContentUpdate = ({ fileName, content, sourceSocketId }) => {
-      if (sourceSocketId === socket.id) return;
-      if (IS_REPLAYING || isReplayingLocal.current) return;
-      if (fileName !== activeFileRef.current) return;
-      const editor = editorRef.current;
-      const monaco = monacoRef.current;
-      if (!editor || !monaco) return;
-
-      isApplyingRemote.current = true;
-      applyRemoteContent(editor, monaco, content);
-      isApplyingRemote.current = false;
-
-      // Sync FileContext state only — no emit
-      updateFileContentRef.current(fileName, content, true);
-    };
-
-    const handleCodeUpdate = ({ code: remoteCode }) => {
-      if (IS_REPLAYING || isReplayingLocal.current) return;
-      const editor = editorRef.current;
-      const monaco = monacoRef.current;
-      if (!editor || !monaco) return;
-
-      isApplyingRemote.current = true;
-      applyRemoteContent(editor, monaco, remoteCode);
-      isApplyingRemote.current = false;
-
-      const fileName = activeFileRef.current;
-      if (fileName) updateFileContentRef.current(fileName, remoteCode, true);
-    };
-
-    socket.on("file-content-update", handleFileContentUpdate);
-    socket.on("code-update", handleCodeUpdate);
     return () => {
-      socket.off("file-content-update", handleFileContentUpdate);
-      socket.off("code-update", handleCodeUpdate);
+      editorRef.current?._themeObserver?.disconnect();
+      destroyYjs();
     };
   }, []);
 
+  // ── Remote cursor decorations (via existing socket) ──────────────────────
   useEffect(() => {
     const handleCursorUpdate = ({
       socketId,
@@ -347,15 +435,16 @@ function CodeEditor({ language, onChange, roomId }) {
     return () => socket.off("user-left", handleUserLeft);
   }, []);
 
+  // ── Replay support ───────────────────────────────────────────────────────
   useEffect(() => {
     const handleReplayEvent = (e) => {
       const { type, data } = e.detail;
+      const model = editorRef.current?.getModel();
       if (type === "clear-editor") {
         isReplayingLocal.current = true;
-        editorRef.current?.getModel()?.setValue("");
+        model?.setValue("");
       } else if (type === "code-change-animated") {
         isReplayingLocal.current = true;
-        const model = editorRef.current?.getModel();
         if (model && model.getValue() !== (data.code || ""))
           model.pushEditOperations(
             [],
@@ -365,7 +454,7 @@ function CodeEditor({ language, onChange, roomId }) {
       } else if (type === "replay-stopped") {
         isReplayingLocal.current = false;
         if (editorRef.current && activeFileData)
-          editorRef.current.getModel()?.setValue(activeFileData.content || "");
+          model?.setValue(activeFileData.content || "");
       }
     };
     window.addEventListener("replay-event", handleReplayEvent);
