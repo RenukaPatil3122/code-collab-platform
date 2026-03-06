@@ -35,14 +35,14 @@ export const FileProvider = ({ children, roomId, onLanguageChange }) => {
   const [activeFile, setActiveFileState] = useState("main.js");
   const [openTabs, setOpenTabs] = useState(["main.js"]);
 
-  // We store a ref to files so the debounce can read the LATEST content
-  // instead of the stale closure value captured at keystroke time
-  const filesRef = useRef(files);
-  useEffect(() => {
-    filesRef.current = files;
-  }, [files]);
-
   const debounceTimerRef = useRef({});
+
+  // THE KEY FIX:
+  // This ref stores only YOUR OWN typed content, per file.
+  // It is ONLY written when you type (skipEmit=false).
+  // It is NEVER written when a remote update arrives (skipEmit=true).
+  // So the debounce always emits YOUR content, not Rose's.
+  const myTypedContentRef = useRef({});
 
   useEffect(() => {
     if (!roomId) return;
@@ -83,6 +83,7 @@ export const FileProvider = ({ children, roomId, onLanguageChange }) => {
         );
         return next;
       });
+      delete myTypedContentRef.current[fileName];
     });
 
     socket.on(SOCKET_EVENTS.FILE_RENAMED, ({ oldName, newName }) => {
@@ -94,17 +95,11 @@ export const FileProvider = ({ children, roomId, onLanguageChange }) => {
       });
       setOpenTabs((prev) => prev.map((t) => (t === oldName ? newName : t)));
       setActiveFileState((prev) => (prev === oldName ? newName : prev));
+      if (myTypedContentRef.current[oldName] !== undefined) {
+        myTypedContentRef.current[newName] = myTypedContentRef.current[oldName];
+        delete myTypedContentRef.current[oldName];
+      }
     });
-
-    // ── REMOVED: file-content-update listener ────────────────────────────────
-    // Previously FileContext listened to file-content-update AND CodeEditor
-    // also listened to it — double-apply causing React re-render + Monaco edit
-    // simultaneously = cursor jump + visual glitch.
-    //
-    // NOW: Only CodeEditor handles file-content-update (applies to Monaco).
-    // CodeEditor then calls updateFileContent() to sync FileContext state.
-    // updateFileContent() does NOT emit back to server (no loop).
-    // ─────────────────────────────────────────────────────────────────────────
 
     socket.on(SOCKET_EVENTS.FILE_SELECTED, ({ fileName }) => {
       setOpenTabs((prev) =>
@@ -240,44 +235,37 @@ export const FileProvider = ({ children, roomId, onLanguageChange }) => {
     [openTabs],
   );
 
-  // ── FIXED: stale debounce closure ────────────────────────────────────────
-  // OLD (broken):
-  //   updateFileContent(fileName, content) {
-  //     setTimeout(() => emit(content), 50)  ← 'content' is stale if a remote
-  //   }                                          update arrived during those 50ms
-  //
-  // NEW (fixed):
-  //   We update filesRef immediately (always current).
-  //   The debounce reads from filesRef at fire time — always fresh.
-  //   So even if Rose's update arrived at t=30ms and changed our editor,
-  //   at t=50ms we read the CURRENT editor content, not the stale keystroke value.
-  //
-  // ALSO: updateFileContent no longer emits to server when called from
-  // applyRemoteUpdate (CodeEditor passes skipEmit=true for remote changes).
-  // ─────────────────────────────────────────────────────────────────────────
   const updateFileContent = useCallback(
     (fileName, content, skipEmit = false) => {
-      // Always update local state immediately
+      // Always update React state so UI stays current
       setFiles((prev) => ({
         ...prev,
         [fileName]: { ...prev[fileName], content },
       }));
 
-      if (skipEmit) return; // called from remote update path — do not re-emit
+      if (skipEmit) {
+        // This is a REMOTE update from Rose.
+        // Do NOT touch myTypedContentRef — that stays as YOUR last typed content.
+        // Do NOT emit to server.
+        return;
+      }
 
-      // Debounce the emit — but read FRESH content from filesRef at fire time
+      // This is YOUR own typing.
+      // Store in myTypedContentRef — this is the source of truth for the debounce.
+      myTypedContentRef.current[fileName] = content;
+
+      // Debounce the emit
       clearTimeout(debounceTimerRef.current[fileName]);
       debounceTimerRef.current[fileName] = setTimeout(() => {
-        // Read the actual current content from the ref, NOT the closure variable
-        // This prevents sending stale content if a remote update arrived during debounce
-        const freshContent = filesRef.current[fileName]?.content;
-        if (freshContent === undefined) return;
+        // Read from myTypedContentRef — YOUR content, never overwritten by remote updates
+        const myContent = myTypedContentRef.current[fileName];
+        if (myContent === undefined) return;
         socket.emit(SOCKET_EVENTS.FILE_CONTENT_CHANGE, {
           roomId,
           fileName,
-          content: freshContent,
+          content: myContent,
         });
-      }, 30); // reduced from 50ms to feel more responsive
+      }, 30);
     },
     [roomId],
   );

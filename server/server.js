@@ -1,4 +1,3 @@
-// server/server.js — FULL REPLACEMENT
 require("dotenv").config();
 const express = require("express");
 const http = require("http");
@@ -13,12 +12,6 @@ const { checkInterviewLimit, checkVersionLimit } = require("./middleware/rbac");
 const authRoutes = require("./routes/auth");
 const paymentRoutes = require("./routes/payment");
 const adminRoutes = require("./routes/admin");
-
-// ── diff-match-patch for OT merging ──────────────────────────────────────────
-// Run: npm install diff-match-patch
-const DiffMatchPatch = require("diff-match-patch");
-const dmp = new DiffMatchPatch();
-// ─────────────────────────────────────────────────────────────────────────────
 
 console.log(
   "API KEY:",
@@ -36,9 +29,7 @@ app.use(
     allowedHeaders: ["Content-Type", "Authorization"],
   }),
 );
-
 app.use(express.json());
-
 app.use("/api/auth", authRoutes);
 app.use("/api/payment", paymentRoutes);
 app.use("/api/admin", adminRoutes);
@@ -162,7 +153,6 @@ io.on("connection", (socket) => {
       color: getRandomColor(),
       userId: socket.userId || null,
     });
-
     socket.emit("room-state", {
       code: room.code,
       language: room.language,
@@ -244,81 +234,17 @@ io.on("connection", (socket) => {
     }
   });
 
-  // ── OT: file-patch (replaces file-content-change) ────────────────────────
-  // Client sends: { roomId, fileName, patch, baseContent }
-  //   patch      — diff-match-patch patch string computed from their last known
-  //                server content to their new content
-  //   baseContent — the content the patch was computed FROM (for conflict resolution)
-  //
-  // Server:
-  //   1. Tries to apply patch to current server content (not base — handles conflicts)
-  //   2. Stores merged result
-  //   3. Broadcasts the NEW full content to all OTHER clients
-  //   4. Sends the authoritative merged content back to the sender
-  //      so their editor stays in sync if there was a conflict
-  // ─────────────────────────────────────────────────────────────────────────
-  socket.on("file-patch", ({ roomId, fileName, patch, baseContent }) => {
-    const room = rooms.get(roomId);
-    if (!room || !room.files[fileName]) return;
-
-    const serverContent = room.files[fileName].content || "";
-
-    let mergedContent;
-    try {
-      // Apply the patch to the SERVER's current content.
-      // If User A and User B both typed simultaneously:
-      //   - Server has A's content (A's patch applied first)
-      //   - B's patch arrives — we apply it to A's content
-      //   - dmp.patch_apply merges intelligently, preserving A's chars
-      const patches = dmp.patch_fromText(patch);
-      const [applied, results] = dmp.patch_apply(patches, serverContent);
-
-      // If patch applied cleanly, use it. If it failed (e.g. huge conflict),
-      // fall back to a 3-way merge using the base as the common ancestor.
-      const allApplied = results.every(Boolean);
-      if (allApplied) {
-        mergedContent = applied;
-      } else {
-        // Fallback: compute diff between base→serverContent and base→newContent
-        // then merge them together
-        const newContent = dmp.patch_apply(patches, baseContent)[0];
-        const diff1 = dmp.diff_main(baseContent, serverContent);
-        const diff2 = dmp.diff_main(baseContent, newContent);
-        dmp.diff_cleanupSemantic(diff1);
-        dmp.diff_cleanupSemantic(diff2);
-        // Simple concat merge as last resort
-        mergedContent = applied;
-      }
-    } catch (e) {
-      console.error("Patch apply error:", e);
-      mergedContent = serverContent; // keep server content on error
-    }
-
-    room.files[fileName].content = mergedContent;
-    if (fileName === room.activeFile) room.code = mergedContent;
-
-    // Tell all OTHER users the new content
-    socket
-      .to(roomId)
-      .emit("file-content-update", { fileName, content: mergedContent });
-
-    // Tell the SENDER the authoritative merged content
-    // They'll check if it differs from what they have and apply if needed
-    socket.emit("file-patch-ack", { fileName, content: mergedContent });
-  });
-
+  // THE ONLY content sync handler — clean, no OT, no patches
+  // sourceSocketId lets the client skip its own echo
   socket.on("file-content-change", ({ roomId, fileName, content }) => {
     const room = rooms.get(roomId);
     if (room && room.files[fileName]) {
       room.files[fileName].content = content;
       if (fileName === room.activeFile) room.code = content;
-
-      // Broadcast to ALL OTHER clients, include sourceSocketId so they
-      // can verify it didn't come from themselves (belt-and-suspenders)
       socket.to(roomId).emit("file-content-update", {
         fileName,
         content,
-        sourceSocketId: socket.id, // ← THE KEY CHANGE
+        sourceSocketId: socket.id,
       });
     }
   });
@@ -504,15 +430,16 @@ io.on("connection", (socket) => {
     "submit-interview",
     ({ roomId, code, testResults, timeTaken, difficulty, problem }) => {
       const room = rooms.get(roomId);
-      const results = {
-        code,
-        testResults,
-        timeTaken,
-        difficulty,
-        problem,
-        submittedAt: new Date().toISOString(),
-      };
-      socket.emit("interview-results", { results });
+      socket.emit("interview-results", {
+        results: {
+          code,
+          testResults,
+          timeTaken,
+          difficulty,
+          problem,
+          submittedAt: new Date().toISOString(),
+        },
+      });
       if (room && room.previousCode !== null) {
         room.code = room.previousCode;
         io.to(roomId).emit("code-update", { code: room.previousCode });
@@ -605,17 +532,14 @@ io.on("connection", (socket) => {
     const state = whiteboardStates.get(roomId);
     if (state) socket.emit("whiteboard-state", { imageData: state });
   });
-
   socket.on("whiteboard-draw", ({ roomId, drawData }) => {
     if (!drawData) return;
     socket.to(roomId).emit("whiteboard-draw", { drawData });
   });
-
   socket.on("whiteboard-sync", ({ roomId, imageData }) => {
     if (!imageData || imageData.length > 5_000_000) return;
     whiteboardStates.set(roomId, imageData);
   });
-
   socket.on("whiteboard-clear", ({ roomId }) => {
     whiteboardStates.delete(roomId);
     socket.to(roomId).emit("whiteboard-clear");
