@@ -63,7 +63,6 @@ function getMonacoTheme() {
   return isLight ? "codetogether-light-v2" : "codetogether-dark";
 }
 
-// Disable Monaco JS/TS validators for non-JS languages (removes red squiggles on Python etc)
 function configureMonacoValidation(monaco, language) {
   try {
     const isJsTs = language === "javascript" || language === "typescript";
@@ -78,77 +77,6 @@ function configureMonacoValidation(monaco, language) {
   } catch (_) {}
 }
 
-// ── DIFF-BASED APPLY ────────────────────────────────────────────────────────
-// Instead of replacing the entire model content (which wipes cursor/selection),
-// we compute a minimal diff and apply only changed ranges.
-// This lets two users type simultaneously in the same file without fighting.
-function applyRemoteContent(editor, monaco, remoteContent) {
-  const model = editor.getModel();
-  if (!model) return;
-
-  const currentContent = model.getValue();
-  if (currentContent === remoteContent) return; // nothing to do
-
-  // Save cursor & selection before edit
-  const savedPos = editor.getPosition();
-  const savedSel = editor.getSelection();
-
-  // Use Monaco's built-in LCS diff to compute minimal edit operations
-  // This is key: instead of replacing all 500 lines because 1 char changed,
-  // we only replace the single changed line — remote user's edit lands cleanly
-  // next to your cursor without resetting it.
-  const originalLines = currentContent.split("\n");
-  const newLines = remoteContent.split("\n");
-
-  // Find first differing line
-  let startLine = 0;
-  while (
-    startLine < originalLines.length &&
-    startLine < newLines.length &&
-    originalLines[startLine] === newLines[startLine]
-  ) {
-    startLine++;
-  }
-
-  // Find last differing line (from end)
-  let endLineOld = originalLines.length - 1;
-  let endLineNew = newLines.length - 1;
-  while (
-    endLineOld > startLine &&
-    endLineNew > startLine &&
-    originalLines[endLineOld] === newLines[endLineNew]
-  ) {
-    endLineOld--;
-    endLineNew--;
-  }
-
-  const changedNewText = newLines.slice(startLine, endLineNew + 1).join("\n");
-
-  model.pushEditOperations(
-    [],
-    [
-      {
-        range: new monaco.Range(startLine + 1, 1, endLineOld + 2, 1),
-        text: changedNewText + (endLineNew < newLines.length - 1 ? "\n" : ""),
-      },
-    ],
-    () => null,
-  );
-
-  // Restore cursor/selection — remote edit doesn't move your cursor
-  if (savedPos) {
-    try {
-      editor.setPosition(savedPos);
-    } catch (_) {}
-  }
-  if (savedSel) {
-    try {
-      editor.setSelection(savedSel);
-    } catch (_) {}
-  }
-}
-// ───────────────────────────────────────────────────────────────────────────
-
 function CodeEditor({ language, onChange, roomId }) {
   const editorRef = useRef(null);
   const monacoRef = useRef(null);
@@ -156,9 +84,13 @@ function CodeEditor({ language, onChange, roomId }) {
   const activeFileRef = useRef(activeFile);
   const isReplayingLocal = useRef(false);
   const cursorDecorationsRef = useRef({});
-  // Tracks which file is currently loaded — only setValue() on actual file switch
   const loadedFileRef = useRef(null);
-  // Flag: are we currently applying a remote edit? Suppresses our own onChange
+
+  // THIS IS THE CRITICAL FLAG.
+  // When we receive a remote edit and apply it via pushEditOperations,
+  // Monaco fires onChange. Without this flag, handleChange would call
+  // updateFileContent → emit to server → server sends to other user →
+  // their cursor jumps. This flag breaks that loop.
   const isApplyingRemote = useRef(false);
 
   useEffect(() => {
@@ -179,7 +111,6 @@ function CodeEditor({ language, onChange, roomId }) {
 
   const handleEditorDidMount = (editor) => {
     editorRef.current = editor;
-
     if (monacoRef.current) monacoRef.current.editor.setTheme(getMonacoTheme());
 
     const roomEl = document.querySelector(".room-container");
@@ -194,7 +125,6 @@ function CodeEditor({ language, onChange, roomId }) {
       editor._themeObserver = observer;
     }
 
-    // Emit cursor position for remote cursor display
     editor.onDidChangeCursorPosition((e) => {
       if (roomId) {
         socket.emit("cursor-move", {
@@ -213,51 +143,86 @@ function CodeEditor({ language, onChange, roomId }) {
     return () => editorRef.current?._themeObserver?.disconnect();
   }, []);
 
-  // ── Load file content ONLY on actual file switch ──────────────────────────
-  // This is the uncontrolled pattern: we never set value= on <Editor>,
-  // so React never fights keystrokes. We only call setValue() when the
-  // user clicks a different file tab.
+  // Only load file content when switching to a DIFFERENT file tab.
+  // Does NOT run when activeFileData.content changes (i.e. during typing).
+  // This is what prevents the "file reloads on every keystroke" bug.
   useEffect(() => {
     const editor = editorRef.current;
     if (!editor || !activeFileData) return;
-    if (loadedFileRef.current === activeFile) return; // same file — do nothing
+    if (loadedFileRef.current === activeFile) return;
     loadedFileRef.current = activeFile;
-    const model = editor.getModel();
-    if (model) {
-      const incoming = activeFileData.content ?? "";
-      isApplyingRemote.current = true;
-      model.setValue(incoming);
-      isApplyingRemote.current = false;
-    }
-  }, [activeFile, activeFileData]);
 
-  // ── Remote file-content-update: apply without resetting cursor ───────────
-  // This is the fix for simultaneous editing in the same file.
-  // We use diff-based apply so your cursor stays in place while
-  // your co-editor's changes land in a different part of the file.
+    isApplyingRemote.current = true;
+    editor.getModel()?.setValue(activeFileData.content ?? "");
+    isApplyingRemote.current = false;
+  }, [activeFile]); // <-- ONLY activeFile, never activeFileData
+
+  // Handle incoming remote edits (file-content-update from server).
+  // Uses pushEditOperations to preserve cursor position.
+  // isApplyingRemote.current = true prevents handleChange from re-emitting.
   useEffect(() => {
     const handleFileContentUpdate = ({ fileName, content }) => {
       if (IS_REPLAYING || isReplayingLocal.current) return;
-      // Only apply if it's the currently open file
       if (fileName !== activeFileRef.current) return;
+
       const editor = editorRef.current;
       const monaco = monacoRef.current;
       if (!editor || !monaco) return;
 
+      const model = editor.getModel();
+      if (!model || model.getValue() === content) return;
+
+      const savedPos = editor.getPosition();
+      const savedSel = editor.getSelection();
+
       isApplyingRemote.current = true;
-      applyRemoteContent(editor, monaco, content);
+      model.pushEditOperations(
+        [],
+        [{ range: model.getFullModelRange(), text: content }],
+        () => null,
+      );
       isApplyingRemote.current = false;
+
+      // Clamp cursor to new content bounds in case remote user deleted lines above
+      if (savedPos) {
+        const lineCount = model.getLineCount();
+        const line = Math.min(savedPos.lineNumber, lineCount);
+        const col = Math.min(savedPos.column, model.getLineMaxColumn(line));
+        try {
+          editor.setPosition({ lineNumber: line, column: col });
+        } catch (_) {}
+      }
+      if (savedSel) {
+        try {
+          editor.setSelection(savedSel);
+        } catch (_) {}
+      }
     };
 
-    // Legacy code-update event (kept for backwards compat)
     const handleCodeUpdate = ({ code: remoteCode }) => {
       if (IS_REPLAYING || isReplayingLocal.current) return;
       const editor = editorRef.current;
       const monaco = monacoRef.current;
       if (!editor || !monaco) return;
+      const model = editor.getModel();
+      if (!model || model.getValue() === remoteCode) return;
+
+      const savedPos = editor.getPosition();
       isApplyingRemote.current = true;
-      applyRemoteContent(editor, monaco, remoteCode);
+      model.pushEditOperations(
+        [],
+        [{ range: model.getFullModelRange(), text: remoteCode }],
+        () => null,
+      );
       isApplyingRemote.current = false;
+      if (savedPos) {
+        try {
+          const lineCount = model.getLineCount();
+          const line = Math.min(savedPos.lineNumber, lineCount);
+          const col = Math.min(savedPos.column, model.getLineMaxColumn(line));
+          editor.setPosition({ lineNumber: line, column: col });
+        } catch (_) {}
+      }
     };
 
     socket.on("file-content-update", handleFileContentUpdate);
@@ -266,9 +231,9 @@ function CodeEditor({ language, onChange, roomId }) {
       socket.off("file-content-update", handleFileContentUpdate);
       socket.off("code-update", handleCodeUpdate);
     };
-  }, []); // empty — uses refs, never stale
+  }, []);
 
-  // ── Colored remote user cursors ──────────────────────────────────────────
+  // Remote cursor decorations
   useEffect(() => {
     const handleCursorUpdate = ({
       socketId,
@@ -335,7 +300,6 @@ function CodeEditor({ language, onChange, roomId }) {
     return () => socket.off("cursor-update", handleCursorUpdate);
   }, []);
 
-  // Clean up decorations when a user disconnects
   useEffect(() => {
     const handleUserLeft = ({ users }) => {
       const editor = editorRef.current;
@@ -353,7 +317,6 @@ function CodeEditor({ language, onChange, roomId }) {
     return () => socket.off("user-left", handleUserLeft);
   }, []);
 
-  // Replay system
   useEffect(() => {
     const handleReplayEvent = (e) => {
       const { type, data } = e.detail;
@@ -392,11 +355,14 @@ function CodeEditor({ language, onChange, roomId }) {
     return () => window.removeEventListener("error", handler);
   }, []);
 
-  // Called on every local keystroke — skip if we're applying a remote edit
+  // Every local keystroke comes here.
+  // isApplyingRemote check: if we're applying a remote edit, Monaco fires
+  // onChange too — we must ignore it or we'll re-emit the remote content
+  // back to the server causing the other user's cursor to jump.
   const handleChange = useCallback(
     (value) => {
       if (IS_REPLAYING || isReplayingLocal.current) return;
-      if (isApplyingRemote.current) return; // don't echo remote edits back
+      if (isApplyingRemote.current) return; // ← CRITICAL: don't re-emit remote edits
       const newContent = value || "";
       if (activeFile) updateFileContent(activeFile, newContent);
       onChange(newContent);
@@ -411,8 +377,6 @@ function CodeEditor({ language, onChange, roomId }) {
         {activeFileData ? (
           <Editor
             height="100%"
-            // UNCONTROLLED — no value= prop. File switching done via setValue() above.
-            // This is what stops React fighting every keystroke.
             defaultValue={activeFileData.content ?? ""}
             language={activeFileData?.language || language}
             onChange={handleChange}
