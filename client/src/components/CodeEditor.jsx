@@ -12,6 +12,46 @@ export const setIsReplayingFlag = (val) => {
   IS_REPLAYING = val;
 };
 
+// ── DEBUG ─────────────────────────────────────────────────────────────────────
+// Opens a floating log panel on screen — visible on mobile without DevTools.
+// Shows every Yjs delta event and every Monaco change event.
+function createDebugPanel() {
+  if (document.getElementById("yjsdebug")) return;
+  const panel = document.createElement("div");
+  panel.id = "yjsdebug";
+  panel.style.cssText = [
+    "position:fixed",
+    "bottom:0",
+    "left:0",
+    "right:0",
+    "height:180px",
+    "overflow-y:auto",
+    "background:rgba(0,0,0,0.85)",
+    "color:#0f0",
+    "font-size:10px",
+    "font-family:monospace",
+    "z-index:99999",
+    "padding:4px",
+    "pointer-events:auto",
+    "border-top:2px solid #0f0",
+  ].join(";");
+  panel.innerHTML = "<b style='color:#ff0'>YJS DEBUG LOG</b><br>";
+  document.body.appendChild(panel);
+}
+
+function dbg(msg) {
+  const panel = document.getElementById("yjsdebug");
+  if (!panel) return;
+  const line = document.createElement("div");
+  line.textContent = `${new Date().toISOString().slice(11, 23)} ${msg}`;
+  panel.appendChild(line);
+  // Keep only last 60 lines
+  while (panel.children.length > 62) panel.removeChild(panel.children[1]);
+  panel.scrollTop = panel.scrollHeight;
+  console.log("[YJS]", msg);
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 const DARK_THEME = {
   base: "vs-dark",
   inherit: true,
@@ -84,8 +124,7 @@ function getYjsWsUrl() {
   return apiUrl.replace(/^https/, "wss").replace(/^http/, "ws");
 }
 
-function offsetToPos(model, offset) {
-  const text = model.getValue();
+function offsetToPos(text, offset) {
   const clamped = Math.max(0, Math.min(offset, text.length));
   const before = text.slice(0, clamped);
   const lines = before.split("\n");
@@ -95,85 +134,105 @@ function offsetToPos(model, offset) {
   };
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// MonacoBinding — the simplest possible correct implementation:
-//
-// Yjs → Monaco: use yText.toString() (full content) applied as a single
-//   replace operation. This is 100% correct and avoids ALL delta offset bugs.
-//   We save/restore cursor position manually.
-//
-// Monaco → Yjs: use Monaco change events with rangeOffset/rangeLength.
-//   This is correct for all keyboard types including Android IME.
-// ─────────────────────────────────────────────────────────────────────────────
 class MonacoBinding {
   constructor(yText, monacoModel, editor, monacoInstance) {
     this.yText = yText;
     this.model = monacoModel;
     this.editor = editor;
     this.monaco = monacoInstance;
-    this.muteDepth = 0;
+    this.applying = false;
     this._disposed = false;
 
     // ── Yjs → Monaco ──────────────────────────────────────────────────────
-    // Use full content replacement but preserve cursor position by offset.
-    // This avoids ALL delta calculation bugs. Performance is fine for code files.
     this._yObserver = (event) => {
-      if (this._disposed || this.muteDepth > 0) return;
-      // Skip if this change originated from our own Monaco edit
+      if (this._disposed) return;
       if (event.transaction.origin === this) return;
+      if (this.applying) return;
 
-      this.muteDepth++;
+      // ── DEBUG: log the full delta ──
+      const isRemote = event.transaction.origin !== this;
+      const deltaStr = JSON.stringify(event.delta).slice(0, 200);
+      dbg(`YJS→MON remote=${isRemote} delta=${deltaStr}`);
+      dbg(
+        `  model_before=${JSON.stringify(this.model.getValue()).slice(0, 80)}`,
+      );
+      // ─────────────────────────────
+
+      this.applying = true;
       try {
-        const newContent = this.yText.toString();
-        const currentContent = this.model.getValue();
-        if (newContent === currentContent) return;
-
-        // Save cursor as char offset in current text
-        const curPos = this.editor.getPosition();
-        const curOffset = curPos
-          ? (() => {
-              const lines = currentContent.split("\n");
-              let off = 0;
-              for (
-                let i = 0;
-                i < curPos.lineNumber - 1 && i < lines.length;
-                i++
-              ) {
-                off += lines[i].length + 1;
-              }
-              return Math.min(
-                off + Math.max(0, curPos.column - 1),
-                currentContent.length,
-              );
-            })()
-          : 0;
-
-        // Apply full content replace
-        this.model.pushEditOperations(
-          [],
-          [{ range: this.model.getFullModelRange(), text: newContent }],
-          () => null,
+        let offset = 0;
+        for (const op of event.delta) {
+          if (op.retain !== undefined) {
+            offset += op.retain;
+          } else if (op.insert !== undefined) {
+            const text = this.model.getValue();
+            const pos = offsetToPos(text, offset);
+            dbg(
+              `  INSERT @${offset} (L${pos.lineNumber}:C${pos.column}) text=${JSON.stringify(op.insert)}`,
+            );
+            this.model.pushEditOperations(
+              [],
+              [
+                {
+                  range: new this.monaco.Range(
+                    pos.lineNumber,
+                    pos.column,
+                    pos.lineNumber,
+                    pos.column,
+                  ),
+                  text: op.insert,
+                },
+              ],
+              () => null,
+            );
+            offset += op.insert.length;
+          } else if (op.delete !== undefined) {
+            const text = this.model.getValue();
+            const startPos = offsetToPos(text, offset);
+            const endPos = offsetToPos(text, offset + op.delete);
+            dbg(
+              `  DELETE @${offset} len=${op.delete} (L${startPos.lineNumber}:C${startPos.column} → L${endPos.lineNumber}:C${endPos.column})`,
+            );
+            this.model.pushEditOperations(
+              [],
+              [
+                {
+                  range: new this.monaco.Range(
+                    startPos.lineNumber,
+                    startPos.column,
+                    endPos.lineNumber,
+                    endPos.column,
+                  ),
+                  text: "",
+                },
+              ],
+              () => null,
+            );
+          }
+        }
+        dbg(
+          `  model_after=${JSON.stringify(this.model.getValue()).slice(0, 80)}`,
         );
-
-        // Restore cursor: clamp offset to new content length, convert back to position
-        const clampedOffset = Math.min(curOffset, newContent.length);
-        const newLines = newContent.slice(0, clampedOffset).split("\n");
-        const newPos = {
-          lineNumber: newLines.length,
-          column: newLines[newLines.length - 1].length + 1,
-        };
-        try {
-          this.editor.setPosition(newPos);
-        } catch (_) {}
+      } catch (e) {
+        dbg(`  ERROR: ${e.message}`);
       } finally {
-        this.muteDepth--;
+        this.applying = false;
       }
     };
 
     // ── Monaco → Yjs ──────────────────────────────────────────────────────
     this._monacoDisposable = this.model.onDidChangeContent((e) => {
-      if (this._disposed || this.muteDepth > 0) return;
-      this.muteDepth++;
+      if (this._disposed || this.applying) return;
+
+      // ── DEBUG: log Monaco changes ──
+      for (const ch of e.changes) {
+        dbg(
+          `MON→YJS off=${ch.rangeOffset} len=${ch.rangeLength} text=${JSON.stringify(ch.text)}`,
+        );
+      }
+      // ──────────────────────────────
+
+      this.applying = true;
       try {
         const changes = [...e.changes].sort(
           (a, b) => b.rangeOffset - a.rangeOffset,
@@ -185,7 +244,7 @@ class MonacoBinding {
           }
         }, this);
       } finally {
-        this.muteDepth--;
+        this.applying = false;
       }
     });
 
@@ -256,6 +315,7 @@ function CodeEditor({ language, onChange, roomId, username }) {
 
   const setupYjs = (editor, monaco, fileName, initialContent) => {
     destroyYjs();
+    createDebugPanel();
 
     const ydoc = new Y.Doc();
     ydocRef.current = ydoc;
@@ -267,6 +327,8 @@ function CodeEditor({ language, onChange, roomId, username }) {
       connect: true,
     });
     providerRef.current = provider;
+
+    provider.on("status", ({ status }) => dbg(`WS status: ${status}`));
 
     provider.awareness.setLocalStateField("user", {
       name: username || "Guest",
@@ -280,6 +342,7 @@ function CodeEditor({ language, onChange, roomId, username }) {
     const yText = ydoc.getText("content");
 
     provider.once("sync", (isSynced) => {
+      dbg(`sync: ${isSynced} yText.length=${yText.length}`);
       if (isSynced && yText.length === 0 && initialContent) {
         ydoc.transact(() => yText.insert(0, initialContent));
       }
@@ -290,8 +353,7 @@ function CodeEditor({ language, onChange, roomId, username }) {
 
     bindingRef.current = new MonacoBinding(yText, model, editor, monaco);
 
-    // Sync all Yjs changes to server (both local and remote)
-    yText.observe((event) => {
+    yText.observe(() => {
       if (IS_REPLAYING || isReplayingLocal.current) return;
       const content = yText.toString();
       updateFileContentRef.current(activeFileNameRef.current, content, true);
@@ -480,10 +542,9 @@ function CodeEditor({ language, onChange, roomId, username }) {
               cursorSmoothCaretAnimation: "off",
               renderLineHighlight: "line",
               cursorWidth: 3,
-              // Disable features that cause Android IME composition issues
+              quickSuggestions: false,
               acceptSuggestionOnCommitCharacter: false,
               acceptSuggestionOnEnter: "off",
-              quickSuggestions: false,
               suggestOnTriggerCharacters: false,
               wordBasedSuggestions: "off",
             }}
