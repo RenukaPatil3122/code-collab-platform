@@ -77,19 +77,6 @@ function configureMonacoValidation(monaco, language) {
   } catch (_) {}
 }
 
-/**
- * THE FIX: Apply remote content to Monaco while preserving the local cursor.
- *
- * Previous approach: line-by-line diffing with broken index math.
- * New approach: single full-range replacement using pushEditOperations,
- * then immediately restore cursor/selection from before the edit.
- *
- * pushEditOperations goes through the undo stack properly and does NOT
- * fire onChange (so no echo loop). We save cursor before, replace all,
- * restore cursor after — clamped to new content bounds.
- *
- * This is the same pattern used by VS Code Live Share internally.
- */
 function applyRemoteContent(editor, monaco, newContent) {
   const model = editor.getModel();
   if (!model) return;
@@ -97,18 +84,15 @@ function applyRemoteContent(editor, monaco, newContent) {
   const currentContent = model.getValue();
   if (currentContent === newContent) return;
 
-  // Save cursor + selection BEFORE the edit
   const savedPos = editor.getPosition();
   const savedSel = editor.getSelection();
 
-  // Single atomic replace — does NOT trigger onChange
   model.pushEditOperations(
     [],
     [{ range: model.getFullModelRange(), text: newContent }],
     () => null,
   );
 
-  // Restore cursor — clamp to new content bounds
   const lc = model.getLineCount();
   if (savedPos) {
     const line = Math.min(savedPos.lineNumber, lc);
@@ -203,7 +187,6 @@ function CodeEditor({ language, onChange, roomId }) {
 
   useEffect(() => () => editorRef.current?._themeObserver?.disconnect(), []);
 
-  // File tab switch — load new file content
   useEffect(() => {
     const editor = editorRef.current;
     if (!editor || !activeFileData) return;
@@ -214,17 +197,19 @@ function CodeEditor({ language, onChange, roomId }) {
     isApplyingRemote.current = false;
   }, [activeFile]);
 
-  // Receive remote edits — apply WITHOUT disrupting local cursor
   useEffect(() => {
-    const handleFileContentUpdate = ({ fileName, content }) => {
-      console.log("📥 REMOTE UPDATE received", {
+    // ✅ sourceSocketId is destructured here — this was the crash bug
+    const handleFileContentUpdate = ({ fileName, content, sourceSocketId }) => {
+      console.log("📥 REMOTE UPDATE", {
         fileName,
         sourceSocketId,
         mySocketId: socket.id,
         isMine: sourceSocketId === socket.id,
-        contentLength: content.length,
-        stack: new Error().stack.split("\n")[2],
+        contentLength: content?.length,
+        activeFile: activeFileRef.current,
+        isApplyingRemote: isApplyingRemote.current,
       });
+
       if (IS_REPLAYING || isReplayingLocal.current) return;
       if (fileName !== activeFileRef.current) return;
       const editor = editorRef.current;
@@ -236,8 +221,11 @@ function CodeEditor({ language, onChange, roomId }) {
       isApplyingRemote.current = false;
     };
 
-    // Legacy code-update (from RoomContext / code-change events)
     const handleCodeUpdate = ({ code: remoteCode }) => {
+      console.log("📥 CODE-UPDATE", {
+        contentLength: remoteCode?.length,
+        isApplyingRemote: isApplyingRemote.current,
+      });
       if (IS_REPLAYING || isReplayingLocal.current) return;
       const editor = editorRef.current;
       const monaco = monacoRef.current;
@@ -256,7 +244,6 @@ function CodeEditor({ language, onChange, roomId }) {
     };
   }, []);
 
-  // Remote cursors
   useEffect(() => {
     const handleCursorUpdate = ({
       socketId,
@@ -364,7 +351,7 @@ function CodeEditor({ language, onChange, roomId }) {
         contentLength: value?.length,
       });
       if (IS_REPLAYING || isReplayingLocal.current) return;
-      if (isApplyingRemote.current) return; // ← THIS is what prevents the echo loop
+      if (isApplyingRemote.current) return;
       const newContent = value || "";
       if (activeFile) updateFileContent(activeFile, newContent);
       onChange(newContent);
