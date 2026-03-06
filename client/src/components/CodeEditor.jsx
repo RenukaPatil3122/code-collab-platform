@@ -85,8 +85,6 @@ function applyRemoteContent(editor, monaco, newContent) {
   const savedPos = editor.getPosition();
   const savedSel = editor.getSelection();
 
-  // pushEditOperations does NOT trigger onDidChangeContent when called
-  // with isApplyingRemote=true because our listener checks that flag first.
   model.pushEditOperations(
     [],
     [{ range: model.getFullModelRange(), text: newContent }],
@@ -128,6 +126,11 @@ function CodeEditor({ language, onChange, roomId }) {
   const onChangeRef = useRef(onChange);
   const updateFileContentRef = useRef(updateFileContent);
   const activeFileStateRef = useRef(activeFile);
+
+  // Debounce timer lives HERE in CodeEditor — not in FileContext
+  // This way we read directly from Monaco model at fire time,
+  // which is always YOUR current content, never affected by remote state updates
+  const debounceTimerRef = useRef({});
 
   useEffect(() => {
     onChangeRef.current = onChange;
@@ -177,21 +180,37 @@ function CodeEditor({ language, onChange, roomId }) {
       isApplyingRemote.current = false;
     }
 
-    // ── LOCAL CHANGE HANDLER ──────────────────────────────────────────────
-    // Fires synchronously in Monaco's edit pipeline.
-    // isApplyingRemote is still true here if a remote op caused the change.
     editor.getModel()?.onDidChangeContent(() => {
       if (isApplyingRemote.current) return;
       if (IS_REPLAYING || isReplayingLocal.current) return;
 
-      const newContent = editor.getModel()?.getValue() || "";
       const fileName = activeFileStateRef.current;
       if (!fileName) return;
 
-      // skipEmit=false → FileContext will debounce-emit to server
-      updateFileContentRef.current(fileName, newContent, false);
-      // Keep RoomContext.code in sync for run-code button
+      // Read content immediately from Monaco for React state sync
+      const newContent = editor.getModel()?.getValue() || "";
+
+      // Update FileContext state immediately (no emit yet)
+      updateFileContentRef.current(fileName, newContent, true); // skipEmit=true, we handle emit here
       onChangeRef.current(newContent);
+
+      // Debounce the socket emit FROM HERE
+      // We capture content in a closure at keystroke time — this is YOUR content
+      // When the timer fires, we re-read from Monaco to get the absolute latest
+      // Monaco model is only written by YOU here (remote writes set isApplyingRemote=true and return early)
+      clearTimeout(debounceTimerRef.current[fileName]);
+      debounceTimerRef.current[fileName] = setTimeout(() => {
+        if (isApplyingRemote.current) return; // don't emit if currently applying remote
+        const freshContent = editorRef.current?.getModel()?.getValue();
+        if (freshContent === undefined || freshContent === null) return;
+        const currentFile = activeFileStateRef.current;
+        if (!currentFile) return;
+        socket.emit("file-content-change", {
+          roomId,
+          fileName: currentFile,
+          content: freshContent,
+        });
+      }, 30);
     });
 
     editor.onDidChangeCursorPosition((e) => {
@@ -214,7 +233,7 @@ function CodeEditor({ language, onChange, roomId }) {
     [],
   );
 
-  // File tab switch
+  // File tab switch only
   useEffect(() => {
     const editor = editorRef.current;
     if (!editor || !activeFileData) return;
@@ -225,16 +244,10 @@ function CodeEditor({ language, onChange, roomId }) {
     isApplyingRemote.current = false;
   }, [activeFile]);
 
-  // ── REMOTE UPDATES ────────────────────────────────────────────────────────
-  // CodeEditor is the ONLY listener for file-content-update.
-  // FileContext no longer listens to it (removed — was causing double-apply).
-  //
-  // After applying to Monaco, we call updateFileContent(skipEmit=true) to
-  // sync FileContext state WITHOUT triggering another server emit.
-  // ─────────────────────────────────────────────────────────────────────────
+  // Remote updates
   useEffect(() => {
     const handleFileContentUpdate = ({ fileName, content, sourceSocketId }) => {
-      if (sourceSocketId === socket.id) return; // own echo
+      if (sourceSocketId === socket.id) return;
       if (IS_REPLAYING || isReplayingLocal.current) return;
       if (fileName !== activeFileRef.current) return;
       const editor = editorRef.current;
@@ -245,7 +258,7 @@ function CodeEditor({ language, onChange, roomId }) {
       applyRemoteContent(editor, monaco, content);
       isApplyingRemote.current = false;
 
-      // Sync FileContext state but do NOT emit back to server
+      // Sync FileContext state only — no emit
       updateFileContentRef.current(fileName, content, true);
     };
 
@@ -271,7 +284,6 @@ function CodeEditor({ language, onChange, roomId }) {
     };
   }, []);
 
-  // Remote cursors
   useEffect(() => {
     const handleCursorUpdate = ({
       socketId,
