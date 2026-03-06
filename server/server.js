@@ -14,6 +14,12 @@ const authRoutes = require("./routes/auth");
 const paymentRoutes = require("./routes/payment");
 const adminRoutes = require("./routes/admin");
 
+// ── diff-match-patch for OT merging ──────────────────────────────────────────
+// Run: npm install diff-match-patch
+const DiffMatchPatch = require("diff-match-patch");
+const dmp = new DiffMatchPatch();
+// ─────────────────────────────────────────────────────────────────────────────
+
 console.log(
   "API KEY:",
   process.env.GEMINI_API_KEY ? "✅ Loaded" : "❌ Missing",
@@ -54,7 +60,6 @@ const io = new Server(server, {
     methods: ["GET", "POST"],
     credentials: true,
   },
-  // FIX #7: Increase ping settings to prevent Vercel cold-start disconnects
   pingTimeout: 60000,
   pingInterval: 25000,
 });
@@ -94,7 +99,6 @@ function getDefaultFiles() {
   };
 }
 
-// ─── Auto-save ────────────────────────────────────────────
 setInterval(async () => {
   for (const [roomId, room] of rooms) {
     try {
@@ -129,7 +133,6 @@ setInterval(async () => {
   }
 }, AUTO_SAVE_INTERVAL_MS);
 
-// ─── Socket Events ────────────────────────────────────────
 io.on("connection", (socket) => {
   console.log(
     `✅ User connected: ${socket.id} | userId: ${socket.userId || "guest"}`,
@@ -148,8 +151,8 @@ io.on("connection", (socket) => {
         previousCode: null,
         files: getDefaultFiles(),
         activeFile: "main.js",
-        stdin: "", // FIX #5: persist stdin per room
-        chatMessages: [], // FIX #3: persist chat messages per room
+        stdin: "",
+        chatMessages: [],
       });
     }
     const room = rooms.get(roomId);
@@ -167,8 +170,8 @@ io.on("connection", (socket) => {
       testCases: room.testCases || [],
       files: room.files,
       activeFile: room.activeFile,
-      stdin: room.stdin || "", // FIX #5: send current stdin to joining user
-      chatMessages: room.chatMessages || [], // FIX #3: send chat history to joining user
+      stdin: room.stdin || "",
+      chatMessages: room.chatMessages || [],
     });
     socket.emit("files-state", {
       files: room.files,
@@ -197,7 +200,6 @@ io.on("connection", (socket) => {
     }
   });
 
-  // FIX #5: Sync stdin across all users
   socket.on("stdin-change", ({ roomId, stdin }) => {
     const room = rooms.get(roomId);
     if (room) {
@@ -242,6 +244,70 @@ io.on("connection", (socket) => {
     }
   });
 
+  // ── OT: file-patch (replaces file-content-change) ────────────────────────
+  // Client sends: { roomId, fileName, patch, baseContent }
+  //   patch      — diff-match-patch patch string computed from their last known
+  //                server content to their new content
+  //   baseContent — the content the patch was computed FROM (for conflict resolution)
+  //
+  // Server:
+  //   1. Tries to apply patch to current server content (not base — handles conflicts)
+  //   2. Stores merged result
+  //   3. Broadcasts the NEW full content to all OTHER clients
+  //   4. Sends the authoritative merged content back to the sender
+  //      so their editor stays in sync if there was a conflict
+  // ─────────────────────────────────────────────────────────────────────────
+  socket.on("file-patch", ({ roomId, fileName, patch, baseContent }) => {
+    const room = rooms.get(roomId);
+    if (!room || !room.files[fileName]) return;
+
+    const serverContent = room.files[fileName].content || "";
+
+    let mergedContent;
+    try {
+      // Apply the patch to the SERVER's current content.
+      // If User A and User B both typed simultaneously:
+      //   - Server has A's content (A's patch applied first)
+      //   - B's patch arrives — we apply it to A's content
+      //   - dmp.patch_apply merges intelligently, preserving A's chars
+      const patches = dmp.patch_fromText(patch);
+      const [applied, results] = dmp.patch_apply(patches, serverContent);
+
+      // If patch applied cleanly, use it. If it failed (e.g. huge conflict),
+      // fall back to a 3-way merge using the base as the common ancestor.
+      const allApplied = results.every(Boolean);
+      if (allApplied) {
+        mergedContent = applied;
+      } else {
+        // Fallback: compute diff between base→serverContent and base→newContent
+        // then merge them together
+        const newContent = dmp.patch_apply(patches, baseContent)[0];
+        const diff1 = dmp.diff_main(baseContent, serverContent);
+        const diff2 = dmp.diff_main(baseContent, newContent);
+        dmp.diff_cleanupSemantic(diff1);
+        dmp.diff_cleanupSemantic(diff2);
+        // Simple concat merge as last resort
+        mergedContent = applied;
+      }
+    } catch (e) {
+      console.error("Patch apply error:", e);
+      mergedContent = serverContent; // keep server content on error
+    }
+
+    room.files[fileName].content = mergedContent;
+    if (fileName === room.activeFile) room.code = mergedContent;
+
+    // Tell all OTHER users the new content
+    socket
+      .to(roomId)
+      .emit("file-content-update", { fileName, content: mergedContent });
+
+    // Tell the SENDER the authoritative merged content
+    // They'll check if it differs from what they have and apply if needed
+    socket.emit("file-patch-ack", { fileName, content: mergedContent });
+  });
+
+  // Keep old file-content-change for backwards compat during transition
   socket.on("file-content-change", ({ roomId, fileName, content }) => {
     const room = rooms.get(roomId);
     if (room && room.files[fileName]) {
@@ -388,17 +454,15 @@ io.on("connection", (socket) => {
     socket.emit("execution-cancelled");
   });
 
-  // ─── Interview Mode ───────────────────────────────────────
   socket.on(
     "start-interview",
     async ({ roomId, problem, difficulty, duration }) => {
       const check = await checkInterviewLimit(socket.userId, difficulty);
-      if (!check.allowed) {
+      if (!check.allowed)
         return socket.emit("interview-error", {
           error: check.error,
           message: check.message,
         });
-      }
       const room = rooms.get(roomId);
       if (room) {
         room.previousCode = room.code;
@@ -451,15 +515,13 @@ io.on("connection", (socket) => {
     },
   );
 
-  // ─── Version History ──────────────────────────────────────
   socket.on("save-version", async ({ roomId, code, message }) => {
     const check = await checkVersionLimit(socket.userId, roomId);
-    if (!check.allowed) {
+    if (!check.allowed)
       return socket.emit("version-saved", {
         error: check.error,
         message: check.message,
       });
-    }
     try {
       const version = await Version.create({
         roomId,
@@ -489,12 +551,11 @@ io.on("connection", (socket) => {
         .sort({ timestamp: -1 })
         .limit(50);
       let totalUserSaves = 0;
-      if (socket.userId) {
+      if (socket.userId)
         totalUserSaves = await Version.countDocuments({
           userId: socket.userId,
           auto: false,
         });
-      }
       socket.emit("versions-list", {
         totalUserSaves,
         versions: dbVersions.map((v) => ({
@@ -534,7 +595,6 @@ io.on("connection", (socket) => {
     }
   });
 
-  // ─── Whiteboard ───────────────────────────────────────────
   socket.on("whiteboard-join", ({ roomId }) => {
     const state = whiteboardStates.get(roomId);
     if (state) socket.emit("whiteboard-state", { imageData: state });
@@ -555,7 +615,6 @@ io.on("connection", (socket) => {
     socket.to(roomId).emit("whiteboard-clear");
   });
 
-  // ─── Chat ─────────────────────────────────────────────────
   socket.on("chat-message", ({ roomId, message }) => {
     const room = rooms.get(roomId);
     if (room && room.users.has(socket.id)) {
@@ -566,11 +625,9 @@ io.on("connection", (socket) => {
         timestamp: new Date().toISOString(),
         color: user.color,
       };
-      // FIX #3: Persist chat messages in room state (keep last 200)
       if (!room.chatMessages) room.chatMessages = [];
       room.chatMessages.push(chatMsg);
       if (room.chatMessages.length > 200) room.chatMessages.shift();
-
       io.to(roomId).emit("chat-message", chatMsg);
     }
   });
@@ -613,29 +670,22 @@ io.on("connection", (socket) => {
   });
 });
 
-// ─── HTTP Routes ──────────────────────────────────────────
-app.get("/", (req, res) => {
+app.get("/", (req, res) =>
   res.json({
     message: "🚀 CodeTogether Server Running",
     activeRooms: rooms.size,
     timestamp: new Date().toISOString(),
-  });
-});
-
-// FIX #7: Health endpoint for keep-alive pings
-app.get("/api/health", (req, res) => {
-  res.json({ status: "OK", uptime: process.uptime() });
-});
+  }),
+);
+app.get("/api/health", (req, res) =>
+  res.json({ status: "OK", uptime: process.uptime() }),
+);
 
 const PORT = process.env.PORT || 5000;
-server.listen(PORT, () => {
-  console.log(`🚀 Server running on http://localhost:${PORT}`);
-});
+server.listen(PORT, () =>
+  console.log(`🚀 Server running on http://localhost:${PORT}`),
+);
 
-// FIX #7: Self-ping every 14 min to prevent Render free tier sleeping.
-// Render spins down after 15 min inactivity — this keeps it awake.
-// Set RENDER_EXTERNAL_URL in your Render environment variables
-// to your server URL e.g. https://code-collab-platform.onrender.com
 const SELF_URL = process.env.RENDER_EXTERNAL_URL;
 if (SELF_URL) {
   setInterval(

@@ -10,7 +10,9 @@ import React, {
 import { socket } from "../utils/socket";
 import { SOCKET_EVENTS, EXT_TO_LANGUAGE } from "../utils/constants";
 import toast from "react-hot-toast";
+import DiffMatchPatch from "diff-match-patch";
 
+const dmp = new DiffMatchPatch();
 const FileContext = createContext();
 
 export const useFiles = () => {
@@ -35,22 +37,19 @@ export const FileProvider = ({ children, roomId, onLanguageChange }) => {
   const [activeFile, setActiveFileState] = useState("main.js");
   const [openTabs, setOpenTabs] = useState(["main.js"]);
 
-  // ── HOW ECHO SUPPRESSION WORKS ────────────────────────────────────────────
-  // We use a simple boolean flag per file: "did WE just emit for this file?"
-  // When we debounce-emit, we set ignoreNextUpdate[fileName] = true.
-  // When the server echoes it back, FILE_CONTENT_UPDATE sees the flag,
-  // clears it, and skips the setFiles (we already have latest content locally).
-  // This is a 1-for-1 match: one emit → ignore exactly one echo.
-  //
-  // WHY NOT a counter? Because we debounce — no matter how many keystrokes
-  // happen in 30ms, only ONE emit goes out. So only ONE echo comes back.
-  // A counter overcounts (increments per keystroke, decrements per echo)
-  // which causes Rose's real updates to get swallowed as "fake echoes".
-  // ─────────────────────────────────────────────────────────────────────────
-  const ignoreNextUpdateRef = useRef({}); // { [fileName]: boolean }
+  // ── OT: track what the SERVER last confirmed for each file ────────────────
+  // When we compute a patch, we compute it from serverContentRef (what the
+  // server last acknowledged), not from our local state.
+  // This means even if we have local unsynced chars, the patch is always
+  // relative to what the server knows — so the server can apply it cleanly
+  // on top of any other user's changes that arrived first.
+  const serverContentRef = useRef({}); // { [fileName]: string }
 
-  // Debounce timers per file
+  // Debounce timer per file
   const debounceTimerRef = useRef({});
+
+  // Whether we're waiting for a patch-ack from server (to avoid double-send)
+  const pendingPatchRef = useRef({}); // { [fileName]: boolean }
 
   useEffect(() => {
     if (!roomId) return;
@@ -61,6 +60,10 @@ export const FileProvider = ({ children, roomId, onLanguageChange }) => {
         if (serverFiles && Object.keys(serverFiles).length > 0) {
           setFiles(serverFiles);
           setOpenTabs(Object.keys(serverFiles));
+          // Initialise serverContentRef for all files
+          Object.entries(serverFiles).forEach(([name, f]) => {
+            serverContentRef.current[name] = f.content || "";
+          });
           if (serverActive) {
             setActiveFileState(serverActive);
             onLanguageChange?.(serverActive);
@@ -77,6 +80,7 @@ export const FileProvider = ({ children, roomId, onLanguageChange }) => {
       setOpenTabs((prev) =>
         prev.includes(file.name) ? prev : [...prev, file.name],
       );
+      serverContentRef.current[file.name] = file.content || "";
       toast(`📄 New file: ${file.name}`, { duration: 2000 });
     });
 
@@ -91,6 +95,7 @@ export const FileProvider = ({ children, roomId, onLanguageChange }) => {
         );
         return next;
       });
+      delete serverContentRef.current[fileName];
     });
 
     socket.on(SOCKET_EVENTS.FILE_RENAMED, ({ oldName, newName }) => {
@@ -102,22 +107,31 @@ export const FileProvider = ({ children, roomId, onLanguageChange }) => {
       });
       setOpenTabs((prev) => prev.map((t) => (t === oldName ? newName : t)));
       setActiveFileState((prev) => (prev === oldName ? newName : prev));
+      serverContentRef.current[newName] =
+        serverContentRef.current[oldName] || "";
+      delete serverContentRef.current[oldName];
     });
 
+    // Remote user typed — apply their content to our state and update serverRef
     socket.on(SOCKET_EVENTS.FILE_CONTENT_UPDATE, ({ fileName, content }) => {
-      // If WE just emitted this file, this is our echo — skip it.
-      // Clear the flag so the NEXT update (from Rose) is NOT skipped.
-      if (ignoreNextUpdateRef.current[fileName]) {
-        ignoreNextUpdateRef.current[fileName] = false;
-        return;
-      }
-      // This came from another user — apply it to state.
-      // CodeEditor's handleFileContentUpdate will also fire and apply
-      // it to the Monaco model with cursor preservation.
+      serverContentRef.current[fileName] = content;
       setFiles((prev) => ({
         ...prev,
         [fileName]: { ...prev[fileName], content },
       }));
+      // CodeEditor's socket listener handles applying to Monaco with cursor preservation
+    });
+
+    // Server confirmed our patch and gives us the authoritative merged content
+    // If it differs from what we have locally (conflict was resolved), apply it
+    socket.on("file-patch-ack", ({ fileName, content }) => {
+      serverContentRef.current[fileName] = content;
+      pendingPatchRef.current[fileName] = false;
+      // Update files state to match server truth
+      setFiles((prev) => {
+        if (prev[fileName]?.content === content) return prev;
+        return { ...prev, [fileName]: { ...prev[fileName], content } };
+      });
     });
 
     socket.on(SOCKET_EVENTS.FILE_SELECTED, ({ fileName }) => {
@@ -132,6 +146,7 @@ export const FileProvider = ({ children, roomId, onLanguageChange }) => {
       socket.off(SOCKET_EVENTS.FILE_DELETED);
       socket.off(SOCKET_EVENTS.FILE_RENAMED);
       socket.off(SOCKET_EVENTS.FILE_CONTENT_UPDATE);
+      socket.off("file-patch-ack");
       socket.off(SOCKET_EVENTS.FILE_SELECTED);
     };
   }, [roomId]);
@@ -153,6 +168,7 @@ export const FileProvider = ({ children, roomId, onLanguageChange }) => {
       setFiles((prev) => ({ ...prev, [cleanName]: newFile }));
       setOpenTabs((t) => (t.includes(cleanName) ? t : [...t, cleanName]));
       setActiveFileState(cleanName);
+      serverContentRef.current[cleanName] = content;
       onLanguageChange?.(cleanName);
       toast.success(`Created ${cleanName}`);
     },
@@ -163,6 +179,9 @@ export const FileProvider = ({ children, roomId, onLanguageChange }) => {
     (fileMap, options = {}) => {
       const { openTabs: shouldOpenTabs = true } = options;
       setFiles(fileMap);
+      Object.entries(fileMap).forEach(([name, f]) => {
+        serverContentRef.current[name] = f.content || "";
+      });
       const paths = Object.keys(fileMap).filter((p) => !p.endsWith(".gitkeep"));
       if (shouldOpenTabs) {
         setOpenTabs(paths);
@@ -263,17 +282,28 @@ export const FileProvider = ({ children, roomId, onLanguageChange }) => {
         [fileName]: { ...prev[fileName], content },
       }));
 
-      // 2. Debounce the emit: wait 30ms after last keystroke, then send once.
-      //    Set the ignore flag RIGHT BEFORE emitting (not on every keystroke).
+      // 2. Debounce the patch emit — 30ms after last keystroke
       clearTimeout(debounceTimerRef.current[fileName]);
       debounceTimerRef.current[fileName] = setTimeout(() => {
-        // Set flag just before emit so we ignore exactly this one echo
-        ignoreNextUpdateRef.current[fileName] = true;
-        socket.emit(SOCKET_EVENTS.FILE_CONTENT_CHANGE, {
+        const base = serverContentRef.current[fileName] ?? "";
+
+        // Compute patch from last server-confirmed content to new content
+        // This is the OT magic: instead of sending full content, we send
+        // only what changed. Server applies this patch on top of whatever
+        // other users have typed, merging both correctly.
+        const patch = dmp.patch_toText(dmp.patch_make(base, content));
+
+        pendingPatchRef.current[fileName] = true;
+        socket.emit("file-patch", {
           roomId,
           fileName,
-          content,
+          patch,
+          baseContent: base,
         });
+
+        // Optimistically update serverContentRef — if ack comes back with
+        // different content (conflict merged), we'll update again then
+        serverContentRef.current[fileName] = content;
       }, 30);
     },
     [roomId],
