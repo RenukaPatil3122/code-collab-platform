@@ -34,6 +34,14 @@ export const FileProvider = ({ children, roomId, onLanguageChange }) => {
   const [files, setFiles] = useState(makeDefaultFiles);
   const [activeFile, setActiveFileState] = useState("main.js");
   const [openTabs, setOpenTabs] = useState(["main.js"]);
+
+  // We store a ref to files so the debounce can read the LATEST content
+  // instead of the stale closure value captured at keystroke time
+  const filesRef = useRef(files);
+  useEffect(() => {
+    filesRef.current = files;
+  }, [files]);
+
   const debounceTimerRef = useRef({});
 
   useEffect(() => {
@@ -88,20 +96,15 @@ export const FileProvider = ({ children, roomId, onLanguageChange }) => {
       setActiveFileState((prev) => (prev === oldName ? newName : prev));
     });
 
-    socket.on(
-      SOCKET_EVENTS.FILE_CONTENT_UPDATE,
-      ({ fileName, content, sourceSocketId }) => {
-        // Skip our own echo — server sends back sourceSocketId
-        if (sourceSocketId === socket.id) return;
-
-        // Update FileContext state so activeFileData reflects remote change.
-        // CodeEditor's socket listener will apply it to Monaco directly.
-        setFiles((prev) => ({
-          ...prev,
-          [fileName]: { ...prev[fileName], content },
-        }));
-      },
-    );
+    // ── REMOVED: file-content-update listener ────────────────────────────────
+    // Previously FileContext listened to file-content-update AND CodeEditor
+    // also listened to it — double-apply causing React re-render + Monaco edit
+    // simultaneously = cursor jump + visual glitch.
+    //
+    // NOW: Only CodeEditor handles file-content-update (applies to Monaco).
+    // CodeEditor then calls updateFileContent() to sync FileContext state.
+    // updateFileContent() does NOT emit back to server (no loop).
+    // ─────────────────────────────────────────────────────────────────────────
 
     socket.on(SOCKET_EVENTS.FILE_SELECTED, ({ fileName }) => {
       setOpenTabs((prev) =>
@@ -114,7 +117,6 @@ export const FileProvider = ({ children, roomId, onLanguageChange }) => {
       socket.off(SOCKET_EVENTS.FILE_CREATED);
       socket.off(SOCKET_EVENTS.FILE_DELETED);
       socket.off(SOCKET_EVENTS.FILE_RENAMED);
-      socket.off(SOCKET_EVENTS.FILE_CONTENT_UPDATE);
       socket.off(SOCKET_EVENTS.FILE_SELECTED);
     };
   }, [roomId]);
@@ -238,23 +240,44 @@ export const FileProvider = ({ children, roomId, onLanguageChange }) => {
     [openTabs],
   );
 
+  // ── FIXED: stale debounce closure ────────────────────────────────────────
+  // OLD (broken):
+  //   updateFileContent(fileName, content) {
+  //     setTimeout(() => emit(content), 50)  ← 'content' is stale if a remote
+  //   }                                          update arrived during those 50ms
+  //
+  // NEW (fixed):
+  //   We update filesRef immediately (always current).
+  //   The debounce reads from filesRef at fire time — always fresh.
+  //   So even if Rose's update arrived at t=30ms and changed our editor,
+  //   at t=50ms we read the CURRENT editor content, not the stale keystroke value.
+  //
+  // ALSO: updateFileContent no longer emits to server when called from
+  // applyRemoteUpdate (CodeEditor passes skipEmit=true for remote changes).
+  // ─────────────────────────────────────────────────────────────────────────
   const updateFileContent = useCallback(
-    (fileName, content) => {
-      // Update local state immediately (optimistic)
+    (fileName, content, skipEmit = false) => {
+      // Always update local state immediately
       setFiles((prev) => ({
         ...prev,
         [fileName]: { ...prev[fileName], content },
       }));
 
-      // Debounced emit — only ONE emit per 50ms window
+      if (skipEmit) return; // called from remote update path — do not re-emit
+
+      // Debounce the emit — but read FRESH content from filesRef at fire time
       clearTimeout(debounceTimerRef.current[fileName]);
       debounceTimerRef.current[fileName] = setTimeout(() => {
+        // Read the actual current content from the ref, NOT the closure variable
+        // This prevents sending stale content if a remote update arrived during debounce
+        const freshContent = filesRef.current[fileName]?.content;
+        if (freshContent === undefined) return;
         socket.emit(SOCKET_EVENTS.FILE_CONTENT_CHANGE, {
           roomId,
           fileName,
-          content,
+          content: freshContent,
         });
-      }, 50);
+      }, 30); // reduced from 50ms to feel more responsive
     },
     [roomId],
   );
