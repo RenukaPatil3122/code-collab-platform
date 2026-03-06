@@ -1,5 +1,5 @@
 // src/components/CodeEditor.jsx
-import React, { useEffect, useRef, useCallback } from "react";
+import React, { useEffect, useRef } from "react";
 import Editor from "@monaco-editor/react";
 import FileTabs from "./FileTabs/FileTabs";
 import { useFiles } from "../contexts/FileContext";
@@ -121,18 +121,9 @@ function CodeEditor({ language, onChange, roomId }) {
   const isReplayingLocal = useRef(false);
   const cursorDecorationsRef = useRef({});
   const loadedFileRef = useRef(null);
-
-  // THE REAL FIX:
-  // isApplyingRemote as a ref wasn't working because pushEditOperations fires
-  // onDidChangeContent synchronously in Monaco's internal stack, but the
-  // @monaco-editor/react onChange prop wraps it — by the time React's
-  // synthetic onChange fires, our ref was already reset to false.
-  //
-  // Solution: DON'T use the onChange prop at all for local change detection.
-  // Instead register onDidChangeModelContent directly on the model inside
-  // handleEditorDidMount. That listener runs in the same synchronous call
-  // stack as pushEditOperations, so we can reliably gate on isApplyingRemote.
   const isApplyingRemote = useRef(false);
+
+  // Keep refs in sync so closures always have latest values
   const onChangeRef = useRef(onChange);
   const updateFileContentRef = useRef(updateFileContent);
   const activeFileStateRef = useRef(activeFile);
@@ -185,22 +176,32 @@ function CodeEditor({ language, onChange, roomId }) {
       isApplyingRemote.current = false;
     }
 
-    // ── THE KEY CHANGE ────────────────────────────────────────────────────
-    // Register content change listener DIRECTLY on the model.
-    // This fires synchronously inside Monaco's edit pipeline — same call
-    // stack as pushEditOperations — so isApplyingRemote.current is still
-    // true when we check it. The onChange React prop fires AFTER React
-    // reconciliation, too late.
+    // ── THE FIX ──────────────────────────────────────────────────────────────
+    // Use onDidChangeContent directly on the model (not the React onChange prop).
+    // This fires synchronously in Monaco's edit pipeline so isApplyingRemote
+    // is still true when we check it — unlike the React onChange prop which
+    // fires after reconciliation (too late).
+    //
+    // ALSO: we call ONLY updateFileContent here — NOT onChange separately.
+    // Previously onChange → updateCode (RoomContext) → updateFileContent again
+    // = double emit per keystroke = double server update = content thrash.
+    // Now: one keystroke → one updateFileContent call → one debounced emit.
+    // RoomContext.updateCode is no longer needed for the editor sync path.
+    // ─────────────────────────────────────────────────────────────────────────
     editor.getModel()?.onDidChangeContent(() => {
-      if (isApplyingRemote.current) return; // remote edit — skip
+      if (isApplyingRemote.current) return;
       if (IS_REPLAYING || isReplayingLocal.current) return;
 
       const newContent = editor.getModel()?.getValue() || "";
       const fileName = activeFileStateRef.current;
+
+      // Single call — updateFileContent handles local state + debounced emit
       if (fileName) updateFileContentRef.current(fileName, newContent);
+
+      // Still call onChange so RoomContext.code stays in sync for run-code
+      // but updateCode in RoomContext must NOT call updateFileContent again
       onChangeRef.current(newContent);
     });
-    // ─────────────────────────────────────────────────────────────────────
 
     editor.onDidChangeCursorPosition((e) => {
       if (roomId)
@@ -217,7 +218,7 @@ function CodeEditor({ language, onChange, roomId }) {
 
   useEffect(() => () => editorRef.current?._themeObserver?.disconnect(), []);
 
-  // File tab switch
+  // File tab switch — load content when switching tabs
   useEffect(() => {
     const editor = editorRef.current;
     if (!editor || !activeFileData) return;
@@ -370,8 +371,6 @@ function CodeEditor({ language, onChange, roomId }) {
             height="100%"
             defaultValue=""
             defaultLanguage="javascript"
-            // NOTE: No onChange prop — we use onDidChangeModelContent directly
-            // inside handleEditorDidMount for reliable sync guard
             theme={getMonacoTheme()}
             beforeMount={handleBeforeMount}
             options={{

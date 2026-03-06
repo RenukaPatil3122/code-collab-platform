@@ -40,20 +40,12 @@ export const RoomProvider = ({ children, roomId, username }) => {
   const [isConnected, setIsConnected] = useState(false);
   const [executionTime, setExecutionTime] = useState(null);
   const [memoryUsed, setMemoryUsed] = useState(null);
-
   const [output, setOutput] = useState("");
-  const clearOutput = useCallback(() => {
-    setOutput("");
-    setExecutionTime(null);
-    setMemoryUsed(null);
-  }, []);
   const [isRunning, setIsRunning] = useState(false);
   const [stdin, setStdin] = useState("");
-
   const [testCases, setTestCases] = useState([]);
   const [testResults, setTestResults] = useState(null);
   const [isRunningTests, setIsRunningTests] = useState(false);
-
   const [showChat, setShowChat] = useState(false);
   const [showOutput, setShowOutput] = useState(true);
   const [showTestCases, setShowTestCases] = useState(false);
@@ -61,6 +53,13 @@ export const RoomProvider = ({ children, roomId, username }) => {
 
   const chatMessagesRef = useRef([]);
   const [chatMessages, setChatMessages] = useState([]);
+  const runStartTimeRef = useRef(null);
+
+  const clearOutput = useCallback(() => {
+    setOutput("");
+    setExecutionTime(null);
+    setMemoryUsed(null);
+  }, []);
 
   const addChatMessage = useCallback((msg) => {
     chatMessagesRef.current = [...chatMessagesRef.current, msg];
@@ -72,12 +71,8 @@ export const RoomProvider = ({ children, roomId, username }) => {
     setChatMessages([...msgs]);
   }, []);
 
-  const runStartTimeRef = useRef(null);
-
   useEffect(() => {
-    if (code && roomId) {
-      localStorage.setItem(`ct-code-${roomId}`, code);
-    }
+    if (code && roomId) localStorage.setItem(`ct-code-${roomId}`, code);
   }, [code, roomId]);
 
   useEffect(() => {
@@ -89,7 +84,6 @@ export const RoomProvider = ({ children, roomId, username }) => {
     const handleConnected = () => {
       socket.emit(SOCKET_EVENTS.JOIN_ROOM, { roomId, username });
     };
-
     socket.once("connect", handleConnected);
 
     socket.on(
@@ -108,9 +102,7 @@ export const RoomProvider = ({ children, roomId, username }) => {
         setUsers(roomUsers);
         setTestCases(roomTestCases || []);
         setIsConnected(true);
-
         if (roomStdin) setStdin(roomStdin);
-
         if (roomChat && roomChat.length > 0) {
           setChatHistory(roomChat);
           window.dispatchEvent(
@@ -119,7 +111,6 @@ export const RoomProvider = ({ children, roomId, username }) => {
             }),
           );
         }
-
         toast.success("Connected!", { duration: 1500, id: "room-connected" });
       },
     );
@@ -147,19 +138,9 @@ export const RoomProvider = ({ children, roomId, username }) => {
       },
     );
 
-    // ── REMOVED: CODE_UPDATE handler ──────────────────────────────────────
-    // Previously this called setCode(newCode) when a remote code-update
-    // arrived. But CodeEditor ALSO listens to code-update and applies it
-    // to Monaco via applyRemoteContent. Both firing caused a double-apply
-    // loop: RoomContext.setCode → re-render → FileContext.setFiles →
-    // CodeEditor re-renders → applies content again → triggers onChange →
-    // emits another file-content-change → infinite thrash.
-    //
-    // The file system (FileContext + CodeEditor) is now the single source
-    // of truth for editor content. RoomContext.code is only used for
-    // run-code / version history — it gets updated via updateCode() which
-    // is called from CodeEditor.onChange, not from socket events.
-    // ─────────────────────────────────────────────────────────────────────
+    // CODE_UPDATE intentionally NOT handled here.
+    // CodeEditor listens to it directly and applies via applyRemoteContent.
+    // Having RoomContext also handle it caused a double-apply loop.
 
     socket.on(SOCKET_EVENTS.LANGUAGE_UPDATE, ({ language: newLang }) => {
       setLanguage(newLang);
@@ -182,7 +163,6 @@ export const RoomProvider = ({ children, roomId, username }) => {
         setExecutionTime(time || clientTime);
         setMemoryUsed(memory || null);
         runStartTimeRef.current = null;
-
         if (success) {
           setOutput(result);
           toast.success("Done!", { duration: 1500, id: "code-output-done" });
@@ -194,9 +174,9 @@ export const RoomProvider = ({ children, roomId, username }) => {
       },
     );
 
-    socket.on(SOCKET_EVENTS.TEST_CASES_UPDATED, ({ testCases: updated }) => {
-      setTestCases(updated);
-    });
+    socket.on(SOCKET_EVENTS.TEST_CASES_UPDATED, ({ testCases: updated }) =>
+      setTestCases(updated),
+    );
 
     socket.on(SOCKET_EVENTS.TEST_RESULTS, ({ results, summary, error }) => {
       setIsRunningTests(false);
@@ -223,16 +203,13 @@ export const RoomProvider = ({ children, roomId, username }) => {
       runStartTimeRef.current = null;
     });
 
-    socket.on("chat-message", (msg) => {
-      addChatMessage(msg);
-    });
+    socket.on("chat-message", (msg) => addChatMessage(msg));
 
     return () => {
       socket.off("connect", handleConnected);
       socket.off(SOCKET_EVENTS.ROOM_STATE);
       socket.off(SOCKET_EVENTS.USER_JOINED);
       socket.off(SOCKET_EVENTS.USER_LEFT);
-      // NOTE: CODE_UPDATE intentionally not registered or cleaned up here
       socket.off(SOCKET_EVENTS.LANGUAGE_UPDATE);
       socket.off(SOCKET_EVENTS.CODE_OUTPUT);
       socket.off(SOCKET_EVENTS.TEST_CASES_UPDATED);
@@ -245,12 +222,15 @@ export const RoomProvider = ({ children, roomId, username }) => {
   }, [roomId, username]);
 
   const updateCode = useCallback((newCode) => {
-    // Called by CodeEditor.onChange (local typing only)
-    // Updates RoomContext.code so runCode() has the latest content
+    // ── THE FIX ──────────────────────────────────────────────────────────────
+    // Only update RoomContext.code state here.
+    // DO NOT call updateFileContent — CodeEditor's onDidChangeContent already
+    // called it. Calling it again here was causing double-emit per keystroke:
+    // keystroke → updateFileContent (emit #1) → onChange → updateCode →
+    // updateFileContent again (emit #2) → server gets 2 updates → Rose gets
+    // 2 updates → content thrashes back and forth.
+    // ─────────────────────────────────────────────────────────────────────────
     setCode(newCode);
-    if (activeFileRef.current && updateFileContentRef.current) {
-      updateFileContentRef.current(activeFileRef.current.name, newCode);
-    }
   }, []);
 
   const updateLanguage = useCallback(

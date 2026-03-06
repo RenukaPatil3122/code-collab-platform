@@ -36,12 +36,6 @@ export const FileProvider = ({ children, roomId, onLanguageChange }) => {
   const [openTabs, setOpenTabs] = useState(["main.js"]);
   const debounceTimerRef = useRef({});
 
-  // Track the last content WE emitted per file.
-  // When the server echoes it back, we skip it.
-  // Using version counter: we emit {content, version}, server echoes back
-  // with the same version, we skip if version matches our last emit.
-  const myLastEmitRef = useRef({}); // { [fileName]: { content, ts } }
-
   useEffect(() => {
     if (!roomId) return;
 
@@ -97,10 +91,11 @@ export const FileProvider = ({ children, roomId, onLanguageChange }) => {
     socket.on(
       SOCKET_EVENTS.FILE_CONTENT_UPDATE,
       ({ fileName, content, sourceSocketId }) => {
-        // Skip if this came from us (echo suppression by socket id)
+        // Skip our own echo — server sends back sourceSocketId
         if (sourceSocketId === socket.id) return;
 
-        // Update state — CodeEditor's useEffect will pick this up and apply it
+        // Update FileContext state so activeFileData reflects remote change.
+        // CodeEditor's socket listener will apply it to Monaco directly.
         setFiles((prev) => ({
           ...prev,
           [fileName]: { ...prev[fileName], content },
@@ -251,7 +246,7 @@ export const FileProvider = ({ children, roomId, onLanguageChange }) => {
         [fileName]: { ...prev[fileName], content },
       }));
 
-      // Debounce the network emit — 50ms after last keystroke
+      // Debounced emit — only ONE emit per 50ms window
       clearTimeout(debounceTimerRef.current[fileName]);
       debounceTimerRef.current[fileName] = setTimeout(() => {
         socket.emit(SOCKET_EVENTS.FILE_CONTENT_CHANGE, {
