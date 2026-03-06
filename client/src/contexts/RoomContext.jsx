@@ -59,6 +59,24 @@ export const RoomProvider = ({ children, roomId, username }) => {
   const [showTestCases, setShowTestCases] = useState(false);
   const [theme, setTheme] = useState("vs-dark");
 
+  // ── FIX: Chat persisted in a ref so it survives re-renders/reconnects ────
+  // Using a ref + state together: ref holds the source of truth, state
+  // triggers re-renders. This prevents chat from clearing on code execution
+  // or when socket reconnects.
+  const chatMessagesRef = useRef([]);
+  const [chatMessages, setChatMessages] = useState([]);
+
+  const addChatMessage = useCallback((msg) => {
+    chatMessagesRef.current = [...chatMessagesRef.current, msg];
+    setChatMessages([...chatMessagesRef.current]);
+  }, []);
+
+  const setChatHistory = useCallback((msgs) => {
+    chatMessagesRef.current = msgs;
+    setChatMessages([...msgs]);
+  }, []);
+  // ─────────────────────────────────────────────────────────────────────────
+
   const runStartTimeRef = useRef(null);
 
   useEffect(() => {
@@ -98,7 +116,10 @@ export const RoomProvider = ({ children, roomId, username }) => {
 
         if (roomStdin) setStdin(roomStdin);
 
+        // FIX: Load server chat history into our persistent ref
         if (roomChat && roomChat.length > 0) {
+          setChatHistory(roomChat);
+          // Also dispatch for any legacy listeners
           window.dispatchEvent(
             new CustomEvent("chat-history", {
               detail: { roomId, messages: roomChat },
@@ -133,11 +154,8 @@ export const RoomProvider = ({ children, roomId, username }) => {
       },
     );
 
-    // FIX: only update the code state for localStorage/runCode purposes.
-    // Do NOT let this trigger editor resets — CodeEditor handles its own
-    // remote updates via file-content-update + pushEditOperations.
     socket.on(SOCKET_EVENTS.CODE_UPDATE, ({ code: newCode }) => {
-      setCode(newCode); // just keeps RoomContext.code in sync for runCode()
+      setCode(newCode);
     });
 
     socket.on(SOCKET_EVENTS.LANGUAGE_UPDATE, ({ language: newLang }) => {
@@ -202,6 +220,11 @@ export const RoomProvider = ({ children, roomId, username }) => {
       runStartTimeRef.current = null;
     });
 
+    // FIX: incoming chat message — add to persistent ref
+    socket.on("chat-message", (msg) => {
+      addChatMessage(msg);
+    });
+
     return () => {
       socket.off("connect", handleConnected);
       socket.off(SOCKET_EVENTS.ROOM_STATE);
@@ -213,6 +236,7 @@ export const RoomProvider = ({ children, roomId, username }) => {
       socket.off(SOCKET_EVENTS.TEST_CASES_UPDATED);
       socket.off(SOCKET_EVENTS.TEST_RESULTS);
       socket.off("execution-cancelled");
+      socket.off("chat-message");
       socket.disconnect();
       setIsConnected(false);
     };
@@ -220,11 +244,6 @@ export const RoomProvider = ({ children, roomId, username }) => {
 
   const updateCode = useCallback((newCode) => {
     setCode(newCode);
-    // FIX: removed socket.emit CODE_CHANGE here — file content is already
-    // synced via FileContext.updateFileContent → file-content-change socket event.
-    // Emitting BOTH code-change AND file-content-change was causing double
-    // updates: code-update → CodeEditor pushEditOperations conflicting with
-    // file-content-update → scrambled line counts and cursor jumps.
     if (activeFileRef.current && updateFileContentRef.current) {
       updateFileContentRef.current(activeFileRef.current.name, newCode);
     }
@@ -326,6 +345,15 @@ export const RoomProvider = ({ children, roomId, username }) => {
     setTheme((prev) => (prev === "vs-dark" ? "light" : "vs-dark"));
   }, []);
 
+  // Send a chat message
+  const sendChatMessage = useCallback(
+    (message) => {
+      if (!message?.trim()) return;
+      socket.emit("chat-message", { roomId, message: message.trim() });
+    },
+    [roomId],
+  );
+
   const value = {
     roomId,
     username,
@@ -361,6 +389,9 @@ export const RoomProvider = ({ children, roomId, username }) => {
     setStdin,
     injectActiveFile,
     clearOutput,
+    // Chat
+    chatMessages,
+    sendChatMessage,
   };
 
   return <RoomContext.Provider value={value}>{children}</RoomContext.Provider>;

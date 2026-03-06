@@ -35,11 +35,25 @@ export const FileProvider = ({ children, roomId, onLanguageChange }) => {
   const [activeFile, setActiveFileState] = useState("main.js");
   const [openTabs, setOpenTabs] = useState(["main.js"]);
 
-  // THE FIX: when WE emit file-content-change, we add the fileName here.
-  // When the server echoes file-content-update back to us, we skip it —
-  // we already have the latest content locally, so no setFiles needed.
-  // Without this, setFiles → activeFileData changes → CodeEditor setValue() → cursor reset.
-  const pendingLocalUpdates = useRef(new Set());
+  // ── THE REAL FIX ──────────────────────────────────────────────────────────
+  // We use a seq (sequence number) per file. Every time WE emit file-content-change,
+  // we increment localSeq[fileName]. When server echoes file-content-update back,
+  // we decrement — if it goes to 0 (or was already 0 meaning it's from someone else),
+  // we apply it. This is robust against rapid typing with many in-flight emits.
+  const localSeqRef = useRef({}); // { [fileName]: number }
+
+  const _incSeq = (fileName) => {
+    localSeqRef.current[fileName] = (localSeqRef.current[fileName] || 0) + 1;
+  };
+  const _decSeq = (fileName) => {
+    const cur = localSeqRef.current[fileName] || 0;
+    if (cur > 0) {
+      localSeqRef.current[fileName] = cur - 1;
+      return true; // was our echo — skip
+    }
+    return false; // came from remote user — apply
+  };
+  // ─────────────────────────────────────────────────────────────────────────
 
   useEffect(() => {
     if (!roomId) return;
@@ -94,12 +108,11 @@ export const FileProvider = ({ children, roomId, onLanguageChange }) => {
     });
 
     socket.on(SOCKET_EVENTS.FILE_CONTENT_UPDATE, ({ fileName, content }) => {
-      // THE FIX: skip updates that originated from us
-      // (server echoes our own file-content-change back — we don't need it)
-      if (pendingLocalUpdates.current.has(fileName)) {
-        pendingLocalUpdates.current.delete(fileName);
-        return;
-      }
+      // Sequence-based echo suppression: if this event was triggered by US,
+      // skip the setFiles (we already set it locally). If it's from a remote
+      // user, _decSeq returns false and we apply it.
+      if (_decSeq(fileName)) return;
+
       // Genuine update from a remote user — apply it
       setFiles((prev) => ({
         ...prev,
@@ -244,8 +257,8 @@ export const FileProvider = ({ children, roomId, onLanguageChange }) => {
 
   const updateFileContent = useCallback(
     (fileName, content) => {
-      // Mark as local so the server echo is ignored in FILE_CONTENT_UPDATE
-      pendingLocalUpdates.current.add(fileName);
+      // Increment sequence BEFORE emitting so we can match the echo
+      _incSeq(fileName);
       setFiles((prev) => ({
         ...prev,
         [fileName]: { ...prev[fileName], content },
