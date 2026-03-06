@@ -85,17 +85,19 @@ function CodeEditor({ language, onChange, roomId }) {
   const isReplayingLocal = useRef(false);
   const cursorDecorationsRef = useRef({});
   const loadedFileRef = useRef(null);
-
-  // THIS IS THE CRITICAL FLAG.
-  // When we receive a remote edit and apply it via pushEditOperations,
-  // Monaco fires onChange. Without this flag, handleChange would call
-  // updateFileContent → emit to server → server sends to other user →
-  // their cursor jumps. This flag breaks that loop.
   const isApplyingRemote = useRef(false);
 
   useEffect(() => {
     activeFileRef.current = activeFile;
   }, [activeFile]);
+
+  // Update language directly on model — never via prop (prop change = remount = content wiped)
+  useEffect(() => {
+    if (!editorRef.current || !monacoRef.current) return;
+    const model = editorRef.current.getModel();
+    if (model) monacoRef.current.editor.setModelLanguage(model, language);
+    configureMonacoValidation(monacoRef.current, language);
+  }, [language]);
 
   const handleBeforeMount = (monaco) => {
     monacoRef.current = monaco;
@@ -104,20 +106,15 @@ function CodeEditor({ language, onChange, roomId }) {
     configureMonacoValidation(monaco, language);
   };
 
-  useEffect(() => {
-    if (monacoRef.current)
-      configureMonacoValidation(monacoRef.current, language);
-  }, [language]);
-
   const handleEditorDidMount = (editor) => {
     editorRef.current = editor;
     if (monacoRef.current) monacoRef.current.editor.setTheme(getMonacoTheme());
 
     const roomEl = document.querySelector(".room-container");
     if (roomEl && monacoRef.current) {
-      const observer = new MutationObserver(() => {
-        monacoRef.current?.editor.setTheme(getMonacoTheme());
-      });
+      const observer = new MutationObserver(() =>
+        monacoRef.current?.editor.setTheme(getMonacoTheme()),
+      );
       observer.observe(roomEl, {
         attributes: true,
         attributeFilter: ["data-theme"],
@@ -125,8 +122,16 @@ function CodeEditor({ language, onChange, roomId }) {
       editor._themeObserver = observer;
     }
 
+    // Load initial content once on mount
+    if (activeFile && activeFileData) {
+      loadedFileRef.current = activeFile;
+      isApplyingRemote.current = true;
+      editor.getModel()?.setValue(activeFileData.content ?? "");
+      isApplyingRemote.current = false;
+    }
+
     editor.onDidChangeCursorPosition((e) => {
-      if (roomId) {
+      if (roomId)
         socket.emit("cursor-move", {
           roomId,
           position: {
@@ -135,46 +140,38 @@ function CodeEditor({ language, onChange, roomId }) {
             file: activeFileRef.current,
           },
         });
-      }
     });
   };
 
-  useEffect(() => {
-    return () => editorRef.current?._themeObserver?.disconnect();
-  }, []);
+  useEffect(() => () => editorRef.current?._themeObserver?.disconnect(), []);
 
-  // Only load file content when switching to a DIFFERENT file tab.
-  // Does NOT run when activeFileData.content changes (i.e. during typing).
-  // This is what prevents the "file reloads on every keystroke" bug.
+  // ── ONLY fires when switching file tabs, NOT when content changes ─────────
+  // This is THE fix. activeFileData changes on every remote keystroke (setFiles
+  // creates a new object). If we watched it, setValue would fire on every remote
+  // char, wiping your local typing. Watching only activeFile (the name string)
+  // means this only fires when you click a different tab.
   useEffect(() => {
     const editor = editorRef.current;
     if (!editor || !activeFileData) return;
     if (loadedFileRef.current === activeFile) return;
     loadedFileRef.current = activeFile;
-
     isApplyingRemote.current = true;
     editor.getModel()?.setValue(activeFileData.content ?? "");
     isApplyingRemote.current = false;
-  }, [activeFile]); // <-- ONLY activeFile, never activeFileData
+  }, [activeFile]); // <-- ONLY activeFile. Never activeFileData.
 
-  // Handle incoming remote edits (file-content-update from server).
-  // Uses pushEditOperations to preserve cursor position.
-  // isApplyingRemote.current = true prevents handleChange from re-emitting.
+  // ── Receive remote edits from other users ────────────────────────────────
   useEffect(() => {
     const handleFileContentUpdate = ({ fileName, content }) => {
       if (IS_REPLAYING || isReplayingLocal.current) return;
       if (fileName !== activeFileRef.current) return;
-
       const editor = editorRef.current;
-      const monaco = monacoRef.current;
-      if (!editor || !monaco) return;
-
+      if (!editor) return;
       const model = editor.getModel();
       if (!model || model.getValue() === content) return;
 
       const savedPos = editor.getPosition();
       const savedSel = editor.getSelection();
-
       isApplyingRemote.current = true;
       model.pushEditOperations(
         [],
@@ -183,13 +180,14 @@ function CodeEditor({ language, onChange, roomId }) {
       );
       isApplyingRemote.current = false;
 
-      // Clamp cursor to new content bounds in case remote user deleted lines above
       if (savedPos) {
-        const lineCount = model.getLineCount();
-        const line = Math.min(savedPos.lineNumber, lineCount);
-        const col = Math.min(savedPos.column, model.getLineMaxColumn(line));
+        const lc = model.getLineCount();
+        const line = Math.min(savedPos.lineNumber, lc);
         try {
-          editor.setPosition({ lineNumber: line, column: col });
+          editor.setPosition({
+            lineNumber: line,
+            column: Math.min(savedPos.column, model.getLineMaxColumn(line)),
+          });
         } catch (_) {}
       }
       if (savedSel) {
@@ -202,11 +200,9 @@ function CodeEditor({ language, onChange, roomId }) {
     const handleCodeUpdate = ({ code: remoteCode }) => {
       if (IS_REPLAYING || isReplayingLocal.current) return;
       const editor = editorRef.current;
-      const monaco = monacoRef.current;
-      if (!editor || !monaco) return;
+      if (!editor) return;
       const model = editor.getModel();
       if (!model || model.getValue() === remoteCode) return;
-
       const savedPos = editor.getPosition();
       isApplyingRemote.current = true;
       model.pushEditOperations(
@@ -217,10 +213,12 @@ function CodeEditor({ language, onChange, roomId }) {
       isApplyingRemote.current = false;
       if (savedPos) {
         try {
-          const lineCount = model.getLineCount();
-          const line = Math.min(savedPos.lineNumber, lineCount);
-          const col = Math.min(savedPos.column, model.getLineMaxColumn(line));
-          editor.setPosition({ lineNumber: line, column: col });
+          const lc = model.getLineCount();
+          const line = Math.min(savedPos.lineNumber, lc);
+          editor.setPosition({
+            lineNumber: line,
+            column: Math.min(savedPos.column, model.getLineMaxColumn(line)),
+          });
         } catch (_) {}
       }
     };
@@ -233,7 +231,7 @@ function CodeEditor({ language, onChange, roomId }) {
     };
   }, []);
 
-  // Remote cursor decorations
+  // ── Remote cursors ────────────────────────────────────────────────────────
   useEffect(() => {
     const handleCursorUpdate = ({
       socketId,
@@ -244,7 +242,6 @@ function CodeEditor({ language, onChange, roomId }) {
       const editor = editorRef.current;
       const monaco = monacoRef.current;
       if (!editor || !monaco) return;
-
       if (position.file && position.file !== activeFileRef.current) {
         if (cursorDecorationsRef.current[socketId]) {
           editor.deltaDecorations(cursorDecorationsRef.current[socketId], []);
@@ -252,40 +249,22 @@ function CodeEditor({ language, onChange, roomId }) {
         }
         return;
       }
-
       const styleId = `cursor-style-${socketId}`;
       if (!document.getElementById(styleId)) {
         const style = document.createElement("style");
         style.id = styleId;
-        style.innerHTML = `
-          .remote-cursor-${socketId} {
-            border-left: 2px solid ${color};
-            margin-left: -1px;
-          }
-          .remote-cursor-label-${socketId}::after {
-            content: "${remoteUser}";
-            background: ${color};
-            color: #fff;
-            font-size: 10px;
-            font-weight: 600;
-            padding: 1px 5px;
-            border-radius: 3px;
-            position: absolute;
-            top: -18px;
-            left: 0;
-            white-space: nowrap;
-            pointer-events: none;
-            z-index: 100;
-          }
-        `;
+        style.innerHTML = `.remote-cursor-${socketId}{border-left:2px solid ${color};margin-left:-1px}.remote-cursor-label-${socketId}::after{content:"${remoteUser}";background:${color};color:#fff;font-size:10px;font-weight:600;padding:1px 5px;border-radius:3px;position:absolute;top:-18px;left:0;white-space:nowrap;pointer-events:none;z-index:100}`;
         document.head.appendChild(style);
       }
-
-      const { lineNumber, column } = position;
       const prev = cursorDecorationsRef.current[socketId] || [];
       cursorDecorationsRef.current[socketId] = editor.deltaDecorations(prev, [
         {
-          range: new monaco.Range(lineNumber, column, lineNumber, column),
+          range: new monaco.Range(
+            position.lineNumber,
+            position.column,
+            position.lineNumber,
+            position.column,
+          ),
           options: {
             className: `remote-cursor-${socketId}`,
             beforeContentClassName: `remote-cursor-label-${socketId}`,
@@ -295,7 +274,6 @@ function CodeEditor({ language, onChange, roomId }) {
         },
       ]);
     };
-
     socket.on("cursor-update", handleCursorUpdate);
     return () => socket.off("cursor-update", handleCursorUpdate);
   }, []);
@@ -325,15 +303,13 @@ function CodeEditor({ language, onChange, roomId }) {
         editorRef.current?.getModel()?.setValue("");
       } else if (type === "code-change-animated") {
         isReplayingLocal.current = true;
-        const newCode = data.code || "";
         const model = editorRef.current?.getModel();
-        if (model && model.getValue() !== newCode) {
+        if (model && model.getValue() !== (data.code || ""))
           model.pushEditOperations(
             [],
-            [{ range: model.getFullModelRange(), text: newCode }],
+            [{ range: model.getFullModelRange(), text: data.code || "" }],
             () => null,
           );
-        }
       } else if (type === "replay-stopped") {
         isReplayingLocal.current = false;
         if (editorRef.current && activeFileData)
@@ -355,14 +331,10 @@ function CodeEditor({ language, onChange, roomId }) {
     return () => window.removeEventListener("error", handler);
   }, []);
 
-  // Every local keystroke comes here.
-  // isApplyingRemote check: if we're applying a remote edit, Monaco fires
-  // onChange too — we must ignore it or we'll re-emit the remote content
-  // back to the server causing the other user's cursor to jump.
   const handleChange = useCallback(
     (value) => {
       if (IS_REPLAYING || isReplayingLocal.current) return;
-      if (isApplyingRemote.current) return; // ← CRITICAL: don't re-emit remote edits
+      if (isApplyingRemote.current) return; // don't re-emit remote edits back to server
       const newContent = value || "";
       if (activeFile) updateFileContent(activeFile, newContent);
       onChange(newContent);
@@ -377,8 +349,8 @@ function CodeEditor({ language, onChange, roomId }) {
         {activeFileData ? (
           <Editor
             height="100%"
-            defaultValue={activeFileData.content ?? ""}
-            language={activeFileData?.language || language}
+            defaultValue=""
+            defaultLanguage="javascript"
             onChange={handleChange}
             theme={getMonacoTheme()}
             beforeMount={handleBeforeMount}
