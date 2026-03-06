@@ -80,9 +80,7 @@ function configureMonacoValidation(monaco, language) {
 function applyRemoteContent(editor, monaco, newContent) {
   const model = editor.getModel();
   if (!model) return;
-
-  const currentContent = model.getValue();
-  if (currentContent === newContent) return;
+  if (model.getValue() === newContent) return;
 
   const savedPos = editor.getPosition();
   const savedSel = editor.getSelection();
@@ -103,19 +101,13 @@ function applyRemoteContent(editor, monaco, newContent) {
   }
   if (savedSel) {
     try {
-      const startLine = Math.min(savedSel.startLineNumber, lc);
-      const endLine = Math.min(savedSel.endLineNumber, lc);
+      const sl = Math.min(savedSel.startLineNumber, lc);
+      const el = Math.min(savedSel.endLineNumber, lc);
       editor.setSelection({
-        startLineNumber: startLine,
-        startColumn: Math.min(
-          savedSel.startColumn,
-          model.getLineMaxColumn(startLine),
-        ),
-        endLineNumber: endLine,
-        endColumn: Math.min(
-          savedSel.endColumn,
-          model.getLineMaxColumn(endLine),
-        ),
+        startLineNumber: sl,
+        startColumn: Math.min(savedSel.startColumn, model.getLineMaxColumn(sl)),
+        endLineNumber: el,
+        endColumn: Math.min(savedSel.endColumn, model.getLineMaxColumn(el)),
       });
     } catch (_) {}
   }
@@ -129,10 +121,31 @@ function CodeEditor({ language, onChange, roomId }) {
   const isReplayingLocal = useRef(false);
   const cursorDecorationsRef = useRef({});
   const loadedFileRef = useRef(null);
+
+  // THE REAL FIX:
+  // isApplyingRemote as a ref wasn't working because pushEditOperations fires
+  // onDidChangeContent synchronously in Monaco's internal stack, but the
+  // @monaco-editor/react onChange prop wraps it — by the time React's
+  // synthetic onChange fires, our ref was already reset to false.
+  //
+  // Solution: DON'T use the onChange prop at all for local change detection.
+  // Instead register onDidChangeModelContent directly on the model inside
+  // handleEditorDidMount. That listener runs in the same synchronous call
+  // stack as pushEditOperations, so we can reliably gate on isApplyingRemote.
   const isApplyingRemote = useRef(false);
+  const onChangeRef = useRef(onChange);
+  const updateFileContentRef = useRef(updateFileContent);
+  const activeFileStateRef = useRef(activeFile);
 
   useEffect(() => {
+    onChangeRef.current = onChange;
+  }, [onChange]);
+  useEffect(() => {
+    updateFileContentRef.current = updateFileContent;
+  }, [updateFileContent]);
+  useEffect(() => {
     activeFileRef.current = activeFile;
+    activeFileStateRef.current = activeFile;
   }, [activeFile]);
 
   useEffect(() => {
@@ -172,6 +185,23 @@ function CodeEditor({ language, onChange, roomId }) {
       isApplyingRemote.current = false;
     }
 
+    // ── THE KEY CHANGE ────────────────────────────────────────────────────
+    // Register content change listener DIRECTLY on the model.
+    // This fires synchronously inside Monaco's edit pipeline — same call
+    // stack as pushEditOperations — so isApplyingRemote.current is still
+    // true when we check it. The onChange React prop fires AFTER React
+    // reconciliation, too late.
+    editor.getModel()?.onDidChangeContent(() => {
+      if (isApplyingRemote.current) return; // remote edit — skip
+      if (IS_REPLAYING || isReplayingLocal.current) return;
+
+      const newContent = editor.getModel()?.getValue() || "";
+      const fileName = activeFileStateRef.current;
+      if (fileName) updateFileContentRef.current(fileName, newContent);
+      onChangeRef.current(newContent);
+    });
+    // ─────────────────────────────────────────────────────────────────────
+
     editor.onDidChangeCursorPosition((e) => {
       if (roomId)
         socket.emit("cursor-move", {
@@ -187,6 +217,7 @@ function CodeEditor({ language, onChange, roomId }) {
 
   useEffect(() => () => editorRef.current?._themeObserver?.disconnect(), []);
 
+  // File tab switch
   useEffect(() => {
     const editor = editorRef.current;
     if (!editor || !activeFileData) return;
@@ -197,19 +228,9 @@ function CodeEditor({ language, onChange, roomId }) {
     isApplyingRemote.current = false;
   }, [activeFile]);
 
+  // Receive remote edits
   useEffect(() => {
-    // ✅ sourceSocketId is destructured here — this was the crash bug
     const handleFileContentUpdate = ({ fileName, content, sourceSocketId }) => {
-      console.log("📥 REMOTE UPDATE", {
-        fileName,
-        sourceSocketId,
-        mySocketId: socket.id,
-        isMine: sourceSocketId === socket.id,
-        contentLength: content?.length,
-        activeFile: activeFileRef.current,
-        isApplyingRemote: isApplyingRemote.current,
-      });
-
       if (IS_REPLAYING || isReplayingLocal.current) return;
       if (fileName !== activeFileRef.current) return;
       const editor = editorRef.current;
@@ -222,10 +243,6 @@ function CodeEditor({ language, onChange, roomId }) {
     };
 
     const handleCodeUpdate = ({ code: remoteCode }) => {
-      console.log("📥 CODE-UPDATE", {
-        contentLength: remoteCode?.length,
-        isApplyingRemote: isApplyingRemote.current,
-      });
       if (IS_REPLAYING || isReplayingLocal.current) return;
       const editor = editorRef.current;
       const monaco = monacoRef.current;
@@ -244,6 +261,7 @@ function CodeEditor({ language, onChange, roomId }) {
     };
   }, []);
 
+  // Remote cursors
   useEffect(() => {
     const handleCursorUpdate = ({
       socketId,
@@ -343,22 +361,6 @@ function CodeEditor({ language, onChange, roomId }) {
     return () => window.removeEventListener("error", handler);
   }, []);
 
-  const handleChange = useCallback(
-    (value) => {
-      console.log("⌨️ LOCAL CHANGE", {
-        isApplyingRemote: isApplyingRemote.current,
-        isReplaying: IS_REPLAYING,
-        contentLength: value?.length,
-      });
-      if (IS_REPLAYING || isReplayingLocal.current) return;
-      if (isApplyingRemote.current) return;
-      const newContent = value || "";
-      if (activeFile) updateFileContent(activeFile, newContent);
-      onChange(newContent);
-    },
-    [activeFile, updateFileContent, onChange],
-  );
-
   return (
     <div className="code-editor-wrapper">
       <FileTabs />
@@ -368,7 +370,8 @@ function CodeEditor({ language, onChange, roomId }) {
             height="100%"
             defaultValue=""
             defaultLanguage="javascript"
-            onChange={handleChange}
+            // NOTE: No onChange prop — we use onDidChangeModelContent directly
+            // inside handleEditorDidMount for reliable sync guard
             theme={getMonacoTheme()}
             beforeMount={handleBeforeMount}
             options={{
