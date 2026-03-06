@@ -30,62 +30,27 @@ const getLanguageFromName = (fileName) => {
   return EXT_TO_LANGUAGE[ext] || "plaintext";
 };
 
-// ── DEBOUNCE HELPER ────────────────────────────────────────────────────────
-// Instead of emitting on EVERY keystroke (which floods the server and
-// creates race conditions), we wait 30ms after the last keystroke before
-// sending. This batches rapid typing into single emissions while still
-// feeling real-time. 30ms is imperceptible to users but eliminates ~90%
-// of simultaneous-edit conflicts.
-function debounce(fn, ms) {
-  let timer;
-  return (...args) => {
-    clearTimeout(timer);
-    timer = setTimeout(() => fn(...args), ms);
-  };
-}
-// ─────────────────────────────────────────────────────────────────────────
-
 export const FileProvider = ({ children, roomId, onLanguageChange }) => {
   const [files, setFiles] = useState(makeDefaultFiles);
   const [activeFile, setActiveFileState] = useState("main.js");
   const [openTabs, setOpenTabs] = useState(["main.js"]);
 
-  // Sequence counter per file: tracks how many of OUR emits are still
-  // in-flight. When server echoes file-content-update back, we decrement.
-  // If counter > 0, it's our echo — skip it. If 0, it's from remote user.
-  // This is robust against rapid typing with many in-flight emits.
-  const pendingCountRef = useRef({}); // { [fileName]: number }
+  // ── HOW ECHO SUPPRESSION WORKS ────────────────────────────────────────────
+  // We use a simple boolean flag per file: "did WE just emit for this file?"
+  // When we debounce-emit, we set ignoreNextUpdate[fileName] = true.
+  // When the server echoes it back, FILE_CONTENT_UPDATE sees the flag,
+  // clears it, and skips the setFiles (we already have latest content locally).
+  // This is a 1-for-1 match: one emit → ignore exactly one echo.
+  //
+  // WHY NOT a counter? Because we debounce — no matter how many keystrokes
+  // happen in 30ms, only ONE emit goes out. So only ONE echo comes back.
+  // A counter overcounts (increments per keystroke, decrements per echo)
+  // which causes Rose's real updates to get swallowed as "fake echoes".
+  // ─────────────────────────────────────────────────────────────────────────
+  const ignoreNextUpdateRef = useRef({}); // { [fileName]: boolean }
 
-  const incPending = (fileName) => {
-    pendingCountRef.current[fileName] =
-      (pendingCountRef.current[fileName] || 0) + 1;
-  };
-  const decPending = (fileName) => {
-    const cur = pendingCountRef.current[fileName] || 0;
-    if (cur > 0) {
-      pendingCountRef.current[fileName] = cur - 1;
-      return true; // was our echo — caller should skip
-    }
-    return false; // came from remote user — caller should apply
-  };
-
-  // Debounced socket emit — batches rapid keystrokes into one emission
-  const debouncedEmitRef = useRef({});
-  const getDebouncedEmit = useCallback((fileName) => {
-    if (!debouncedEmitRef.current[fileName]) {
-      debouncedEmitRef.current[fileName] = debounce(
-        (roomId, fileName, content) => {
-          socket.emit(SOCKET_EVENTS.FILE_CONTENT_CHANGE, {
-            roomId,
-            fileName,
-            content,
-          });
-        },
-        30,
-      );
-    }
-    return debouncedEmitRef.current[fileName];
-  }, []);
+  // Debounce timers per file
+  const debounceTimerRef = useRef({});
 
   useEffect(() => {
     if (!roomId) return;
@@ -140,11 +105,15 @@ export const FileProvider = ({ children, roomId, onLanguageChange }) => {
     });
 
     socket.on(SOCKET_EVENTS.FILE_CONTENT_UPDATE, ({ fileName, content }) => {
-      // Sequence-based echo suppression.
-      // decPending returns true = this was echoed back from OUR emit → skip.
-      // decPending returns false = this came from another user → apply.
-      if (decPending(fileName)) return;
-
+      // If WE just emitted this file, this is our echo — skip it.
+      // Clear the flag so the NEXT update (from Rose) is NOT skipped.
+      if (ignoreNextUpdateRef.current[fileName]) {
+        ignoreNextUpdateRef.current[fileName] = false;
+        return;
+      }
+      // This came from another user — apply it to state.
+      // CodeEditor's handleFileContentUpdate will also fire and apply
+      // it to the Monaco model with cursor preservation.
       setFiles((prev) => ({
         ...prev,
         [fileName]: { ...prev[fileName], content },
@@ -288,19 +257,26 @@ export const FileProvider = ({ children, roomId, onLanguageChange }) => {
 
   const updateFileContent = useCallback(
     (fileName, content) => {
-      // 1. Update local state immediately (user sees their own typing instantly)
+      // 1. Update local state immediately — user sees own typing instantly
       setFiles((prev) => ({
         ...prev,
         [fileName]: { ...prev[fileName], content },
       }));
 
-      // 2. Track this emit so we can ignore the server's echo
-      incPending(fileName);
-
-      // 3. Debounced emit — batches rapid keystrokes, reducing race window
-      getDebouncedEmit(fileName)(roomId, fileName, content);
+      // 2. Debounce the emit: wait 30ms after last keystroke, then send once.
+      //    Set the ignore flag RIGHT BEFORE emitting (not on every keystroke).
+      clearTimeout(debounceTimerRef.current[fileName]);
+      debounceTimerRef.current[fileName] = setTimeout(() => {
+        // Set flag just before emit so we ignore exactly this one echo
+        ignoreNextUpdateRef.current[fileName] = true;
+        socket.emit(SOCKET_EVENTS.FILE_CONTENT_CHANGE, {
+          roomId,
+          fileName,
+          content,
+        });
+      }, 30);
     },
-    [roomId, getDebouncedEmit],
+    [roomId],
   );
 
   const value = {
