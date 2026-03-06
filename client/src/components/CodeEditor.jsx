@@ -217,6 +217,14 @@ function CodeEditor({ language, onChange, roomId }) {
   // Receive remote edits — apply WITHOUT disrupting local cursor
   useEffect(() => {
     const handleFileContentUpdate = ({ fileName, content }) => {
+      console.log("📥 REMOTE UPDATE received", {
+        fileName,
+        sourceSocketId,
+        mySocketId: socket.id,
+        isMine: sourceSocketId === socket.id,
+        contentLength: content.length,
+        stack: new Error().stack.split("\n")[2],
+      });
       if (IS_REPLAYING || isReplayingLocal.current) return;
       if (fileName !== activeFileRef.current) return;
       const editor = editorRef.current;
@@ -350,6 +358,11 @@ function CodeEditor({ language, onChange, roomId }) {
 
   const handleChange = useCallback(
     (value) => {
+      console.log("⌨️ LOCAL CHANGE", {
+        isApplyingRemote: isApplyingRemote.current,
+        isReplaying: IS_REPLAYING,
+        contentLength: value?.length,
+      });
       if (IS_REPLAYING || isReplayingLocal.current) return;
       if (isApplyingRemote.current) return; // ← THIS is what prevents the echo loop
       const newContent = value || "";
