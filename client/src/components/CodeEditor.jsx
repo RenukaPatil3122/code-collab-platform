@@ -442,9 +442,9 @@ function CodeEditor({ language, onChange, roomId, username }) {
         {
           range: new monaco.Range(
             position.lineNumber,
-            position.column,
+            1,
             position.lineNumber,
-            position.column,
+            1,
           ),
           options: {
             isWholeLine: false,
