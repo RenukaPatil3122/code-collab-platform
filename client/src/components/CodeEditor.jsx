@@ -79,44 +79,95 @@ function configureMonacoValidation(monaco, language) {
   } catch (_) {}
 }
 
-// Derive Yjs WebSocket URL from the API URL
 function getYjsWsUrl() {
   const apiUrl = process.env.REACT_APP_API_URL || "http://localhost:5000";
   return apiUrl.replace(/^https/, "wss").replace(/^http/, "ws");
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Manual MonacoBinding — connects a Y.Text to a Monaco editor model.
-// This replaces the y-monaco package which can't resolve monaco-editor internals
-// when used with @monaco-editor/react.
+// Convert a character offset in a string to a Monaco { lineNumber, column }
+// ─────────────────────────────────────────────────────────────────────────────
+function offsetToMonacoPosition(text, offset) {
+  const lines = text.slice(0, offset).split("\n");
+  return {
+    lineNumber: lines.length,
+    column: lines[lines.length - 1].length + 1,
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MonacoBinding — connects Y.Text ↔ Monaco model using precise delta operations.
 //
-// How it works:
-//   - Observes Y.Text changes and applies them as Monaco edit operations
-//   - Observes Monaco model changes and applies them to Y.Text
-//   - Uses an isApplying flag to break the feedback loop
+// Key design:
+//   - Yjs→Monaco: uses Y.Text delta events to compute exact insert/delete ranges
+//     and applies them as Monaco edit operations WITHOUT touching the rest of the doc
+//   - Monaco→Yjs: uses Monaco's change events (offset + rangeLength + text) to
+//     apply precise insert/delete on Y.Text
+//   - muteMonaco flag blocks the Monaco observer while we apply Yjs changes,
+//     preventing the feedback loop
 // ─────────────────────────────────────────────────────────────────────────────
 class MonacoBinding {
-  constructor(yText, monacoModel, editor) {
+  constructor(yText, monacoModel, editor, monacoInstance) {
     this.yText = yText;
     this.model = monacoModel;
     this.editor = editor;
-    this.isApplying = false;
+    this.monaco = monacoInstance;
+    this.muteMonaco = false; // true while applying Yjs→Monaco to block echo
     this._disposed = false;
 
-    // Yjs → Monaco: when remote (or local) Yjs change arrives, update Monaco
-    this._yObserver = (event, transaction) => {
-      if (this._disposed) return;
-      if (this.isApplying) return; // We caused this change, skip
-
-      this.isApplying = true;
+    // ── Yjs → Monaco ────────────────────────────────────────────────────────
+    // Y.Text fires an event with a delta array: [{retain: N}, {insert: "..."}, {delete: N}]
+    // We walk the delta and apply precise Monaco edits.
+    this._yObserver = (event) => {
+      if (this._disposed || this.muteMonaco) return;
+      this.muteMonaco = true;
       try {
-        // Save cursor/selection before applying remote changes
-        const position = this.editor.getPosition();
-        const selection = this.editor.getSelection();
+        const delta = event.delta;
+        let offset = 0;
+        const edits = [];
 
-        // Apply the full Yjs text to Monaco via a single edit operation
-        // (MonacoBinding proper uses delta ops, but full replace is safe here
-        //  because isApplying prevents the Monaco→Yjs observer from firing)
+        for (const op of delta) {
+          if (op.retain !== undefined) {
+            offset += op.retain;
+          } else if (op.insert !== undefined) {
+            const text = this.model.getValue();
+            const pos = offsetToMonacoPosition(text, offset);
+            edits.push({
+              range: new this.monaco.Range(
+                pos.lineNumber,
+                pos.column,
+                pos.lineNumber,
+                pos.column,
+              ),
+              text: op.insert,
+            });
+            offset += op.insert.length;
+          } else if (op.delete !== undefined) {
+            const text = this.model.getValue();
+            const startPos = offsetToMonacoPosition(text, offset);
+            const endPos = offsetToMonacoPosition(text, offset + op.delete);
+            edits.push({
+              range: new this.monaco.Range(
+                startPos.lineNumber,
+                startPos.column,
+                endPos.lineNumber,
+                endPos.column,
+              ),
+              text: "",
+            });
+            // Don't advance offset — the chars are being deleted
+          }
+        }
+
+        if (edits.length > 0) {
+          this.model.pushEditOperations([], edits, () => null);
+        }
+      } catch (e) {
+        // Fallback: full replace (only if delta parsing fails)
+        console.warn(
+          "MonacoBinding delta error, falling back to full replace:",
+          e.message,
+        );
         const newContent = this.yText.toString();
         if (this.model.getValue() !== newContent) {
           this.model.pushEditOperations(
@@ -125,65 +176,33 @@ class MonacoBinding {
             () => null,
           );
         }
-
-        // Restore cursor (clamp to new line count)
-        const lc = this.model.getLineCount();
-        if (position) {
-          const line = Math.min(position.lineNumber, lc);
-          const col = Math.min(
-            position.column,
-            this.model.getLineMaxColumn(line),
-          );
-          try {
-            this.editor.setPosition({ lineNumber: line, column: col });
-          } catch (_) {}
-        }
-        if (selection) {
-          try {
-            const sl = Math.min(selection.startLineNumber, lc);
-            const el = Math.min(selection.endLineNumber, lc);
-            this.editor.setSelection({
-              startLineNumber: sl,
-              startColumn: Math.min(
-                selection.startColumn,
-                this.model.getLineMaxColumn(sl),
-              ),
-              endLineNumber: el,
-              endColumn: Math.min(
-                selection.endColumn,
-                this.model.getLineMaxColumn(el),
-              ),
-            });
-          } catch (_) {}
-        }
       } finally {
-        this.isApplying = false;
+        this.muteMonaco = false;
       }
     };
 
-    // Monaco → Yjs: when the local user types, sync to Yjs
+    // ── Monaco → Yjs ────────────────────────────────────────────────────────
+    // Monaco gives us: rangeOffset (char offset), rangeLength (chars deleted), text (chars inserted)
+    // We apply these directly to Y.Text.
     this._monacoDisposable = this.model.onDidChangeContent((e) => {
-      if (this._disposed) return;
-      if (this.isApplying) return; // Remote change, skip
+      if (this._disposed || this.muteMonaco) return;
 
-      this.isApplying = true;
+      this.muteMonaco = true;
       try {
-        // Apply each Monaco change as a Yjs insert/delete
-        // Monaco gives us: range (lines/cols) + text inserted + rangeLength (chars deleted)
         const doc = this.yText.doc;
+        // Sort changes in reverse order so earlier offsets aren't shifted by later ones
+        const changes = [...e.changes].sort(
+          (a, b) => b.rangeOffset - a.rangeOffset,
+        );
         doc.transact(() => {
-          // We process changes in reverse order so offsets don't shift
-          const changes = [...e.changes].sort(
-            (a, b) => b.rangeOffset - a.rangeOffset,
-          );
           for (const change of changes) {
             const { rangeOffset, rangeLength, text } = change;
             if (rangeLength > 0) this.yText.delete(rangeOffset, rangeLength);
             if (text.length > 0) this.yText.insert(rangeOffset, text);
           }
-        });
+        }, this); // 'this' as origin so Yjs doesn't echo back to us
       } finally {
-        this.isApplying = false;
+        this.muteMonaco = false;
       }
     });
 
@@ -192,8 +211,12 @@ class MonacoBinding {
 
   destroy() {
     this._disposed = true;
-    this.yText.unobserve(this._yObserver);
-    this._monacoDisposable?.dispose();
+    try {
+      this.yText.unobserve(this._yObserver);
+    } catch (_) {}
+    try {
+      this._monacoDisposable?.dispose();
+    } catch (_) {}
   }
 }
 
@@ -207,7 +230,6 @@ function CodeEditor({ language, onChange, roomId, username }) {
   const isReplayingLocal = useRef(false);
   const cursorDecorationsRef = useRef({});
 
-  // Yjs refs — recreated on each file switch
   const ydocRef = useRef(null);
   const providerRef = useRef(null);
   const bindingRef = useRef(null);
@@ -225,7 +247,6 @@ function CodeEditor({ language, onChange, roomId, username }) {
     activeFileRef.current = activeFile;
   }, [activeFile]);
 
-  // ── Language change ──────────────────────────────────────────────────────
   useEffect(() => {
     if (!editorRef.current || !monacoRef.current) return;
     const model = editorRef.current.getModel();
@@ -233,7 +254,6 @@ function CodeEditor({ language, onChange, roomId, username }) {
     configureMonacoValidation(monacoRef.current, language);
   }, [language]);
 
-  // ── Destroy Yjs binding for current file ────────────────────────────────
   const destroyYjs = () => {
     try {
       bindingRef.current?.destroy();
@@ -249,14 +269,12 @@ function CodeEditor({ language, onChange, roomId, username }) {
     ydocRef.current = null;
   };
 
-  // ── Setup Yjs for a file ─────────────────────────────────────────────────
   const setupYjs = (editor, monaco, fileName, initialContent) => {
     destroyYjs();
 
     const ydoc = new Y.Doc();
     ydocRef.current = ydoc;
 
-    // Each file gets its own Yjs room: "ct-{roomId}-{safeFileName}"
     const safeFile = fileName.replace(/[^a-zA-Z0-9_-]/g, "_");
     const yjsRoom = `ct-${roomId}-${safeFile}`;
     const wsUrl = getYjsWsUrl();
@@ -277,37 +295,29 @@ function CodeEditor({ language, onChange, roomId, username }) {
 
     const yText = ydoc.getText("content");
 
-    // Seed the doc with initial content once synced (only if doc is empty)
-    let seeded = false;
-    provider.on("sync", (isSynced) => {
-      if (isSynced && !seeded) {
-        seeded = true;
-        if (yText.length === 0 && initialContent) {
-          ydoc.transact(() => yText.insert(0, initialContent));
-        }
+    // Seed once after first sync if doc is empty
+    provider.once("sync", (isSynced) => {
+      if (isSynced && yText.length === 0 && initialContent) {
+        ydoc.transact(() => yText.insert(0, initialContent));
       }
     });
 
     const model = editor.getModel();
     if (!model) return;
 
-    // Bind Yjs ↔ Monaco
-    const binding = new MonacoBinding(yText, model, editor);
+    const binding = new MonacoBinding(yText, model, editor, monaco);
     bindingRef.current = binding;
 
-    // Keep FileContext + RoomContext in sync so Run Code works
+    // Keep FileContext + server room.code in sync
     yText.observe(() => {
       if (IS_REPLAYING || isReplayingLocal.current) return;
       const content = yText.toString();
       updateFileContentRef.current(fileName, content, true);
       onChangeRef.current(content);
-
-      // Keep server room.code updated for Run Code / Version History
       socket.emit("file-content-change", { roomId, fileName, content });
     });
   };
 
-  // ── Monaco beforeMount ───────────────────────────────────────────────────
   const handleBeforeMount = (monaco) => {
     monacoRef.current = monaco;
     monaco.editor.defineTheme("codetogether-dark", DARK_THEME);
@@ -315,15 +325,15 @@ function CodeEditor({ language, onChange, roomId, username }) {
     configureMonacoValidation(monaco, language);
   };
 
-  // ── Monaco onMount ───────────────────────────────────────────────────────
-  const handleEditorDidMount = (editor) => {
+  const handleEditorDidMount = (editor, monaco) => {
     editorRef.current = editor;
-    if (monacoRef.current) monacoRef.current.editor.setTheme(getMonacoTheme());
+    monacoRef.current = monaco;
+    monaco.editor.setTheme(getMonacoTheme());
 
     const roomEl = document.querySelector(".room-container");
-    if (roomEl && monacoRef.current) {
+    if (roomEl) {
       const observer = new MutationObserver(() =>
-        monacoRef.current?.editor.setTheme(getMonacoTheme()),
+        monaco.editor.setTheme(getMonacoTheme()),
       );
       observer.observe(roomEl, {
         attributes: true,
@@ -333,12 +343,7 @@ function CodeEditor({ language, onChange, roomId, username }) {
     }
 
     if (activeFile) {
-      setupYjs(
-        editor,
-        monacoRef.current,
-        activeFile,
-        activeFileData?.content ?? "",
-      );
+      setupYjs(editor, monaco, activeFile, activeFileData?.content ?? "");
     }
 
     editor.onDidChangeCursorPosition((e) => {
@@ -354,7 +359,7 @@ function CodeEditor({ language, onChange, roomId, username }) {
     });
   };
 
-  // ── File switch → re-setup Yjs ───────────────────────────────────────────
+  // File switch
   useEffect(() => {
     const editor = editorRef.current;
     const monaco = monacoRef.current;
@@ -363,7 +368,6 @@ function CodeEditor({ language, onChange, roomId, username }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeFile]);
 
-  // ── Cleanup ──────────────────────────────────────────────────────────────
   useEffect(() => {
     return () => {
       editorRef.current?._themeObserver?.disconnect();
@@ -371,7 +375,7 @@ function CodeEditor({ language, onChange, roomId, username }) {
     };
   }, []);
 
-  // ── Remote cursor decorations (via existing socket) ──────────────────────
+  // Remote cursor decorations
   useEffect(() => {
     const handleCursorUpdate = ({
       socketId,
@@ -435,7 +439,7 @@ function CodeEditor({ language, onChange, roomId, username }) {
     return () => socket.off("user-left", handleUserLeft);
   }, []);
 
-  // ── Replay support ───────────────────────────────────────────────────────
+  // Replay support
   useEffect(() => {
     const handleReplayEvent = (e) => {
       const { type, data } = e.detail;
