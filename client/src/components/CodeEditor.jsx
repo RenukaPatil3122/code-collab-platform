@@ -12,46 +12,6 @@ export const setIsReplayingFlag = (val) => {
   IS_REPLAYING = val;
 };
 
-// ── DEBUG ─────────────────────────────────────────────────────────────────────
-// Opens a floating log panel on screen — visible on mobile without DevTools.
-// Shows every Yjs delta event and every Monaco change event.
-function createDebugPanel() {
-  if (document.getElementById("yjsdebug")) return;
-  const panel = document.createElement("div");
-  panel.id = "yjsdebug";
-  panel.style.cssText = [
-    "position:fixed",
-    "bottom:0",
-    "left:0",
-    "right:0",
-    "height:180px",
-    "overflow-y:auto",
-    "background:rgba(0,0,0,0.85)",
-    "color:#0f0",
-    "font-size:10px",
-    "font-family:monospace",
-    "z-index:99999",
-    "padding:4px",
-    "pointer-events:auto",
-    "border-top:2px solid #0f0",
-  ].join(";");
-  panel.innerHTML = "<b style='color:#ff0'>YJS DEBUG LOG</b><br>";
-  document.body.appendChild(panel);
-}
-
-function dbg(msg) {
-  const panel = document.getElementById("yjsdebug");
-  if (!panel) return;
-  const line = document.createElement("div");
-  line.textContent = `${new Date().toISOString().slice(11, 23)} ${msg}`;
-  panel.appendChild(line);
-  // Keep only last 60 lines
-  while (panel.children.length > 62) panel.removeChild(panel.children[1]);
-  panel.scrollTop = panel.scrollHeight;
-  console.log("[YJS]", msg);
-}
-// ─────────────────────────────────────────────────────────────────────────────
-
 const DARK_THEME = {
   base: "vs-dark",
   inherit: true,
@@ -124,6 +84,11 @@ function getYjsWsUrl() {
   return apiUrl.replace(/^https/, "wss").replace(/^http/, "ws");
 }
 
+// Get model text normalized to \n only (strip \r)
+function getModelText(model) {
+  return model.getValue().replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+}
+
 function offsetToPos(text, offset) {
   const clamped = Math.max(0, Math.min(offset, text.length));
   const before = text.slice(0, clamped);
@@ -149,15 +114,6 @@ class MonacoBinding {
       if (event.transaction.origin === this) return;
       if (this.applying) return;
 
-      // ── DEBUG: log the full delta ──
-      const isRemote = event.transaction.origin !== this;
-      const deltaStr = JSON.stringify(event.delta).slice(0, 200);
-      dbg(`YJS→MON remote=${isRemote} delta=${deltaStr}`);
-      dbg(
-        `  model_before=${JSON.stringify(this.model.getValue()).slice(0, 80)}`,
-      );
-      // ─────────────────────────────
-
       this.applying = true;
       try {
         let offset = 0;
@@ -165,11 +121,9 @@ class MonacoBinding {
           if (op.retain !== undefined) {
             offset += op.retain;
           } else if (op.insert !== undefined) {
-            const text = this.model.getValue();
+            // Use normalized text for position calculation
+            const text = getModelText(this.model);
             const pos = offsetToPos(text, offset);
-            dbg(
-              `  INSERT @${offset} (L${pos.lineNumber}:C${pos.column}) text=${JSON.stringify(op.insert)}`,
-            );
             this.model.pushEditOperations(
               [],
               [
@@ -187,12 +141,9 @@ class MonacoBinding {
             );
             offset += op.insert.length;
           } else if (op.delete !== undefined) {
-            const text = this.model.getValue();
+            const text = getModelText(this.model);
             const startPos = offsetToPos(text, offset);
             const endPos = offsetToPos(text, offset + op.delete);
-            dbg(
-              `  DELETE @${offset} len=${op.delete} (L${startPos.lineNumber}:C${startPos.column} → L${endPos.lineNumber}:C${endPos.column})`,
-            );
             this.model.pushEditOperations(
               [],
               [
@@ -210,37 +161,72 @@ class MonacoBinding {
             );
           }
         }
-        dbg(
-          `  model_after=${JSON.stringify(this.model.getValue()).slice(0, 80)}`,
-        );
       } catch (e) {
-        dbg(`  ERROR: ${e.message}`);
+        console.warn("yObserver err:", e.message);
       } finally {
         this.applying = false;
       }
     };
 
     // ── Monaco → Yjs ──────────────────────────────────────────────────────
+    // KEY FIX: normalize \r\n → \n in text before writing to Yjs
+    // and recalculate rangeOffset using normalized text so offsets are correct
     this._monacoDisposable = this.model.onDidChangeContent((e) => {
       if (this._disposed || this.applying) return;
-
-      // ── DEBUG: log Monaco changes ──
-      for (const ch of e.changes) {
-        dbg(
-          `MON→YJS off=${ch.rangeOffset} len=${ch.rangeLength} text=${JSON.stringify(ch.text)}`,
-        );
-      }
-      // ──────────────────────────────
-
       this.applying = true;
       try {
+        // Get the full normalized text AFTER the change
+        const normalizedFull = getModelText(this.model);
+
+        // We need to compute correct offsets in the normalized text.
+        // Monaco gives us rangeOffset in \r\n space. We convert to \n space.
+        const rawText = this.model.getValue(); // has \r\n
+
         const changes = [...e.changes].sort(
           (a, b) => b.rangeOffset - a.rangeOffset,
         );
         this.yText.doc.transact(() => {
-          for (const { rangeOffset, rangeLength, text } of changes) {
-            if (rangeLength > 0) this.yText.delete(rangeOffset, rangeLength);
-            if (text.length > 0) this.yText.insert(rangeOffset, text);
+          for (const { range, rangeLength, text } of changes) {
+            // Convert Monaco range → offset in normalized (\n only) text
+            // by counting chars in normalized text up to the start line/col
+            const startLine = range.startLineNumber;
+            const startCol = range.startColumn;
+            const normalizedLines = normalizedFull.split("\n");
+
+            // Build offset from normalized lines
+            let normOffset = 0;
+            for (
+              let i = 0;
+              i < startLine - 1 && i < normalizedLines.length;
+              i++
+            ) {
+              normOffset += normalizedLines[i].length + 1; // +1 for \n
+            }
+            normOffset += startCol - 1;
+            normOffset = Math.min(normOffset, normalizedFull.length);
+
+            // Compute delete length in normalized space
+            // rangeLength from Monaco is in \r\n space — recount using range
+            const endLine = range.endLineNumber;
+            const endCol = range.endColumn;
+            let normEndOffset = 0;
+            for (
+              let i = 0;
+              i < endLine - 1 && i < normalizedLines.length;
+              i++
+            ) {
+              normEndOffset += normalizedLines[i].length + 1;
+            }
+            normEndOffset += endCol - 1;
+            normEndOffset = Math.min(normEndOffset, normalizedFull.length);
+
+            const normDeleteLen = normEndOffset - normOffset;
+
+            // Normalize the inserted text too
+            const normText = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+
+            if (normDeleteLen > 0) this.yText.delete(normOffset, normDeleteLen);
+            if (normText.length > 0) this.yText.insert(normOffset, normText);
           }
         }, this);
       } finally {
@@ -315,7 +301,6 @@ function CodeEditor({ language, onChange, roomId, username }) {
 
   const setupYjs = (editor, monaco, fileName, initialContent) => {
     destroyYjs();
-    createDebugPanel();
 
     const ydoc = new Y.Doc();
     ydocRef.current = ydoc;
@@ -327,8 +312,6 @@ function CodeEditor({ language, onChange, roomId, username }) {
       connect: true,
     });
     providerRef.current = provider;
-
-    provider.on("status", ({ status }) => dbg(`WS status: ${status}`));
 
     provider.awareness.setLocalStateField("user", {
       name: username || "Guest",
@@ -342,14 +325,22 @@ function CodeEditor({ language, onChange, roomId, username }) {
     const yText = ydoc.getText("content");
 
     provider.once("sync", (isSynced) => {
-      dbg(`sync: ${isSynced} yText.length=${yText.length}`);
       if (isSynced && yText.length === 0 && initialContent) {
-        ydoc.transact(() => yText.insert(0, initialContent));
+        // Normalize initial content too
+        ydoc.transact(() =>
+          yText.insert(
+            0,
+            initialContent.replace(/\r\n/g, "\n").replace(/\r/g, "\n"),
+          ),
+        );
       }
     });
 
     const model = editor.getModel();
     if (!model) return;
+
+    // Force Monaco to use LF line endings
+    model.setEOL(0); // 0 = LF (\n), 1 = CRLF (\r\n)
 
     bindingRef.current = new MonacoBinding(yText, model, editor, monaco);
 
