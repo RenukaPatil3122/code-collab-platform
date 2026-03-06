@@ -10,9 +10,7 @@ import React, {
 import { socket } from "../utils/socket";
 import { SOCKET_EVENTS, EXT_TO_LANGUAGE } from "../utils/constants";
 import toast from "react-hot-toast";
-import DiffMatchPatch from "diff-match-patch";
 
-const dmp = new DiffMatchPatch();
 const FileContext = createContext();
 
 export const useFiles = () => {
@@ -36,20 +34,14 @@ export const FileProvider = ({ children, roomId, onLanguageChange }) => {
   const [files, setFiles] = useState(makeDefaultFiles);
   const [activeFile, setActiveFileState] = useState("main.js");
   const [openTabs, setOpenTabs] = useState(["main.js"]);
-
-  // ── OT: track what the SERVER last confirmed for each file ────────────────
-  // When we compute a patch, we compute it from serverContentRef (what the
-  // server last acknowledged), not from our local state.
-  // This means even if we have local unsynced chars, the patch is always
-  // relative to what the server knows — so the server can apply it cleanly
-  // on top of any other user's changes that arrived first.
-  const serverContentRef = useRef({}); // { [fileName]: string }
-
-  // Debounce timer per file
   const debounceTimerRef = useRef({});
-
-  // Whether we're waiting for a patch-ack from server (to avoid double-send)
-  const pendingPatchRef = useRef({}); // { [fileName]: boolean }
+  // Track whether we should ignore the next incoming update for a file
+  // because it's the echo of our own emit.
+  // We use a Set of "content strings we just emitted" — when the echo
+  // arrives, if the content matches what we sent, skip it.
+  // This is more reliable than a boolean flag because it handles
+  // cases where remote user sends the same content as us.
+  const myEmittedContentsRef = useRef({}); // { [fileName]: Set<string> }
 
   useEffect(() => {
     if (!roomId) return;
@@ -60,10 +52,6 @@ export const FileProvider = ({ children, roomId, onLanguageChange }) => {
         if (serverFiles && Object.keys(serverFiles).length > 0) {
           setFiles(serverFiles);
           setOpenTabs(Object.keys(serverFiles));
-          // Initialise serverContentRef for all files
-          Object.entries(serverFiles).forEach(([name, f]) => {
-            serverContentRef.current[name] = f.content || "";
-          });
           if (serverActive) {
             setActiveFileState(serverActive);
             onLanguageChange?.(serverActive);
@@ -80,7 +68,6 @@ export const FileProvider = ({ children, roomId, onLanguageChange }) => {
       setOpenTabs((prev) =>
         prev.includes(file.name) ? prev : [...prev, file.name],
       );
-      serverContentRef.current[file.name] = file.content || "";
       toast(`📄 New file: ${file.name}`, { duration: 2000 });
     });
 
@@ -95,7 +82,6 @@ export const FileProvider = ({ children, roomId, onLanguageChange }) => {
         );
         return next;
       });
-      delete serverContentRef.current[fileName];
     });
 
     socket.on(SOCKET_EVENTS.FILE_RENAMED, ({ oldName, newName }) => {
@@ -107,31 +93,20 @@ export const FileProvider = ({ children, roomId, onLanguageChange }) => {
       });
       setOpenTabs((prev) => prev.map((t) => (t === oldName ? newName : t)));
       setActiveFileState((prev) => (prev === oldName ? newName : prev));
-      serverContentRef.current[newName] =
-        serverContentRef.current[oldName] || "";
-      delete serverContentRef.current[oldName];
     });
 
-    // Remote user typed — apply their content to our state and update serverRef
     socket.on(SOCKET_EVENTS.FILE_CONTENT_UPDATE, ({ fileName, content }) => {
-      serverContentRef.current[fileName] = content;
+      // Check if this is the echo of something we just emitted
+      const mySet = myEmittedContentsRef.current[fileName];
+      if (mySet && mySet.has(content)) {
+        mySet.delete(content);
+        return; // skip our own echo
+      }
+      // It's from another user — update state so CodeEditor can apply it
       setFiles((prev) => ({
         ...prev,
         [fileName]: { ...prev[fileName], content },
       }));
-      // CodeEditor's socket listener handles applying to Monaco with cursor preservation
-    });
-
-    // Server confirmed our patch and gives us the authoritative merged content
-    // If it differs from what we have locally (conflict was resolved), apply it
-    socket.on("file-patch-ack", ({ fileName, content }) => {
-      serverContentRef.current[fileName] = content;
-      pendingPatchRef.current[fileName] = false;
-      // Update files state to match server truth
-      setFiles((prev) => {
-        if (prev[fileName]?.content === content) return prev;
-        return { ...prev, [fileName]: { ...prev[fileName], content } };
-      });
     });
 
     socket.on(SOCKET_EVENTS.FILE_SELECTED, ({ fileName }) => {
@@ -146,7 +121,6 @@ export const FileProvider = ({ children, roomId, onLanguageChange }) => {
       socket.off(SOCKET_EVENTS.FILE_DELETED);
       socket.off(SOCKET_EVENTS.FILE_RENAMED);
       socket.off(SOCKET_EVENTS.FILE_CONTENT_UPDATE);
-      socket.off("file-patch-ack");
       socket.off(SOCKET_EVENTS.FILE_SELECTED);
     };
   }, [roomId]);
@@ -168,7 +142,6 @@ export const FileProvider = ({ children, roomId, onLanguageChange }) => {
       setFiles((prev) => ({ ...prev, [cleanName]: newFile }));
       setOpenTabs((t) => (t.includes(cleanName) ? t : [...t, cleanName]));
       setActiveFileState(cleanName);
-      serverContentRef.current[cleanName] = content;
       onLanguageChange?.(cleanName);
       toast.success(`Created ${cleanName}`);
     },
@@ -179,9 +152,6 @@ export const FileProvider = ({ children, roomId, onLanguageChange }) => {
     (fileMap, options = {}) => {
       const { openTabs: shouldOpenTabs = true } = options;
       setFiles(fileMap);
-      Object.entries(fileMap).forEach(([name, f]) => {
-        serverContentRef.current[name] = f.content || "";
-      });
       const paths = Object.keys(fileMap).filter((p) => !p.endsWith(".gitkeep"));
       if (shouldOpenTabs) {
         setOpenTabs(paths);
@@ -276,34 +246,30 @@ export const FileProvider = ({ children, roomId, onLanguageChange }) => {
 
   const updateFileContent = useCallback(
     (fileName, content) => {
-      // 1. Update local state immediately — user sees own typing instantly
+      // Update local state immediately
       setFiles((prev) => ({
         ...prev,
         [fileName]: { ...prev[fileName], content },
       }));
 
-      // 2. Debounce the patch emit — 30ms after last keystroke
+      // Debounce the emit — 30ms after last keystroke send once
       clearTimeout(debounceTimerRef.current[fileName]);
       debounceTimerRef.current[fileName] = setTimeout(() => {
-        const base = serverContentRef.current[fileName] ?? "";
+        // Remember this content so we can skip the echo
+        if (!myEmittedContentsRef.current[fileName]) {
+          myEmittedContentsRef.current[fileName] = new Set();
+        }
+        myEmittedContentsRef.current[fileName].add(content);
+        // Auto-clean after 5 seconds to prevent memory leak
+        setTimeout(() => {
+          myEmittedContentsRef.current[fileName]?.delete(content);
+        }, 5000);
 
-        // Compute patch from last server-confirmed content to new content
-        // This is the OT magic: instead of sending full content, we send
-        // only what changed. Server applies this patch on top of whatever
-        // other users have typed, merging both correctly.
-        const patch = dmp.patch_toText(dmp.patch_make(base, content));
-
-        pendingPatchRef.current[fileName] = true;
-        socket.emit("file-patch", {
+        socket.emit(SOCKET_EVENTS.FILE_CONTENT_CHANGE, {
           roomId,
           fileName,
-          patch,
-          baseContent: base,
+          content,
         });
-
-        // Optimistically update serverContentRef — if ack comes back with
-        // different content (conflict merged), we'll update again then
-        serverContentRef.current[fileName] = content;
       }, 30);
     },
     [roomId],

@@ -77,6 +77,102 @@ function configureMonacoValidation(monaco, language) {
   } catch (_) {}
 }
 
+// Apply remote content to Monaco WITHOUT moving the user's cursor.
+// Instead of replacing everything (which resets cursor to line 1),
+// we find only the lines that changed and apply targeted edits.
+// This means if YOU are on line 1 and Rose edits line 5, your cursor
+// stays exactly on line 1 column where you left it.
+function applyRemoteContent(editor, monaco, newContent) {
+  const model = editor.getModel();
+  if (!model) return;
+
+  const currentContent = model.getValue();
+  if (currentContent === newContent) return;
+
+  // Save cursor and selection BEFORE any edit
+  const savedPos = editor.getPosition();
+  const savedSel = editor.getSelection();
+
+  const currentLines = currentContent.split("\n");
+  const newLines = newContent.split("\n");
+  const edits = [];
+
+  const maxLen = Math.max(currentLines.length, newLines.length);
+
+  for (let i = 0; i < maxLen; i++) {
+    const currentLine = currentLines[i];
+    const newLine = newLines[i];
+
+    if (currentLine === newLine) continue; // line unchanged — skip
+
+    if (i < currentLines.length && i < newLines.length) {
+      // Line exists in both — content changed
+      edits.push({
+        range: new monaco.Range(i + 1, 1, i + 1, currentLine.length + 1),
+        text: newLine,
+      });
+    } else if (i >= currentLines.length) {
+      // New lines added at end
+      const prevLine = i; // 1-indexed line before this
+      edits.push({
+        range: new monaco.Range(
+          prevLine,
+          currentLines[i - 1]?.length + 1 || 1,
+          prevLine,
+          currentLines[i - 1]?.length + 1 || 1,
+        ),
+        text: "\n" + newLine,
+      });
+    } else {
+      // Lines removed — handled by full replace below
+    }
+  }
+
+  // If line count changed significantly, just do a full replace but restore cursor after
+  if (
+    Math.abs(currentLines.length - newLines.length) > 0 &&
+    edits.length > 10
+  ) {
+    model.pushEditOperations(
+      [],
+      [{ range: model.getFullModelRange(), text: newContent }],
+      () => null,
+    );
+  } else if (edits.length > 0) {
+    model.pushEditOperations([], edits, () => null);
+    // If that didn't result in the right content (edge cases), fix it
+    if (model.getValue() !== newContent) {
+      model.pushEditOperations(
+        [],
+        [{ range: model.getFullModelRange(), text: newContent }],
+        () => null,
+      );
+    }
+  } else {
+    // Line count changed but few edits — full replace
+    model.pushEditOperations(
+      [],
+      [{ range: model.getFullModelRange(), text: newContent }],
+      () => null,
+    );
+  }
+
+  // Restore cursor — clamp to new content bounds
+  if (savedPos) {
+    const lc = model.getLineCount();
+    const line = Math.min(savedPos.lineNumber, lc);
+    const col = Math.min(savedPos.column, model.getLineMaxColumn(line));
+    try {
+      editor.setPosition({ lineNumber: line, column: col });
+    } catch (_) {}
+  }
+  if (savedSel) {
+    try {
+      editor.setSelection(savedSel);
+    } catch (_) {}
+  }
+}
+
 function CodeEditor({ language, onChange, roomId }) {
   const editorRef = useRef(null);
   const monacoRef = useRef(null);
@@ -91,7 +187,6 @@ function CodeEditor({ language, onChange, roomId }) {
     activeFileRef.current = activeFile;
   }, [activeFile]);
 
-  // Update language directly on model — never via prop (prop change = remount = content wiped)
   useEffect(() => {
     if (!editorRef.current || !monacoRef.current) return;
     const model = editorRef.current.getModel();
@@ -122,7 +217,6 @@ function CodeEditor({ language, onChange, roomId }) {
       editor._themeObserver = observer;
     }
 
-    // Load initial content once on mount
     if (activeFile && activeFileData) {
       loadedFileRef.current = activeFile;
       isApplyingRemote.current = true;
@@ -145,11 +239,7 @@ function CodeEditor({ language, onChange, roomId }) {
 
   useEffect(() => () => editorRef.current?._themeObserver?.disconnect(), []);
 
-  // ── ONLY fires when switching file tabs, NOT when content changes ─────────
-  // This is THE fix. activeFileData changes on every remote keystroke (setFiles
-  // creates a new object). If we watched it, setValue would fire on every remote
-  // char, wiping your local typing. Watching only activeFile (the name string)
-  // means this only fires when you click a different tab.
+  // Only fires on file TAB switch, never on content change
   useEffect(() => {
     const editor = editorRef.current;
     if (!editor || !activeFileData) return;
@@ -158,69 +248,31 @@ function CodeEditor({ language, onChange, roomId }) {
     isApplyingRemote.current = true;
     editor.getModel()?.setValue(activeFileData.content ?? "");
     isApplyingRemote.current = false;
-  }, [activeFile]); // <-- ONLY activeFile. Never activeFileData.
+  }, [activeFile]);
 
-  // ── Receive remote edits from other users ────────────────────────────────
+  // Receive remote edits — apply with cursor preservation
   useEffect(() => {
     const handleFileContentUpdate = ({ fileName, content }) => {
       if (IS_REPLAYING || isReplayingLocal.current) return;
       if (fileName !== activeFileRef.current) return;
       const editor = editorRef.current;
-      if (!editor) return;
-      const model = editor.getModel();
-      if (!model || model.getValue() === content) return;
+      const monaco = monacoRef.current;
+      if (!editor || !monaco) return;
 
-      const savedPos = editor.getPosition();
-      const savedSel = editor.getSelection();
       isApplyingRemote.current = true;
-      model.pushEditOperations(
-        [],
-        [{ range: model.getFullModelRange(), text: content }],
-        () => null,
-      );
+      applyRemoteContent(editor, monaco, content);
       isApplyingRemote.current = false;
-
-      if (savedPos) {
-        const lc = model.getLineCount();
-        const line = Math.min(savedPos.lineNumber, lc);
-        try {
-          editor.setPosition({
-            lineNumber: line,
-            column: Math.min(savedPos.column, model.getLineMaxColumn(line)),
-          });
-        } catch (_) {}
-      }
-      if (savedSel) {
-        try {
-          editor.setSelection(savedSel);
-        } catch (_) {}
-      }
     };
 
     const handleCodeUpdate = ({ code: remoteCode }) => {
       if (IS_REPLAYING || isReplayingLocal.current) return;
       const editor = editorRef.current;
-      if (!editor) return;
-      const model = editor.getModel();
-      if (!model || model.getValue() === remoteCode) return;
-      const savedPos = editor.getPosition();
+      const monaco = monacoRef.current;
+      if (!editor || !monaco) return;
+
       isApplyingRemote.current = true;
-      model.pushEditOperations(
-        [],
-        [{ range: model.getFullModelRange(), text: remoteCode }],
-        () => null,
-      );
+      applyRemoteContent(editor, monaco, remoteCode);
       isApplyingRemote.current = false;
-      if (savedPos) {
-        try {
-          const lc = model.getLineCount();
-          const line = Math.min(savedPos.lineNumber, lc);
-          editor.setPosition({
-            lineNumber: line,
-            column: Math.min(savedPos.column, model.getLineMaxColumn(line)),
-          });
-        } catch (_) {}
-      }
     };
 
     socket.on("file-content-update", handleFileContentUpdate);
@@ -231,7 +283,6 @@ function CodeEditor({ language, onChange, roomId }) {
     };
   }, []);
 
-  // ── Remote cursors ────────────────────────────────────────────────────────
   useEffect(() => {
     const handleCursorUpdate = ({
       socketId,
@@ -334,7 +385,7 @@ function CodeEditor({ language, onChange, roomId }) {
   const handleChange = useCallback(
     (value) => {
       if (IS_REPLAYING || isReplayingLocal.current) return;
-      if (isApplyingRemote.current) return; // don't re-emit remote edits back to server
+      if (isApplyingRemote.current) return;
       const newContent = value || "";
       if (activeFile) updateFileContent(activeFile, newContent);
       onChange(newContent);
