@@ -84,7 +84,6 @@ function getYjsWsUrl() {
   return apiUrl.replace(/^https/, "wss").replace(/^http/, "ws");
 }
 
-// Convert char offset → Monaco position, reading LIVE from model
 function offsetToPos(model, offset) {
   const text = model.getValue();
   const clamped = Math.max(0, Math.min(offset, text.length));
@@ -96,96 +95,75 @@ function offsetToPos(model, offset) {
   };
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// MonacoBinding — the simplest possible correct implementation:
+//
+// Yjs → Monaco: use yText.toString() (full content) applied as a single
+//   replace operation. This is 100% correct and avoids ALL delta offset bugs.
+//   We save/restore cursor position manually.
+//
+// Monaco → Yjs: use Monaco change events with rangeOffset/rangeLength.
+//   This is correct for all keyboard types including Android IME.
+// ─────────────────────────────────────────────────────────────────────────────
 class MonacoBinding {
-  constructor(yText, monacoModel, editor, monacoInstance, onContentChange) {
+  constructor(yText, monacoModel, editor, monacoInstance) {
     this.yText = yText;
     this.model = monacoModel;
     this.editor = editor;
     this.monaco = monacoInstance;
-    this.onContentChange = onContentChange; // callback for server sync
     this.muteDepth = 0;
     this._disposed = false;
 
     // ── Yjs → Monaco ──────────────────────────────────────────────────────
-    // Each op is applied one at a time. charOffset tracks position in the
-    // CURRENT model (which grows/shrinks as we apply ops).
-    //
-    // KEY FIX: For inserts, charOffset advances by insert length AFTER applying.
-    // For deletes, charOffset does NOT advance (chars removed from current pos).
-    // For retain, charOffset advances by retain amount.
+    // Use full content replacement but preserve cursor position by offset.
+    // This avoids ALL delta calculation bugs. Performance is fine for code files.
     this._yObserver = (event) => {
       if (this._disposed || this.muteDepth > 0) return;
+      // Skip if this change originated from our own Monaco edit
+      if (event.transaction.origin === this) return;
+
       this.muteDepth++;
       try {
-        // Skip events originating from Monaco→Yjs (our own edits)
-        if (event.transaction.origin === this) {
-          return;
-        }
+        const newContent = this.yText.toString();
+        const currentContent = this.model.getValue();
+        if (newContent === currentContent) return;
 
-        const delta = event.delta;
-        // charOffset = current position in the LIVE model text
-        // We re-read model.getValue() via offsetToPos after each op
-        let charOffset = 0;
+        // Save cursor as char offset in current text
+        const curPos = this.editor.getPosition();
+        const curOffset = curPos
+          ? (() => {
+              const lines = currentContent.split("\n");
+              let off = 0;
+              for (
+                let i = 0;
+                i < curPos.lineNumber - 1 && i < lines.length;
+                i++
+              ) {
+                off += lines[i].length + 1;
+              }
+              return Math.min(
+                off + Math.max(0, curPos.column - 1),
+                currentContent.length,
+              );
+            })()
+          : 0;
 
-        for (const op of delta) {
-          if (op.retain !== undefined) {
-            // Move forward in the current model text
-            charOffset += op.retain;
-          } else if (op.insert !== undefined) {
-            // Insert at current charOffset in live model
-            const pos = offsetToPos(this.model, charOffset);
-            this.model.pushEditOperations(
-              [],
-              [
-                {
-                  range: new this.monaco.Range(
-                    pos.lineNumber,
-                    pos.column,
-                    pos.lineNumber,
-                    pos.column,
-                  ),
-                  text: op.insert,
-                },
-              ],
-              () => null,
-            );
-            // After insert, charOffset advances past the inserted text
-            charOffset += op.insert.length;
-          } else if (op.delete !== undefined) {
-            // Delete op.delete chars starting at charOffset in live model
-            const startPos = offsetToPos(this.model, charOffset);
-            const endPos = offsetToPos(this.model, charOffset + op.delete);
-            this.model.pushEditOperations(
-              [],
-              [
-                {
-                  range: new this.monaco.Range(
-                    startPos.lineNumber,
-                    startPos.column,
-                    endPos.lineNumber,
-                    endPos.column,
-                  ),
-                  text: "",
-                },
-              ],
-              () => null,
-            );
-            // charOffset stays — deleted chars are gone, next op starts at same offset
-          }
-        }
+        // Apply full content replace
+        this.model.pushEditOperations(
+          [],
+          [{ range: this.model.getFullModelRange(), text: newContent }],
+          () => null,
+        );
 
-        // Notify server of updated content
-        if (this.onContentChange) {
-          this.onContentChange(this.yText.toString());
-        }
-      } catch (e) {
-        console.warn("yObserver error:", e.message);
+        // Restore cursor: clamp offset to new content length, convert back to position
+        const clampedOffset = Math.min(curOffset, newContent.length);
+        const newLines = newContent.slice(0, clampedOffset).split("\n");
+        const newPos = {
+          lineNumber: newLines.length,
+          column: newLines[newLines.length - 1].length + 1,
+        };
         try {
-          const newContent = this.yText.toString();
-          if (this.model.getValue() !== newContent) {
-            this.model.setValue(newContent);
-          }
-          if (this.onContentChange) this.onContentChange(newContent);
+          this.editor.setPosition(newPos);
         } catch (_) {}
       } finally {
         this.muteDepth--;
@@ -200,13 +178,12 @@ class MonacoBinding {
         const changes = [...e.changes].sort(
           (a, b) => b.rangeOffset - a.rangeOffset,
         );
-        // Use 'this' as transaction origin so _yObserver can skip our own changes
         this.yText.doc.transact(() => {
           for (const { rangeOffset, rangeLength, text } of changes) {
             if (rangeLength > 0) this.yText.delete(rangeOffset, rangeLength);
             if (text.length > 0) this.yText.insert(rangeOffset, text);
           }
-        }, this); // <-- 'this' as origin
+        }, this);
       } finally {
         this.muteDepth--;
       }
@@ -311,49 +288,19 @@ function CodeEditor({ language, onChange, roomId, username }) {
     const model = editor.getModel();
     if (!model) return;
 
-    // Content change callback — called by binding when remote changes arrive
-    const onContentChange = (content) => {
+    bindingRef.current = new MonacoBinding(yText, model, editor, monaco);
+
+    // Sync all Yjs changes to server (both local and remote)
+    yText.observe((event) => {
       if (IS_REPLAYING || isReplayingLocal.current) return;
-      const fn = activeFileNameRef.current;
-      updateFileContentRef.current(fn, content, true);
+      const content = yText.toString();
+      updateFileContentRef.current(activeFileNameRef.current, content, true);
       onChangeRef.current(content);
-      socket.emit("file-content-change", { roomId, fileName: fn, content });
-    };
-
-    // Also handle local Monaco→Yjs changes for server sync
-    // We hook into onDidChangeContent AFTER binding is created
-    bindingRef.current = new MonacoBinding(
-      yText,
-      model,
-      editor,
-      monaco,
-      onContentChange,
-    );
-
-    // For LOCAL edits (Monaco→Yjs), also notify server
-    // The binding's Monaco→Yjs path doesn't call onContentChange, so we add a
-    // separate yText observer that fires for ALL changes and syncs to server.
-    // We use a flag to avoid double-calling for remote changes (binding already calls it).
-    yText.observeDeep((events) => {
-      if (IS_REPLAYING || isReplayingLocal.current) return;
-      // Only fire for local transactions (origin === binding instance = local Monaco edit)
-      for (const event of events) {
-        if (event.transaction.origin === bindingRef.current) {
-          const content = yText.toString();
-          updateFileContentRef.current(
-            activeFileNameRef.current,
-            content,
-            true,
-          );
-          onChangeRef.current(content);
-          socket.emit("file-content-change", {
-            roomId,
-            fileName: activeFileNameRef.current,
-            content,
-          });
-          break;
-        }
-      }
+      socket.emit("file-content-change", {
+        roomId,
+        fileName: activeFileNameRef.current,
+        content,
+      });
     });
   };
 
@@ -533,6 +480,12 @@ function CodeEditor({ language, onChange, roomId, username }) {
               cursorSmoothCaretAnimation: "off",
               renderLineHighlight: "line",
               cursorWidth: 3,
+              // Disable features that cause Android IME composition issues
+              acceptSuggestionOnCommitCharacter: false,
+              acceptSuggestionOnEnter: "off",
+              quickSuggestions: false,
+              suggestOnTriggerCharacters: false,
+              wordBasedSuggestions: "off",
             }}
             onMount={handleEditorDidMount}
           />
