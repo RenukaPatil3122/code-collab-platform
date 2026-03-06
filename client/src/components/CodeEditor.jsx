@@ -447,7 +447,7 @@ function CodeEditor({ language, onChange, roomId, username }) {
             position.column,
           ),
           options: {
-            className: `remote-cursor-${socketId}`,
+            isWholeLine: false,
             beforeContentClassName: `remote-cursor-label-${socketId}`,
             stickiness:
               monaco.editor.TrackedRangeStickiness.NeverGrowsWhenTypingAtEdges,
