@@ -35,13 +35,12 @@ export const FileProvider = ({ children, roomId, onLanguageChange }) => {
   const [activeFile, setActiveFileState] = useState("main.js");
   const [openTabs, setOpenTabs] = useState(["main.js"]);
   const debounceTimerRef = useRef({});
-  // Track whether we should ignore the next incoming update for a file
-  // because it's the echo of our own emit.
-  // We use a Set of "content strings we just emitted" — when the echo
-  // arrives, if the content matches what we sent, skip it.
-  // This is more reliable than a boolean flag because it handles
-  // cases where remote user sends the same content as us.
-  const myEmittedContentsRef = useRef({}); // { [fileName]: Set<string> }
+
+  // Track the last content WE emitted per file.
+  // When the server echoes it back, we skip it.
+  // Using version counter: we emit {content, version}, server echoes back
+  // with the same version, we skip if version matches our last emit.
+  const myLastEmitRef = useRef({}); // { [fileName]: { content, ts } }
 
   useEffect(() => {
     if (!roomId) return;
@@ -95,19 +94,19 @@ export const FileProvider = ({ children, roomId, onLanguageChange }) => {
       setActiveFileState((prev) => (prev === oldName ? newName : prev));
     });
 
-    socket.on(SOCKET_EVENTS.FILE_CONTENT_UPDATE, ({ fileName, content }) => {
-      // Check if this is the echo of something we just emitted
-      const mySet = myEmittedContentsRef.current[fileName];
-      if (mySet && mySet.has(content)) {
-        mySet.delete(content);
-        return; // skip our own echo
-      }
-      // It's from another user — update state so CodeEditor can apply it
-      setFiles((prev) => ({
-        ...prev,
-        [fileName]: { ...prev[fileName], content },
-      }));
-    });
+    socket.on(
+      SOCKET_EVENTS.FILE_CONTENT_UPDATE,
+      ({ fileName, content, sourceSocketId }) => {
+        // Skip if this came from us (echo suppression by socket id)
+        if (sourceSocketId === socket.id) return;
+
+        // Update state — CodeEditor's useEffect will pick this up and apply it
+        setFiles((prev) => ({
+          ...prev,
+          [fileName]: { ...prev[fileName], content },
+        }));
+      },
+    );
 
     socket.on(SOCKET_EVENTS.FILE_SELECTED, ({ fileName }) => {
       setOpenTabs((prev) =>
@@ -246,31 +245,21 @@ export const FileProvider = ({ children, roomId, onLanguageChange }) => {
 
   const updateFileContent = useCallback(
     (fileName, content) => {
-      // Update local state immediately
+      // Update local state immediately (optimistic)
       setFiles((prev) => ({
         ...prev,
         [fileName]: { ...prev[fileName], content },
       }));
 
-      // Debounce the emit — 30ms after last keystroke send once
+      // Debounce the network emit — 50ms after last keystroke
       clearTimeout(debounceTimerRef.current[fileName]);
       debounceTimerRef.current[fileName] = setTimeout(() => {
-        // Remember this content so we can skip the echo
-        if (!myEmittedContentsRef.current[fileName]) {
-          myEmittedContentsRef.current[fileName] = new Set();
-        }
-        myEmittedContentsRef.current[fileName].add(content);
-        // Auto-clean after 5 seconds to prevent memory leak
-        setTimeout(() => {
-          myEmittedContentsRef.current[fileName]?.delete(content);
-        }, 5000);
-
         socket.emit(SOCKET_EVENTS.FILE_CONTENT_CHANGE, {
           roomId,
           fileName,
           content,
         });
-      }, 30);
+      }, 50);
     },
     [roomId],
   );

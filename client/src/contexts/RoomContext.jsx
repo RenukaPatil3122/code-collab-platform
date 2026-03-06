@@ -59,10 +59,6 @@ export const RoomProvider = ({ children, roomId, username }) => {
   const [showTestCases, setShowTestCases] = useState(false);
   const [theme, setTheme] = useState("vs-dark");
 
-  // ── FIX: Chat persisted in a ref so it survives re-renders/reconnects ────
-  // Using a ref + state together: ref holds the source of truth, state
-  // triggers re-renders. This prevents chat from clearing on code execution
-  // or when socket reconnects.
   const chatMessagesRef = useRef([]);
   const [chatMessages, setChatMessages] = useState([]);
 
@@ -75,7 +71,6 @@ export const RoomProvider = ({ children, roomId, username }) => {
     chatMessagesRef.current = msgs;
     setChatMessages([...msgs]);
   }, []);
-  // ─────────────────────────────────────────────────────────────────────────
 
   const runStartTimeRef = useRef(null);
 
@@ -116,10 +111,8 @@ export const RoomProvider = ({ children, roomId, username }) => {
 
         if (roomStdin) setStdin(roomStdin);
 
-        // FIX: Load server chat history into our persistent ref
         if (roomChat && roomChat.length > 0) {
           setChatHistory(roomChat);
-          // Also dispatch for any legacy listeners
           window.dispatchEvent(
             new CustomEvent("chat-history", {
               detail: { roomId, messages: roomChat },
@@ -154,9 +147,19 @@ export const RoomProvider = ({ children, roomId, username }) => {
       },
     );
 
-    socket.on(SOCKET_EVENTS.CODE_UPDATE, ({ code: newCode }) => {
-      setCode(newCode);
-    });
+    // ── REMOVED: CODE_UPDATE handler ──────────────────────────────────────
+    // Previously this called setCode(newCode) when a remote code-update
+    // arrived. But CodeEditor ALSO listens to code-update and applies it
+    // to Monaco via applyRemoteContent. Both firing caused a double-apply
+    // loop: RoomContext.setCode → re-render → FileContext.setFiles →
+    // CodeEditor re-renders → applies content again → triggers onChange →
+    // emits another file-content-change → infinite thrash.
+    //
+    // The file system (FileContext + CodeEditor) is now the single source
+    // of truth for editor content. RoomContext.code is only used for
+    // run-code / version history — it gets updated via updateCode() which
+    // is called from CodeEditor.onChange, not from socket events.
+    // ─────────────────────────────────────────────────────────────────────
 
     socket.on(SOCKET_EVENTS.LANGUAGE_UPDATE, ({ language: newLang }) => {
       setLanguage(newLang);
@@ -220,7 +223,6 @@ export const RoomProvider = ({ children, roomId, username }) => {
       runStartTimeRef.current = null;
     });
 
-    // FIX: incoming chat message — add to persistent ref
     socket.on("chat-message", (msg) => {
       addChatMessage(msg);
     });
@@ -230,7 +232,7 @@ export const RoomProvider = ({ children, roomId, username }) => {
       socket.off(SOCKET_EVENTS.ROOM_STATE);
       socket.off(SOCKET_EVENTS.USER_JOINED);
       socket.off(SOCKET_EVENTS.USER_LEFT);
-      socket.off(SOCKET_EVENTS.CODE_UPDATE);
+      // NOTE: CODE_UPDATE intentionally not registered or cleaned up here
       socket.off(SOCKET_EVENTS.LANGUAGE_UPDATE);
       socket.off(SOCKET_EVENTS.CODE_OUTPUT);
       socket.off(SOCKET_EVENTS.TEST_CASES_UPDATED);
@@ -243,6 +245,8 @@ export const RoomProvider = ({ children, roomId, username }) => {
   }, [roomId, username]);
 
   const updateCode = useCallback((newCode) => {
+    // Called by CodeEditor.onChange (local typing only)
+    // Updates RoomContext.code so runCode() has the latest content
     setCode(newCode);
     if (activeFileRef.current && updateFileContentRef.current) {
       updateFileContentRef.current(activeFileRef.current.name, newCode);
@@ -345,7 +349,6 @@ export const RoomProvider = ({ children, roomId, username }) => {
     setTheme((prev) => (prev === "vs-dark" ? "light" : "vs-dark"));
   }, []);
 
-  // Send a chat message
   const sendChatMessage = useCallback(
     (message) => {
       if (!message?.trim()) return;
@@ -389,7 +392,6 @@ export const RoomProvider = ({ children, roomId, username }) => {
     setStdin,
     injectActiveFile,
     clearOutput,
-    // Chat
     chatMessages,
     sendChatMessage,
   };

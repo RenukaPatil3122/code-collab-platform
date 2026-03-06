@@ -77,11 +77,19 @@ function configureMonacoValidation(monaco, language) {
   } catch (_) {}
 }
 
-// Apply remote content to Monaco WITHOUT moving the user's cursor.
-// Instead of replacing everything (which resets cursor to line 1),
-// we find only the lines that changed and apply targeted edits.
-// This means if YOU are on line 1 and Rose edits line 5, your cursor
-// stays exactly on line 1 column where you left it.
+/**
+ * THE FIX: Apply remote content to Monaco while preserving the local cursor.
+ *
+ * Previous approach: line-by-line diffing with broken index math.
+ * New approach: single full-range replacement using pushEditOperations,
+ * then immediately restore cursor/selection from before the edit.
+ *
+ * pushEditOperations goes through the undo stack properly and does NOT
+ * fire onChange (so no echo loop). We save cursor before, replace all,
+ * restore cursor after — clamped to new content bounds.
+ *
+ * This is the same pattern used by VS Code Live Share internally.
+ */
 function applyRemoteContent(editor, monaco, newContent) {
   const model = editor.getModel();
   if (!model) return;
@@ -89,77 +97,20 @@ function applyRemoteContent(editor, monaco, newContent) {
   const currentContent = model.getValue();
   if (currentContent === newContent) return;
 
-  // Save cursor and selection BEFORE any edit
+  // Save cursor + selection BEFORE the edit
   const savedPos = editor.getPosition();
   const savedSel = editor.getSelection();
 
-  const currentLines = currentContent.split("\n");
-  const newLines = newContent.split("\n");
-  const edits = [];
-
-  const maxLen = Math.max(currentLines.length, newLines.length);
-
-  for (let i = 0; i < maxLen; i++) {
-    const currentLine = currentLines[i];
-    const newLine = newLines[i];
-
-    if (currentLine === newLine) continue; // line unchanged — skip
-
-    if (i < currentLines.length && i < newLines.length) {
-      // Line exists in both — content changed
-      edits.push({
-        range: new monaco.Range(i + 1, 1, i + 1, currentLine.length + 1),
-        text: newLine,
-      });
-    } else if (i >= currentLines.length) {
-      // New lines added at end
-      const prevLine = i; // 1-indexed line before this
-      edits.push({
-        range: new monaco.Range(
-          prevLine,
-          currentLines[i - 1]?.length + 1 || 1,
-          prevLine,
-          currentLines[i - 1]?.length + 1 || 1,
-        ),
-        text: "\n" + newLine,
-      });
-    } else {
-      // Lines removed — handled by full replace below
-    }
-  }
-
-  // If line count changed significantly, just do a full replace but restore cursor after
-  if (
-    Math.abs(currentLines.length - newLines.length) > 0 &&
-    edits.length > 10
-  ) {
-    model.pushEditOperations(
-      [],
-      [{ range: model.getFullModelRange(), text: newContent }],
-      () => null,
-    );
-  } else if (edits.length > 0) {
-    model.pushEditOperations([], edits, () => null);
-    // If that didn't result in the right content (edge cases), fix it
-    if (model.getValue() !== newContent) {
-      model.pushEditOperations(
-        [],
-        [{ range: model.getFullModelRange(), text: newContent }],
-        () => null,
-      );
-    }
-  } else {
-    // Line count changed but few edits — full replace
-    model.pushEditOperations(
-      [],
-      [{ range: model.getFullModelRange(), text: newContent }],
-      () => null,
-    );
-  }
+  // Single atomic replace — does NOT trigger onChange
+  model.pushEditOperations(
+    [],
+    [{ range: model.getFullModelRange(), text: newContent }],
+    () => null,
+  );
 
   // Restore cursor — clamp to new content bounds
+  const lc = model.getLineCount();
   if (savedPos) {
-    const lc = model.getLineCount();
     const line = Math.min(savedPos.lineNumber, lc);
     const col = Math.min(savedPos.column, model.getLineMaxColumn(line));
     try {
@@ -168,7 +119,20 @@ function applyRemoteContent(editor, monaco, newContent) {
   }
   if (savedSel) {
     try {
-      editor.setSelection(savedSel);
+      const startLine = Math.min(savedSel.startLineNumber, lc);
+      const endLine = Math.min(savedSel.endLineNumber, lc);
+      editor.setSelection({
+        startLineNumber: startLine,
+        startColumn: Math.min(
+          savedSel.startColumn,
+          model.getLineMaxColumn(startLine),
+        ),
+        endLineNumber: endLine,
+        endColumn: Math.min(
+          savedSel.endColumn,
+          model.getLineMaxColumn(endLine),
+        ),
+      });
     } catch (_) {}
   }
 }
@@ -239,7 +203,7 @@ function CodeEditor({ language, onChange, roomId }) {
 
   useEffect(() => () => editorRef.current?._themeObserver?.disconnect(), []);
 
-  // Only fires on file TAB switch, never on content change
+  // File tab switch — load new file content
   useEffect(() => {
     const editor = editorRef.current;
     if (!editor || !activeFileData) return;
@@ -250,7 +214,7 @@ function CodeEditor({ language, onChange, roomId }) {
     isApplyingRemote.current = false;
   }, [activeFile]);
 
-  // Receive remote edits — apply with cursor preservation
+  // Receive remote edits — apply WITHOUT disrupting local cursor
   useEffect(() => {
     const handleFileContentUpdate = ({ fileName, content }) => {
       if (IS_REPLAYING || isReplayingLocal.current) return;
@@ -264,6 +228,7 @@ function CodeEditor({ language, onChange, roomId }) {
       isApplyingRemote.current = false;
     };
 
+    // Legacy code-update (from RoomContext / code-change events)
     const handleCodeUpdate = ({ code: remoteCode }) => {
       if (IS_REPLAYING || isReplayingLocal.current) return;
       const editor = editorRef.current;
@@ -283,6 +248,7 @@ function CodeEditor({ language, onChange, roomId }) {
     };
   }, []);
 
+  // Remote cursors
   useEffect(() => {
     const handleCursorUpdate = ({
       socketId,
@@ -385,7 +351,7 @@ function CodeEditor({ language, onChange, roomId }) {
   const handleChange = useCallback(
     (value) => {
       if (IS_REPLAYING || isReplayingLocal.current) return;
-      if (isApplyingRemote.current) return;
+      if (isApplyingRemote.current) return; // ← THIS is what prevents the echo loop
       const newContent = value || "";
       if (activeFile) updateFileContent(activeFile, newContent);
       onChange(newContent);

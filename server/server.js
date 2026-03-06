@@ -307,13 +307,19 @@ io.on("connection", (socket) => {
     socket.emit("file-patch-ack", { fileName, content: mergedContent });
   });
 
-  // Keep old file-content-change for backwards compat during transition
   socket.on("file-content-change", ({ roomId, fileName, content }) => {
     const room = rooms.get(roomId);
     if (room && room.files[fileName]) {
       room.files[fileName].content = content;
       if (fileName === room.activeFile) room.code = content;
-      socket.to(roomId).emit("file-content-update", { fileName, content });
+
+      // Broadcast to ALL OTHER clients, include sourceSocketId so they
+      // can verify it didn't come from themselves (belt-and-suspenders)
+      socket.to(roomId).emit("file-content-update", {
+        fileName,
+        content,
+        sourceSocketId: socket.id, // ← THE KEY CHANGE
+      });
     }
   });
 
