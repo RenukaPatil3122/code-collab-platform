@@ -434,7 +434,7 @@ function CodeEditor({ language, onChange, roomId, username }) {
       if (!document.getElementById(styleId)) {
         const style = document.createElement("style");
         style.id = styleId;
-        style.innerHTML = `.remote-cursor-${socketId}{border-left:2px solid ${color};margin-left:-1px}.remote-cursor-label-${socketId}::after{content:"${remoteUser}";background:${color};color:#fff;font-size:10px;font-weight:600;padding:1px 5px;border-radius:3px;position:absolute;top:-18px;left:0;white-space:nowrap;pointer-events:none;z-index:100}`;
+        style.innerHTML = `.remote-cursor-${socketId}{border-left:2px solid ${color};margin-left:-1px;pointer-events:none}.remote-cursor-${socketId}::after{content:\${remoteUser}\;background:${color};color:#fff;font-size:10px;font-weight:600;padding:2px 6px;border-radius:4px 4px 4px 0;position:absolute;top:-20px;left:-1px;white-space:nowrap;pointer-events:none;z-index:100;line-height:1.4}`;
         document.head.appendChild(style);
       }
       const prev = cursorDecorationsRef.current[socketId] || [];
@@ -448,7 +448,7 @@ function CodeEditor({ language, onChange, roomId, username }) {
           ),
           options: {
             isWholeLine: false,
-            beforeContentClassName: `remote-cursor-label-${socketId}`,
+            beforeContentClassName: `remote-cursor-${socketId}`,
             stickiness:
               monaco.editor.TrackedRangeStickiness.NeverGrowsWhenTypingAtEdges,
           },
