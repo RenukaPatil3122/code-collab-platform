@@ -1979,3 +1979,48 @@
   letter-spacing: -0.01em !important;
   text-transform: none !important;
 }
+
+/* ADD THIS at the bottom of Room.css */
+
+/* ── MOBILE EDITOR SCROLL FIX ── */
+/* When keyboard opens on mobile, editor needs to scroll and not get clipped */
+@media (max-width: 768px) {
+  .editor-area {
+    /* Allow editor to shrink when keyboard opens */
+    min-height: 0;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  .monaco-container {
+    overflow: hidden;
+    /* Use dvh so it responds to keyboard appearing/disappearing */
+    height: 100%;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Make the whole room body respond to keyboard resize */
+  .room-body {
+    /* dvh responds to viewport changes (keyboard open/close) */
+    height: calc(100dvh - 50px - var(--mob-nav));
+    resize: none;
+  }
+
+  /* When keyboard is open, panels should still be accessible */
+  .side-panels {
+    /* Ensure panel doesn't go behind keyboard */
+    bottom: var(--mob-nav) !important;
+  }
+
+  /* Monaco editor internal scroll — enable touch scrolling */
+  .monaco-scrollable-element {
+    -webkit-overflow-scrolling: touch !important;
+    touch-action: pan-y !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .room-body {
+    height: calc(100dvh - 46px - var(--mob-nav));
+  }
+}
