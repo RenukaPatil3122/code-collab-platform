@@ -687,6 +687,6 @@ body {
     display: none;
   }
   .join-upgrade-nudge {
-    display: none;
+    display: flex !important;
   }
 }
