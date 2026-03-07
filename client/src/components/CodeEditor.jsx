@@ -84,7 +84,6 @@ function getYjsWsUrl() {
   return apiUrl.replace(/^https/, "wss").replace(/^http/, "ws");
 }
 
-// Get model text normalized to \n only (strip \r)
 function getModelText(model) {
   return model.getValue().replace(/\r\n/g, "\n").replace(/\r/g, "\n");
 }
@@ -108,12 +107,10 @@ class MonacoBinding {
     this.applying = false;
     this._disposed = false;
 
-    // ── Yjs → Monaco ──────────────────────────────────────────────────────
     this._yObserver = (event) => {
       if (this._disposed) return;
       if (event.transaction.origin === this) return;
       if (this.applying) return;
-
       this.applying = true;
       try {
         let offset = 0;
@@ -121,7 +118,6 @@ class MonacoBinding {
           if (op.retain !== undefined) {
             offset += op.retain;
           } else if (op.insert !== undefined) {
-            // Use normalized text for position calculation
             const text = getModelText(this.model);
             const pos = offsetToPos(text, offset);
             this.model.pushEditOperations(
@@ -168,61 +164,40 @@ class MonacoBinding {
       }
     };
 
-    // ── Monaco → Yjs ──────────────────────────────────────────────────────
-    // KEY FIX: normalize \r\n → \n in text before writing to Yjs
-    // and recalculate rangeOffset using normalized text so offsets are correct
     this._monacoDisposable = this.model.onDidChangeContent((e) => {
       if (this._disposed || this.applying) return;
       this.applying = true;
       try {
-        // Get the full normalized text AFTER the change
         const normalizedFull = getModelText(this.model);
-
-        // We need to compute correct offsets in the normalized text.
-        // Monaco gives us rangeOffset in \r\n space. We convert to \n space.
-        const rawText = this.model.getValue(); // has \r\n
-
         const changes = [...e.changes].sort(
           (a, b) => b.rangeOffset - a.rangeOffset,
         );
         this.yText.doc.transact(() => {
-          for (const { range, rangeLength, text } of changes) {
-            // Convert Monaco range → offset in normalized (\n only) text
-            // by counting chars in normalized text up to the start line/col
-            const startLine = range.startLineNumber;
-            const startCol = range.startColumn;
+          for (const { range, text } of changes) {
             const normalizedLines = normalizedFull.split("\n");
-
-            // Build offset from normalized lines
             let normOffset = 0;
             for (
               let i = 0;
-              i < startLine - 1 && i < normalizedLines.length;
+              i < range.startLineNumber - 1 && i < normalizedLines.length;
               i++
             ) {
-              normOffset += normalizedLines[i].length + 1; // +1 for \n
+              normOffset += normalizedLines[i].length + 1;
             }
-            normOffset += startCol - 1;
+            normOffset += range.startColumn - 1;
             normOffset = Math.min(normOffset, normalizedFull.length);
 
-            // Compute delete length in normalized space
-            // rangeLength from Monaco is in \r\n space — recount using range
-            const endLine = range.endLineNumber;
-            const endCol = range.endColumn;
             let normEndOffset = 0;
             for (
               let i = 0;
-              i < endLine - 1 && i < normalizedLines.length;
+              i < range.endLineNumber - 1 && i < normalizedLines.length;
               i++
             ) {
               normEndOffset += normalizedLines[i].length + 1;
             }
-            normEndOffset += endCol - 1;
+            normEndOffset += range.endColumn - 1;
             normEndOffset = Math.min(normEndOffset, normalizedFull.length);
 
             const normDeleteLen = normEndOffset - normOffset;
-
-            // Normalize the inserted text too
             const normText = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
 
             if (normDeleteLen > 0) this.yText.delete(normOffset, normDeleteLen);
@@ -247,8 +222,6 @@ class MonacoBinding {
     } catch (_) {}
   }
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
 
 function CodeEditor({ language, onChange, roomId, username }) {
   const editorRef = useRef(null);
@@ -326,7 +299,6 @@ function CodeEditor({ language, onChange, roomId, username }) {
 
     provider.once("sync", (isSynced) => {
       if (isSynced && yText.length === 0 && initialContent) {
-        // Normalize initial content too
         ydoc.transact(() =>
           yText.insert(
             0,
@@ -339,8 +311,7 @@ function CodeEditor({ language, onChange, roomId, username }) {
     const model = editor.getModel();
     if (!model) return;
 
-    // Force Monaco to use LF line endings
-    model.setEOL(0); // 0 = LF (\n), 1 = CRLF (\r\n)
+    model.setEOL(0); // force LF
 
     bindingRef.current = new MonacoBinding(yText, model, editor, monaco);
 
@@ -413,6 +384,7 @@ function CodeEditor({ language, onChange, roomId, username }) {
     };
   }, []);
 
+  // Remote cursor decorations
   useEffect(() => {
     const handleCursorUpdate = ({
       socketId,
@@ -423,6 +395,8 @@ function CodeEditor({ language, onChange, roomId, username }) {
       const editor = editorRef.current;
       const monaco = monacoRef.current;
       if (!editor || !monaco) return;
+
+      // Hide if on different file
       if (position.file && position.file !== activeFileRef.current) {
         if (cursorDecorationsRef.current[socketId]) {
           editor.deltaDecorations(cursorDecorationsRef.current[socketId], []);
@@ -430,13 +404,38 @@ function CodeEditor({ language, onChange, roomId, username }) {
         }
         return;
       }
+
+      // Inject CSS once per user
       const styleId = `cursor-style-${socketId}`;
       if (!document.getElementById(styleId)) {
         const style = document.createElement("style");
         style.id = styleId;
-        style.innerHTML = `.remote-cursor-${socketId}{border-left:2px solid ${color};margin-left:-1px;pointer-events:none}.remote-cursor-${socketId}::after{content:\${remoteUser}\;background:${color};color:#fff;font-size:10px;font-weight:600;padding:2px 6px;border-radius:4px 4px 4px 0;position:absolute;top:-20px;left:-1px;white-space:nowrap;pointer-events:none;z-index:100;line-height:1.4}`;
+        // thin vertical bar + username label above it
+        style.textContent = `
+          .rc-${socketId} {
+            border-left: 2px solid ${color};
+            margin-left: -1px;
+          }
+          .rc-${socketId}::before {
+            content: '${remoteUser}';
+            background: ${color};
+            color: #fff;
+            font-size: 10px;
+            font-weight: 600;
+            padding: 1px 6px;
+            border-radius: 3px;
+            position: absolute;
+            top: -18px;
+            left: -1px;
+            white-space: nowrap;
+            pointer-events: none;
+            z-index: 100;
+          }
+        `;
         document.head.appendChild(style);
       }
+
+      // Place decoration at column 1 of the user's current line
       const prev = cursorDecorationsRef.current[socketId] || [];
       cursorDecorationsRef.current[socketId] = editor.deltaDecorations(prev, [
         {
@@ -447,14 +446,14 @@ function CodeEditor({ language, onChange, roomId, username }) {
             1,
           ),
           options: {
-            isWholeLine: false,
-            beforeContentClassName: `remote-cursor-${socketId}`,
+            beforeContentClassName: `rc-${socketId}`,
             stickiness:
               monaco.editor.TrackedRangeStickiness.NeverGrowsWhenTypingAtEdges,
           },
         },
       ]);
     };
+
     socket.on("cursor-update", handleCursorUpdate);
     return () => socket.off("cursor-update", handleCursorUpdate);
   }, []);
