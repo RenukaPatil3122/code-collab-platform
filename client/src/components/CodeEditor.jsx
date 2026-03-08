@@ -107,6 +107,7 @@ class MonacoBinding {
     this.applying = false;
     this._disposed = false;
 
+    // Yjs -> Monaco
     this._yObserver = (event) => {
       if (this._disposed) return;
       if (event.transaction.origin === this) return;
@@ -164,44 +165,29 @@ class MonacoBinding {
       }
     };
 
+    // Monaco -> Yjs
+    // KEY: use rangeOffset/rangeLength directly from Monaco.
+    // These are computed from PRE-CHANGE text so always correct for inserts AND deletes.
+    // setEOL(0) ensures no \r\n so offsets match Yjs exactly.
     this._monacoDisposable = this.model.onDidChangeContent((e) => {
       if (this._disposed || this.applying) return;
       this.applying = true;
       try {
-        const normalizedFull = getModelText(this.model);
         const changes = [...e.changes].sort(
           (a, b) => b.rangeOffset - a.rangeOffset,
         );
         this.yText.doc.transact(() => {
-          for (const { range, text } of changes) {
-            const normalizedLines = normalizedFull.split("\n");
-            let normOffset = 0;
-            for (
-              let i = 0;
-              i < range.startLineNumber - 1 && i < normalizedLines.length;
-              i++
-            ) {
-              normOffset += normalizedLines[i].length + 1;
-            }
-            normOffset += range.startColumn - 1;
-            normOffset = Math.min(normOffset, normalizedFull.length);
-
-            let normEndOffset = 0;
-            for (
-              let i = 0;
-              i < range.endLineNumber - 1 && i < normalizedLines.length;
-              i++
-            ) {
-              normEndOffset += normalizedLines[i].length + 1;
-            }
-            normEndOffset += range.endColumn - 1;
-            normEndOffset = Math.min(normEndOffset, normalizedFull.length);
-
-            const normDeleteLen = normEndOffset - normOffset;
-            const normText = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
-
-            if (normDeleteLen > 0) this.yText.delete(normOffset, normDeleteLen);
-            if (normText.length > 0) this.yText.insert(normOffset, normText);
+          for (const change of changes) {
+            const offset = Math.min(change.rangeOffset, this.yText.length);
+            const deleteLen = Math.min(
+              change.rangeLength,
+              this.yText.length - offset,
+            );
+            const insertText = change.text
+              .replace(/\r\n/g, "\n")
+              .replace(/\r/g, "\n");
+            if (deleteLen > 0) this.yText.delete(offset, deleteLen);
+            if (insertText.length > 0) this.yText.insert(offset, insertText);
           }
         }, this);
       } finally {
@@ -311,7 +297,7 @@ function CodeEditor({ language, onChange, roomId, username }) {
     const model = editor.getModel();
     if (!model) return;
 
-    model.setEOL(0); // force LF
+    model.setEOL(0); // force LF — critical for offset matching
 
     bindingRef.current = new MonacoBinding(yText, model, editor, monaco);
 
@@ -384,7 +370,6 @@ function CodeEditor({ language, onChange, roomId, username }) {
     };
   }, []);
 
-  // Remote cursor decorations
   useEffect(() => {
     const handleCursorUpdate = ({
       socketId,
@@ -396,7 +381,6 @@ function CodeEditor({ language, onChange, roomId, username }) {
       const monaco = monacoRef.current;
       if (!editor || !monaco) return;
 
-      // Hide if on different file
       if (position.file && position.file !== activeFileRef.current) {
         if (cursorDecorationsRef.current[socketId]) {
           editor.deltaDecorations(cursorDecorationsRef.current[socketId], []);
@@ -405,37 +389,34 @@ function CodeEditor({ language, onChange, roomId, username }) {
         return;
       }
 
-      // Inject CSS once per user
       const styleId = `cursor-style-${socketId}`;
       if (!document.getElementById(styleId)) {
         const style = document.createElement("style");
         style.id = styleId;
-        // thin vertical bar + username label above it
-        style.textContent = `
-          .rc-${socketId} {
-            border-left: 2px solid ${color};
-            margin-left: -1px;
-          }
-          .rc-${socketId}::before {
-            content: '${remoteUser}';
-            background: ${color};
-            color: #fff;
-            font-size: 10px;
-            font-weight: 600;
-            padding: 1px 6px;
-            border-radius: 3px;
-            position: absolute;
-            top: -18px;
-            left: -1px;
-            white-space: nowrap;
-            pointer-events: none;
-            z-index: 100;
-          }
-        `;
+        style.textContent = [
+          `.rc-${socketId} {`,
+          `  border-left: 2px solid ${color};`,
+          `  margin-left: -1px;`,
+          `}`,
+          `.rc-${socketId}::before {`,
+          `  content: '${remoteUser}';`,
+          `  background: ${color};`,
+          `  color: #fff;`,
+          `  font-size: 10px;`,
+          `  font-weight: 600;`,
+          `  padding: 1px 6px;`,
+          `  border-radius: 3px;`,
+          `  position: absolute;`,
+          `  top: -18px;`,
+          `  left: -1px;`,
+          `  white-space: nowrap;`,
+          `  pointer-events: none;`,
+          `  z-index: 100;`,
+          `}`,
+        ].join("\n");
         document.head.appendChild(style);
       }
 
-      // Place decoration at column 1 of the user's current line
       const prev = cursorDecorationsRef.current[socketId] || [];
       cursorDecorationsRef.current[socketId] = editor.deltaDecorations(prev, [
         {
