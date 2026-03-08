@@ -1245,3 +1245,83 @@
   box-shadow: 0 4px 18px rgba(239, 68, 68, 0.45);
   transform: translateY(-1px);
 }
+
+/* ── BRIGHTNESS PATCH — paste at bottom of InterviewMode.css ── */
+
+/* Difficulty cards: time + desc brighter in dark mode */
+.difficulty-time {
+  color: #7a7a9a !important;
+}
+.difficulty-desc {
+  color: #7a7a9a !important;
+}
+
+/* Active states already colored — keep them */
+.difficulty-btn.easy.active .difficulty-time,
+.difficulty-btn.easy.active .difficulty-desc {
+  color: rgba(52, 211, 153, 0.85) !important;
+}
+.difficulty-btn.medium.active .difficulty-time,
+.difficulty-btn.medium.active .difficulty-desc {
+  color: rgba(96, 165, 250, 0.85) !important;
+}
+.difficulty-btn.hard.active .difficulty-time,
+.difficulty-btn.hard.active .difficulty-desc {
+  color: rgba(239, 68, 68, 0.85) !important;
+}
+
+/* Light mode: brighter too */
+[data-theme="light"] .difficulty-time,
+[data-theme="light"] .difficulty-desc {
+  color: #6b7280 !important;
+}
+
+/* Problem list description text */
+.problem-info p {
+  color: #7a7a9a !important;
+}
+[data-theme="light"] .problem-info p {
+  color: #6b7280 !important;
+}
+
+/* Tips list items */
+.interview-tips li {
+  color: #8888b0 !important;
+}
+[data-theme="light"] .interview-tips li {
+  color: #4b5563 !important;
+}
+
+/* Info card body text */
+.interview-info-card p {
+  color: #9090c0 !important;
+}
+[data-theme="light"] .interview-info-card p {
+  color: #4b5563 !important;
+}
+
+/* Problem panel description */
+.description-content p {
+  color: #c0c8e8 !important;
+}
+[data-theme="light"] .description-content p {
+  color: #374151 !important;
+}
+
+/* Problem panel example io */
+.example-input,
+.example-output {
+  color: #a0a8d0 !important;
+}
+[data-theme="light"] .example-input,
+[data-theme="light"] .example-output {
+  color: #4b5563 !important;
+}
+
+/* Problem constraints list */
+.problem-constraints li {
+  color: #c0c8e8 !important;
+}
+[data-theme="light"] .problem-constraints li {
+  color: #4b5563 !important;
+}
