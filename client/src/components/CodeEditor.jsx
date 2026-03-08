@@ -220,6 +220,7 @@ function CodeEditor({ language, onChange, roomId, username }) {
   const ydocRef = useRef(null);
   const providerRef = useRef(null);
   const bindingRef = useRef(null);
+  const yTextObserverRef = useRef(null);
 
   const onChangeRef = useRef(onChange);
   const updateFileContentRef = useRef(updateFileContent);
@@ -244,6 +245,12 @@ function CodeEditor({ language, onChange, roomId, username }) {
   }, [language]);
 
   const destroyYjs = () => {
+    try {
+      if (yTextObserverRef.current && ydocRef.current) {
+        ydocRef.current.getText("content").unobserve(yTextObserverRef.current);
+      }
+    } catch (_) {}
+    yTextObserverRef.current = null;
     try {
       bindingRef.current?.destroy();
     } catch (_) {}
@@ -301,7 +308,7 @@ function CodeEditor({ language, onChange, roomId, username }) {
 
     bindingRef.current = new MonacoBinding(yText, model, editor, monaco);
 
-    yText.observe(() => {
+    const contentObserver = () => {
       if (IS_REPLAYING || isReplayingLocal.current) return;
       const content = yText.toString();
       updateFileContentRef.current(activeFileNameRef.current, content, true);
@@ -311,7 +318,9 @@ function CodeEditor({ language, onChange, roomId, username }) {
         fileName: activeFileNameRef.current,
         content,
       });
-    });
+    };
+    yTextObserverRef.current = contentObserver;
+    yText.observe(contentObserver);
   };
 
   const handleBeforeMount = (monaco) => {
